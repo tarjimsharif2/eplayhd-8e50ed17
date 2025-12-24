@@ -110,6 +110,7 @@ export type Database = {
       matches: {
         Row: {
           created_at: string
+          day_start_time: string | null
           id: string
           is_priority: boolean | null
           is_stumps: boolean | null
@@ -122,6 +123,7 @@ export type Database = {
           match_number: number
           match_start_time: string | null
           match_time: string
+          next_day_start: string | null
           page_type: string | null
           score_a: string | null
           score_b: string | null
@@ -131,6 +133,7 @@ export type Database = {
           slug: string | null
           sport_id: string | null
           status: string
+          stumps_time: string | null
           team_a_id: string
           team_b_id: string
           test_day: number | null
@@ -140,6 +143,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          day_start_time?: string | null
           id?: string
           is_priority?: boolean | null
           is_stumps?: boolean | null
@@ -152,6 +156,7 @@ export type Database = {
           match_number?: number
           match_start_time?: string | null
           match_time: string
+          next_day_start?: string | null
           page_type?: string | null
           score_a?: string | null
           score_b?: string | null
@@ -161,6 +166,7 @@ export type Database = {
           slug?: string | null
           sport_id?: string | null
           status?: string
+          stumps_time?: string | null
           team_a_id: string
           team_b_id: string
           test_day?: number | null
@@ -170,6 +176,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          day_start_time?: string | null
           id?: string
           is_priority?: boolean | null
           is_stumps?: boolean | null
@@ -182,6 +189,7 @@ export type Database = {
           match_number?: number
           match_start_time?: string | null
           match_time?: string
+          next_day_start?: string | null
           page_type?: string | null
           score_a?: string | null
           score_b?: string | null
@@ -191,6 +199,7 @@ export type Database = {
           slug?: string | null
           sport_id?: string | null
           status?: string
+          stumps_time?: string | null
           team_a_id?: string
           team_b_id?: string
           test_day?: number | null

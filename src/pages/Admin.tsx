@@ -109,6 +109,9 @@ const Admin = () => {
     match_format: '' as string | null,
     test_day: null as number | null,
     is_stumps: false,
+    stumps_time: null as string | null,
+    day_start_time: '' as string | null,
+    next_day_start: null as string | null,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -287,6 +290,9 @@ const Admin = () => {
         match_format: matchForm.match_format || null,
         test_day: matchForm.test_day,
         is_stumps: matchForm.is_stumps,
+        stumps_time: matchForm.stumps_time || null,
+        day_start_time: matchForm.day_start_time || null,
+        next_day_start: matchForm.next_day_start || null,
       };
       
       if (editingMatch) {
@@ -330,6 +336,9 @@ const Admin = () => {
       match_format: match.match_format || '',
       test_day: match.test_day,
       is_stumps: match.is_stumps || false,
+      stumps_time: match.stumps_time || null,
+      day_start_time: match.day_start_time || '',
+      next_day_start: match.next_day_start || null,
     });
     setMatchDialogOpen(true);
   };
@@ -370,6 +379,9 @@ const Admin = () => {
       match_format: '',
       test_day: null,
       is_stumps: false,
+      stumps_time: null,
+      day_start_time: '',
+      next_day_start: null,
     });
   };
 
@@ -948,15 +960,73 @@ const Admin = () => {
                           )}
                         </div>
                         {matchForm.match_format === 'test' && (
-                          <div className="flex items-center space-x-2">
-                            <Switch
-                              id="is_stumps"
-                              checked={matchForm.is_stumps}
-                              onCheckedChange={(checked) => setMatchForm({ ...matchForm, is_stumps: checked })}
-                            />
-                            <Label htmlFor="is_stumps" className="text-sm">
-                              Stumps (Day's play ended)
-                            </Label>
+                          <div className="space-y-4 pt-2 border-t border-border/30">
+                            <div className="space-y-2">
+                              <Label>Daily Start Time (for auto-resume)</Label>
+                              <Input
+                                type="time"
+                                value={matchForm.day_start_time || ''}
+                                onChange={(e) => setMatchForm({ ...matchForm, day_start_time: e.target.value || null })}
+                                placeholder="10:00"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                Set when play typically starts each day. STUMPS will auto-clear at this time.
+                              </p>
+                            </div>
+                            
+                            <div className="flex items-center justify-between p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                              <div className="flex items-center space-x-2">
+                                <Switch
+                                  id="is_stumps"
+                                  checked={matchForm.is_stumps}
+                                  onCheckedChange={(checked) => {
+                                    const now = new Date();
+                                    let nextStart: string | null = null;
+                                    
+                                    // Calculate next day start if stumps is being set and we have a day_start_time
+                                    if (checked && matchForm.day_start_time) {
+                                      const tomorrow = new Date(now);
+                                      tomorrow.setDate(tomorrow.getDate() + 1);
+                                      const [hours, minutes] = matchForm.day_start_time.split(':').map(Number);
+                                      tomorrow.setHours(hours, minutes, 0, 0);
+                                      nextStart = tomorrow.toISOString();
+                                    }
+                                    
+                                    setMatchForm({ 
+                                      ...matchForm, 
+                                      is_stumps: checked,
+                                      stumps_time: checked ? now.toISOString() : null,
+                                      next_day_start: nextStart,
+                                    });
+                                  }}
+                                />
+                                <Label htmlFor="is_stumps" className="text-sm font-medium">
+                                  STUMPS (Day's play ended)
+                                </Label>
+                              </div>
+                              {matchForm.is_stumps && matchForm.next_day_start && (
+                                <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30 text-xs">
+                                  Resumes: {new Date(matchForm.next_day_start).toLocaleString()}
+                                </Badge>
+                              )}
+                            </div>
+                            
+                            {matchForm.is_stumps && (
+                              <div className="space-y-2">
+                                <Label>Next Day Start (override)</Label>
+                                <Input
+                                  type="datetime-local"
+                                  value={matchForm.next_day_start ? matchForm.next_day_start.slice(0, 16) : ''}
+                                  onChange={(e) => setMatchForm({ 
+                                    ...matchForm, 
+                                    next_day_start: e.target.value ? new Date(e.target.value).toISOString() : null 
+                                  })}
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Match will auto-resume at this time and STUMPS status will be removed.
+                                </p>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>

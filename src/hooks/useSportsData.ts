@@ -55,6 +55,9 @@ export interface Match {
   match_format: string | null;
   test_day: number | null;
   is_stumps: boolean;
+  stumps_time: string | null;
+  day_start_time: string | null;
+  next_day_start: string | null;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;
