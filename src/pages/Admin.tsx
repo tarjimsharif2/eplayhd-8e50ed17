@@ -21,11 +21,12 @@ import {
   Match, Team, Tournament, Banner, Sport
 } from "@/hooks/useSportsData";
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import DateTimePicker from "@/components/DateTimePicker";
 import { format } from "date-fns";
+import StreamingServersManager from "@/components/StreamingServersManager";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -65,6 +66,8 @@ const Admin = () => {
   const [tournamentDialogOpen, setTournamentDialogOpen] = useState(false);
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
   const [sportDialogOpen, setSportDialogOpen] = useState(false);
+  const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
+  const [selectedMatchForStreaming, setSelectedMatchForStreaming] = useState<Match | null>(null);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
@@ -503,6 +506,10 @@ const Admin = () => {
                 <Calendar className="w-4 h-4" />
                 Matches
               </TabsTrigger>
+              <TabsTrigger value="streaming" className="gap-2">
+                <Tv className="w-4 h-4" />
+                Streaming
+              </TabsTrigger>
               <TabsTrigger value="teams" className="gap-2">
                 <Users className="w-4 h-4" />
                 Teams
@@ -835,6 +842,95 @@ const Admin = () => {
                 </div>
               )}
             </TabsContent>
+
+            {/* Streaming Servers Tab */}
+            <TabsContent value="streaming" className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold">Streaming Servers</h2>
+                  <p className="text-sm text-muted-foreground">Manage M3U8 and iframe links for each match</p>
+                </div>
+              </div>
+
+              {matchesLoading ? (
+                <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
+              ) : (
+                <div className="space-y-4">
+                  {matches?.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">No matches available. Create matches first to add streaming servers.</p>
+                  )}
+                  {matches?.filter(m => m.page_type === 'page').map((match, index) => (
+                    <motion.div
+                      key={match.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.03 }}
+                    >
+                      <Card className="hover:border-primary/50 transition-colors">
+                        <CardContent className="p-4">
+                          <div className="flex flex-col md:flex-row md:items-center gap-4">
+                            <div className="flex items-center gap-3 flex-1">
+                              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/30 to-accent/20 flex items-center justify-center border border-primary/20">
+                                <Tv className="w-5 h-5 text-primary" />
+                              </div>
+                              <div>
+                                <p className="font-semibold">
+                                  {match.team_a?.name || 'TBA'} vs {match.team_b?.name || 'TBA'}
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  {match.match_date} • {match.match_time}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant={match.status}>{match.status}</Badge>
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedMatchForStreaming(match);
+                                  setStreamingDialogOpen(true);
+                                }}
+                              >
+                                <Tv className="w-4 h-4 mr-1" />
+                                Manage Servers
+                              </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                  {matches?.filter(m => m.page_type === 'page').length === 0 && matches?.length > 0 && (
+                    <Card className="border-dashed">
+                      <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+                        <Tv className="w-12 h-12 text-muted-foreground/50 mb-3" />
+                        <p className="text-muted-foreground">No matches with "Page" type found</p>
+                        <p className="text-sm text-muted-foreground/70">Set match page type to "Page" to add streaming servers</p>
+                      </CardContent>
+                    </Card>
+                  )}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Streaming Servers Dialog */}
+            <Dialog open={streamingDialogOpen} onOpenChange={(open) => {
+              setStreamingDialogOpen(open);
+              if (!open) setSelectedMatchForStreaming(null);
+            }}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                {selectedMatchForStreaming && (
+                  <StreamingServersManager
+                    match={selectedMatchForStreaming}
+                    onClose={() => {
+                      setStreamingDialogOpen(false);
+                      setSelectedMatchForStreaming(null);
+                    }}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
 
             {/* Teams Tab */}
             <TabsContent value="teams" className="space-y-6">
