@@ -30,6 +30,7 @@ import DateTimePicker from "@/components/DateTimePicker";
 import { format } from "date-fns";
 import StreamingServersManager from "@/components/StreamingServersManager";
 import InningsManager from "@/components/InningsManager";
+import PlayingXIManager from "@/components/PlayingXIManager";
 import { Textarea } from "@/components/ui/textarea";
 import SearchableSelect from "@/components/SearchableSelect";
 
@@ -75,8 +76,10 @@ const Admin = () => {
   const [sportDialogOpen, setSportDialogOpen] = useState(false);
   const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
   const [inningsDialogOpen, setInningsDialogOpen] = useState(false);
+  const [playingXIDialogOpen, setPlayingXIDialogOpen] = useState(false);
   const [selectedMatchForStreaming, setSelectedMatchForStreaming] = useState<Match | null>(null);
   const [selectedMatchForInnings, setSelectedMatchForInnings] = useState<Match | null>(null);
+  const [selectedMatchForPlayingXI, setSelectedMatchForPlayingXI] = useState<Match | null>(null);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
@@ -1164,6 +1167,17 @@ const Admin = () => {
                                   Innings
                                 </Button>
                               )}
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedMatchForPlayingXI(match);
+                                  setPlayingXIDialogOpen(true);
+                                }}
+                              >
+                                <Users className="w-3 h-3 mr-1" />
+                                XI
+                              </Button>
                               <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match)} title="Edit match">
                                 <Edit2 className="w-4 h-4" />
                               </Button>
@@ -1274,6 +1288,17 @@ const Admin = () => {
                                   Innings
                                 </Button>
                               )}
+                              <Button 
+                                variant="outline" 
+                                size="sm"
+                                onClick={() => {
+                                  setSelectedMatchForPlayingXI(match);
+                                  setPlayingXIDialogOpen(true);
+                                }}
+                              >
+                                <Users className="w-4 h-4 mr-1" />
+                                XI
+                              </Button>
                             </div>
                           </div>
                         </CardContent>
@@ -1328,6 +1353,27 @@ const Admin = () => {
                     teamA={selectedMatchForInnings.team_a}
                     teamB={selectedMatchForInnings.team_b}
                     matchFormat={selectedMatchForInnings.match_format}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
+
+            {/* Playing XI Management Dialog */}
+            <Dialog open={playingXIDialogOpen} onOpenChange={(open) => {
+              setPlayingXIDialogOpen(open);
+              if (!open) setSelectedMatchForPlayingXI(null);
+            }}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    Playing XI - {selectedMatchForPlayingXI?.team_a?.name} vs {selectedMatchForPlayingXI?.team_b?.name}
+                  </DialogTitle>
+                </DialogHeader>
+                {selectedMatchForPlayingXI && selectedMatchForPlayingXI.team_a && selectedMatchForPlayingXI.team_b && (
+                  <PlayingXIManager
+                    matchId={selectedMatchForPlayingXI.id}
+                    teamA={selectedMatchForPlayingXI.team_a}
+                    teamB={selectedMatchForPlayingXI.team_b}
                   />
                 )}
               </DialogContent>
