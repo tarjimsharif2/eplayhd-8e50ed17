@@ -52,6 +52,9 @@ export interface Match {
   seo_description: string | null;
   seo_keywords: string | null;
   match_minute: number | null;
+  match_format: string | null;
+  test_day: number | null;
+  is_stumps: boolean;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;

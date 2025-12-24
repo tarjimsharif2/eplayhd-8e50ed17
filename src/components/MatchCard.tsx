@@ -1,7 +1,7 @@
 import { Match } from "@/hooks/useSportsData";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Clock, Star } from "lucide-react";
 
@@ -9,6 +9,15 @@ interface MatchCardProps {
   match: Match;
   index?: number;
 }
+
+// Cricket format badges with colors
+const CRICKET_FORMATS: Record<string, { label: string; color: string }> = {
+  'test': { label: 'TEST', color: 'bg-red-600' },
+  'odi': { label: 'ODI', color: 'bg-blue-600' },
+  't20': { label: 'T20', color: 'bg-green-600' },
+  't10': { label: 'T10', color: 'bg-purple-600' },
+  'the_hundred': { label: 'THE HUNDRED', color: 'bg-orange-600' },
+};
 
 // Sport icon component that uses custom icon_url or fallback SVG
 const SportIcon = ({ sport, iconUrl }: { sport: string; iconUrl?: string | null }) => {
@@ -63,11 +72,52 @@ const SportIcon = ({ sport, iconUrl }: { sport: string; iconUrl?: string | null 
   );
 };
 
+// Helper to check if date is today or tomorrow
+const getDateLabel = (matchStartTime: string | null, matchDate: string): { label: string; isTodayOrTomorrow: boolean } => {
+  if (!matchStartTime) {
+    return { label: matchDate, isTodayOrTomorrow: false };
+  }
+
+  const matchDateTime = new Date(matchStartTime);
+  const now = new Date();
+  
+  // Get start of today and tomorrow in local timezone
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dayAfterTomorrow = new Date(today);
+  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
+
+  // Get match date in local timezone
+  const matchDay = new Date(matchDateTime.getFullYear(), matchDateTime.getMonth(), matchDateTime.getDate());
+
+  if (matchDay.getTime() === today.getTime()) {
+    return { label: 'Today', isTodayOrTomorrow: true };
+  } else if (matchDay.getTime() === tomorrow.getTime()) {
+    return { label: `${matchDate} (Tomorrow)`, isTodayOrTomorrow: true };
+  }
+  
+  return { label: matchDate, isTodayOrTomorrow: false };
+};
+
 const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
   const navigate = useNavigate();
   const [countdown, setCountdown] = useState<string | null>(null);
   const [localTime, setLocalTime] = useState<string>("");
   const [timezone, setTimezone] = useState<string>("");
+
+  // Get date label (Today/Tomorrow/Date)
+  const dateLabel = useMemo(() => getDateLabel(match.match_start_time, match.match_date), [match.match_start_time, match.match_date]);
+
+  // Get cricket format info
+  const cricketFormat = useMemo(() => {
+    if (!match.match_format) return null;
+    return CRICKET_FORMATS[match.match_format.toLowerCase()] || null;
+  }, [match.match_format]);
+
+  // Check if it's a cricket match
+  const sportName = match.sport?.name || match.tournament?.sport || 'Sport';
+  const isCricket = sportName.toLowerCase() === 'cricket';
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -147,8 +197,7 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
 
   const isClickable = (match.page_type === 'page' && match.slug) || match.match_link;
 
-  // Get sport name from sport object or tournament
-  const sportName = sport?.name || tournament?.sport || 'Sport';
+  // Get sport icon URL
   const sportIconUrl = sport?.icon_url;
 
   return (
@@ -192,6 +241,27 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
         )}
 
         <div className="p-5 md:p-6">
+          {/* Cricket Format & Test Day Badges */}
+          {isCricket && (cricketFormat || match.test_day) && (
+            <div className="flex items-center justify-center gap-2 mb-3">
+              {cricketFormat && (
+                <Badge className={`${cricketFormat.color} text-white border-0 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg`}>
+                  {cricketFormat.label}
+                </Badge>
+              )}
+              {match.test_day && match.match_format?.toLowerCase() === 'test' && (
+                <Badge className="bg-gradient-to-r from-amber-600 to-amber-700 text-white border-0 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg">
+                  Day-{match.test_day}
+                </Badge>
+              )}
+              {match.is_stumps && match.match_format?.toLowerCase() === 'test' && (
+                <Badge className="bg-gradient-to-r from-slate-600 to-slate-700 text-white border-0 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg animate-pulse">
+                  STUMPS
+                </Badge>
+              )}
+            </div>
+          )}
+
           {/* Match Label Badge - Above Tournament Name */}
           {match.match_label && (
             <div className="flex justify-start mb-3">
@@ -312,7 +382,10 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
             )}
             <div className="flex items-center gap-2 text-muted-foreground text-xs">
               <Clock className="w-3 h-3" />
-              <span>{match.match_date} • {localTime || match.match_time}</span>
+              <span className={dateLabel.isTodayOrTomorrow ? 'text-primary font-semibold' : ''}>
+                {dateLabel.label}
+              </span>
+              <span>• {localTime || match.match_time}</span>
               <span className="text-primary font-medium">({timezone})</span>
             </div>
             <Badge variant={getStatusVariant(match.status)} className="px-4 py-1.5 text-xs">

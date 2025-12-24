@@ -52,8 +52,10 @@ export type Database = {
           created_at: string
           id: string
           is_priority: boolean | null
+          is_stumps: boolean | null
           match_date: string
           match_duration_minutes: number | null
+          match_format: string | null
           match_label: string | null
           match_link: string | null
           match_minute: number | null
@@ -71,6 +73,7 @@ export type Database = {
           status: string
           team_a_id: string
           team_b_id: string
+          test_day: number | null
           tournament_id: string | null
           updated_at: string
           venue: string | null
@@ -79,8 +82,10 @@ export type Database = {
           created_at?: string
           id?: string
           is_priority?: boolean | null
+          is_stumps?: boolean | null
           match_date: string
           match_duration_minutes?: number | null
+          match_format?: string | null
           match_label?: string | null
           match_link?: string | null
           match_minute?: number | null
@@ -98,6 +103,7 @@ export type Database = {
           status?: string
           team_a_id: string
           team_b_id: string
+          test_day?: number | null
           tournament_id?: string | null
           updated_at?: string
           venue?: string | null
@@ -106,8 +112,10 @@ export type Database = {
           created_at?: string
           id?: string
           is_priority?: boolean | null
+          is_stumps?: boolean | null
           match_date?: string
           match_duration_minutes?: number | null
+          match_format?: string | null
           match_label?: string | null
           match_link?: string | null
           match_minute?: number | null
@@ -125,6 +133,7 @@ export type Database = {
           status?: string
           team_a_id?: string
           team_b_id?: string
+          test_day?: number | null
           tournament_id?: string | null
           updated_at?: string
           venue?: string | null

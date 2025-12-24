@@ -103,6 +103,9 @@ const Admin = () => {
     seo_description: '',
     seo_keywords: '',
     match_minute: null as number | null,
+    match_format: '' as string | null,
+    test_day: null as number | null,
+    is_stumps: false,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -278,6 +281,9 @@ const Admin = () => {
         seo_description: matchForm.seo_description || null,
         seo_keywords: matchForm.seo_keywords || null,
         match_minute: matchForm.match_minute,
+        match_format: matchForm.match_format || null,
+        test_day: matchForm.test_day,
+        is_stumps: matchForm.is_stumps,
       };
       
       if (editingMatch) {
@@ -318,6 +324,9 @@ const Admin = () => {
       seo_description: match.seo_description || '',
       seo_keywords: match.seo_keywords || '',
       match_minute: match.match_minute,
+      match_format: match.match_format || '',
+      test_day: match.test_day,
+      is_stumps: match.is_stumps || false,
     });
     setMatchDialogOpen(true);
   };
@@ -355,6 +364,9 @@ const Admin = () => {
       seo_description: '',
       seo_keywords: '',
       match_minute: null,
+      match_format: '',
+      test_day: null,
+      is_stumps: false,
     });
   };
 
@@ -892,6 +904,60 @@ const Admin = () => {
                         </>
                       )}
                       
+                      {/* Cricket Format Settings */}
+                      <div className="space-y-4 p-4 rounded-lg border border-border/50 bg-muted/20">
+                        <h4 className="font-medium text-sm flex items-center gap-2">
+                          <Gamepad2 className="w-4 h-4" />
+                          Cricket Match Format (optional)
+                        </h4>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Label>Match Format</Label>
+                            <Select value={matchForm.match_format || ''} onValueChange={(v) => setMatchForm({ ...matchForm, match_format: v || null })}>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select format" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="test">Test</SelectItem>
+                                <SelectItem value="odi">ODI</SelectItem>
+                                <SelectItem value="t20">T20</SelectItem>
+                                <SelectItem value="t10">T10</SelectItem>
+                                <SelectItem value="the_hundred">The Hundred</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          {matchForm.match_format === 'test' && (
+                            <div className="space-y-2">
+                              <Label>Test Day (1-5)</Label>
+                              <Select value={matchForm.test_day?.toString() || ''} onValueChange={(v) => setMatchForm({ ...matchForm, test_day: v ? parseInt(v) : null })}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select day" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="1">Day 1</SelectItem>
+                                  <SelectItem value="2">Day 2</SelectItem>
+                                  <SelectItem value="3">Day 3</SelectItem>
+                                  <SelectItem value="4">Day 4</SelectItem>
+                                  <SelectItem value="5">Day 5</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          )}
+                        </div>
+                        {matchForm.match_format === 'test' && (
+                          <div className="flex items-center space-x-2">
+                            <Switch
+                              id="is_stumps"
+                              checked={matchForm.is_stumps}
+                              onCheckedChange={(checked) => setMatchForm({ ...matchForm, is_stumps: checked })}
+                            />
+                            <Label htmlFor="is_stumps" className="text-sm">
+                              Stumps (Day's play ended)
+                            </Label>
+                          </div>
+                        )}
+                      </div>
+
                       {matchForm.status !== 'upcoming' && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
