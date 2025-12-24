@@ -245,55 +245,68 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
         )}
 
         <div className="p-4">
-          {/* Top Row: Status, Format badges, Tournament logo */}
-          <div className="flex items-start justify-between gap-2 mb-3">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Badge variant={getStatusVariant(match.status)} className="px-2 py-0.5 text-[10px]">
-                {match.status === 'live' && (
-                  <span className="w-1.5 h-1.5 bg-current rounded-full mr-1 animate-pulse" />
-                )}
-                {getStatusText(match.status)}
-              </Badge>
-              {isCricket && cricketFormat && (
-                <Badge className={`${cricketFormat.color} text-white border-0 font-bold text-[9px] uppercase tracking-wider px-2 py-0.5`}>
+          {/* Cricket Format & Test Day Badges */}
+          {isCricket && (cricketFormat || match.test_day) && (
+            <div className="flex items-center justify-center gap-2 mb-2">
+              {cricketFormat && (
+                <Badge className={`${cricketFormat.color} text-white border-0 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg`}>
                   {cricketFormat.label}
                 </Badge>
               )}
-              {isCricket && match.test_day && match.match_format?.toLowerCase() === 'test' && (
-                <Badge className="bg-amber-600 text-white border-0 font-bold text-[9px] uppercase px-2 py-0.5">
+              {match.test_day && match.match_format?.toLowerCase() === 'test' && (
+                <Badge className="bg-gradient-to-r from-amber-600 to-amber-700 text-white border-0 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg">
                   Day-{match.test_day}
                 </Badge>
               )}
               {match.is_stumps && match.match_format?.toLowerCase() === 'test' && (
-                <Badge className="bg-slate-600 text-white border-0 font-bold text-[9px] uppercase px-2 py-0.5 animate-pulse">
+                <Badge className="bg-gradient-to-r from-slate-600 to-slate-700 text-white border-0 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg animate-pulse">
                   STUMPS
                 </Badge>
               )}
-              {match.is_priority && (
-                <Star className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
-              )}
             </div>
+          )}
+
+          {/* Match Label Badge - Above Tournament Name */}
+          {match.match_label && (
+            <div className="flex justify-start mb-2">
+              <Badge className="bg-gradient-to-r from-yellow-500/90 to-orange-500/90 text-white border-0 font-semibold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg">
+                {match.match_label}
+              </Badge>
+            </div>
+          )}
+
+          {/* Tournament Header with Logo */}
+          <div className="flex items-start justify-between gap-2 mb-3">
+            {tournament && (
+              <div className="flex-1 min-w-0">
+                <h3 className="tournament-title text-base md:text-lg tracking-wide line-clamp-2">
+                  {tournament.name}
+                </h3>
+                <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-medium mt-0.5">
+                  {tournament.season}
+                </p>
+              </div>
+            )}
             {tournament?.logo_url && (
-              <div className="w-9 h-9 rounded-lg bg-background/60 backdrop-blur-sm p-1 border border-border/30 flex-shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-background/60 backdrop-blur-sm p-1 border border-border/30 shadow-lg flex-shrink-0">
                 <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-contain" />
               </div>
             )}
           </div>
 
-          {/* Tournament Name & Sport (compact) */}
-          <div className="flex items-center justify-between gap-2 mb-3">
-            <div className="flex-1 min-w-0">
-              {tournament && (
-                <h3 className="font-semibold text-sm text-foreground truncate">{tournament.name}</h3>
-              )}
-              {match.match_label && (
-                <span className="text-[10px] text-yellow-500 font-medium">{match.match_label}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+          {/* Sport Badge & Match Number */}
+          <div className="flex items-center justify-between mb-3">
+            <Badge variant="sport" className="gap-1.5 text-xs">
               <SportIcon sport={sportName} iconUrl={sportIconUrl} />
-              <span className="hidden sm:inline">{sportName}</span>
-              <span className="text-muted-foreground/60">#{match.match_number}</span>
+              {sportName}
+            </Badge>
+            <div className="flex items-center gap-2">
+              {match.is_priority && (
+                <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
+              )}
+              <span className="text-muted-foreground text-[11px] font-medium bg-muted/40 px-2.5 py-1 rounded-full">
+                Match #{match.match_number}
+              </span>
             </div>
           </div>
 
@@ -356,20 +369,28 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
             </div>
           )}
 
-          {/* Footer: Venue & Time - Single compact row */}
-          <div className="mt-3 pt-2 border-t border-border/30 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[10px] text-muted-foreground">
+          {/* Footer: Venue, Time & Status */}
+          <div className="mt-3 pt-2 border-t border-border/30 flex flex-col items-center gap-1.5">
             {match.venue && (
-              <span className="flex items-center gap-1">
-                <MapPin className="w-2.5 h-2.5" />
+              <p className="text-muted-foreground text-xs font-medium flex items-center gap-1.5">
+                <MapPin className="w-3 h-3" />
                 {match.venue}
-              </span>
+              </p>
             )}
-            <span className="flex items-center gap-1">
-              <Clock className="w-2.5 h-2.5" />
-              <span className={dateLabel.isTodayOrTomorrow ? 'text-primary font-medium' : ''}>{dateLabel.label}</span>
+            <div className="flex items-center gap-2 text-muted-foreground text-xs">
+              <Clock className="w-3 h-3" />
+              <span className={dateLabel.isTodayOrTomorrow ? 'text-primary font-semibold' : ''}>
+                {dateLabel.label}
+              </span>
               <span>• {localTime || match.match_time}</span>
-              <span className="text-primary">({timezone})</span>
-            </span>
+              <span className="text-primary font-medium">({timezone})</span>
+            </div>
+            <Badge variant={getStatusVariant(match.status)} className="px-4 py-1.5 text-xs">
+              {match.status === 'live' && (
+                <span className="w-2 h-2 bg-current rounded-full mr-1.5 animate-pulse" />
+              )}
+              {getStatusText(match.status)}
+            </Badge>
           </div>
           
           {/* Click indicator for clickable cards */}
