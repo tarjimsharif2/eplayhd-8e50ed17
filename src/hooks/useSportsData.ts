@@ -15,6 +15,7 @@ export interface Tournament {
   name: string;
   sport: string;
   season: string;
+  logo_url: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -31,11 +32,25 @@ export interface Match {
   venue: string | null;
   score_a: string | null;
   score_b: string | null;
+  match_link: string | null;
+  match_duration_minutes: number | null;
+  match_start_time: string | null;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;
   team_a?: Team;
   team_b?: Team;
+}
+
+export interface Banner {
+  id: string;
+  title: string;
+  image_url: string;
+  link_url: string | null;
+  is_active: boolean;
+  display_order: number;
+  created_at: string;
+  updated_at: string;
 }
 
 // Teams hooks
@@ -265,6 +280,97 @@ export const useDeleteMatch = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['matches'] });
+    },
+  });
+};
+
+// Banners hooks
+export const useBanners = () => {
+  return useQuery({
+    queryKey: ['banners'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('banners')
+        .select('*')
+        .order('display_order');
+      
+      if (error) throw error;
+      return data as Banner[];
+    },
+  });
+};
+
+export const useActiveBanners = () => {
+  return useQuery({
+    queryKey: ['banners', 'active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('banners')
+        .select('*')
+        .eq('is_active', true)
+        .order('display_order');
+      
+      if (error) throw error;
+      return data as Banner[];
+    },
+  });
+};
+
+export const useCreateBanner = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (banner: Omit<Banner, 'id' | 'created_at' | 'updated_at'>) => {
+      const { data, error } = await supabase
+        .from('banners')
+        .insert(banner)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['banners'] });
+    },
+  });
+};
+
+export const useUpdateBanner = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, ...banner }: Partial<Banner> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('banners')
+        .update(banner)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['banners'] });
+    },
+  });
+};
+
+export const useDeleteBanner = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('banners')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['banners'] });
     },
   });
 };

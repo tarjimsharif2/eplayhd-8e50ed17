@@ -14,12 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      banners: {
+        Row: {
+          created_at: string
+          display_order: number | null
+          id: string
+          image_url: string
+          is_active: boolean | null
+          link_url: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          image_url: string
+          is_active?: boolean | null
+          link_url?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          image_url?: string
+          is_active?: boolean | null
+          link_url?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       matches: {
         Row: {
           created_at: string
           id: string
           match_date: string
+          match_duration_minutes: number | null
+          match_link: string | null
           match_number: number
+          match_start_time: string | null
           match_time: string
           score_a: string | null
           score_b: string | null
@@ -34,7 +70,10 @@ export type Database = {
           created_at?: string
           id?: string
           match_date: string
+          match_duration_minutes?: number | null
+          match_link?: string | null
           match_number?: number
+          match_start_time?: string | null
           match_time: string
           score_a?: string | null
           score_b?: string | null
@@ -49,7 +88,10 @@ export type Database = {
           created_at?: string
           id?: string
           match_date?: string
+          match_duration_minutes?: number | null
+          match_link?: string | null
           match_number?: number
+          match_start_time?: string | null
           match_time?: string
           score_a?: string | null
           score_b?: string | null
@@ -145,6 +187,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          logo_url: string | null
           name: string
           season: string
           sport: string
@@ -153,6 +196,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          logo_url?: string | null
           name: string
           season: string
           sport?: string
@@ -161,6 +205,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          logo_url?: string | null
           name?: string
           season?: string
           sport?: string

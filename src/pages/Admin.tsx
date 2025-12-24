@@ -9,16 +9,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/hooks/useAuth";
 import { 
-  useMatches, useTeams, useTournaments,
+  useMatches, useTeams, useTournaments, useBanners,
   useCreateMatch, useUpdateMatch, useDeleteMatch,
   useCreateTeam, useUpdateTeam, useDeleteTeam,
   useCreateTournament, useUpdateTournament, useDeleteTournament,
-  Match, Team, Tournament
+  useCreateBanner, useUpdateBanner, useDeleteBanner,
+  Match, Team, Tournament, Banner
 } from "@/hooks/useSportsData";
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 
@@ -31,6 +33,7 @@ const Admin = () => {
   const { data: matches, isLoading: matchesLoading } = useMatches();
   const { data: teams, isLoading: teamsLoading } = useTeams();
   const { data: tournaments, isLoading: tournamentsLoading } = useTournaments();
+  const { data: banners, isLoading: bannersLoading } = useBanners();
 
   // Mutation hooks
   const createMatch = useCreateMatch();
@@ -42,14 +45,19 @@ const Admin = () => {
   const createTournament = useCreateTournament();
   const updateTournament = useUpdateTournament();
   const deleteTournament = useDeleteTournament();
+  const createBanner = useCreateBanner();
+  const updateBanner = useUpdateBanner();
+  const deleteBanner = useDeleteBanner();
 
   // Dialog states
   const [matchDialogOpen, setMatchDialogOpen] = useState(false);
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [tournamentDialogOpen, setTournamentDialogOpen] = useState(false);
+  const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
+  const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
 
   // Form states
   const [matchForm, setMatchForm] = useState({
@@ -63,6 +71,9 @@ const Admin = () => {
     venue: '',
     score_a: '',
     score_b: '',
+    match_link: '',
+    match_duration_minutes: 180,
+    match_start_time: null as string | null,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -75,6 +86,15 @@ const Admin = () => {
     name: '',
     sport: 'Cricket',
     season: '',
+    logo_url: '',
+  });
+
+  const [bannerForm, setBannerForm] = useState({
+    title: '',
+    image_url: '',
+    link_url: '',
+    is_active: true,
+    display_order: 0,
   });
 
   useEffect(() => {
@@ -107,11 +127,21 @@ const Admin = () => {
   // Match handlers
   const handleSaveMatch = async () => {
     try {
+      const matchData = {
+        ...matchForm,
+        venue: matchForm.venue || null,
+        score_a: matchForm.score_a || null,
+        score_b: matchForm.score_b || null,
+        match_link: matchForm.match_link || null,
+        match_duration_minutes: matchForm.match_duration_minutes || 180,
+        match_start_time: matchForm.match_start_time || null,
+      };
+      
       if (editingMatch) {
-        await updateMatch.mutateAsync({ id: editingMatch.id, ...matchForm });
+        await updateMatch.mutateAsync({ id: editingMatch.id, ...matchData });
         toast({ title: "Match updated successfully" });
       } else {
-        await createMatch.mutateAsync(matchForm);
+        await createMatch.mutateAsync(matchData);
         toast({ title: "Match created successfully" });
       }
       setMatchDialogOpen(false);
@@ -134,6 +164,9 @@ const Admin = () => {
       venue: match.venue || '',
       score_a: match.score_a || '',
       score_b: match.score_b || '',
+      match_link: match.match_link || '',
+      match_duration_minutes: match.match_duration_minutes || 180,
+      match_start_time: match.match_start_time || null,
     });
     setMatchDialogOpen(true);
   };
@@ -160,17 +193,25 @@ const Admin = () => {
       venue: '',
       score_a: '',
       score_b: '',
+      match_link: '',
+      match_duration_minutes: 180,
+      match_start_time: null,
     });
   };
 
   // Team handlers
   const handleSaveTeam = async () => {
     try {
+      const teamData = {
+        ...teamForm,
+        logo_url: teamForm.logo_url || null,
+      };
+      
       if (editingTeam) {
-        await updateTeam.mutateAsync({ id: editingTeam.id, ...teamForm });
+        await updateTeam.mutateAsync({ id: editingTeam.id, ...teamData });
         toast({ title: "Team updated successfully" });
       } else {
-        await createTeam.mutateAsync(teamForm);
+        await createTeam.mutateAsync(teamData);
         toast({ title: "Team created successfully" });
       }
       setTeamDialogOpen(false);
@@ -207,11 +248,16 @@ const Admin = () => {
   // Tournament handlers
   const handleSaveTournament = async () => {
     try {
+      const tournamentData = {
+        ...tournamentForm,
+        logo_url: tournamentForm.logo_url || null,
+      };
+      
       if (editingTournament) {
-        await updateTournament.mutateAsync({ id: editingTournament.id, ...tournamentForm });
+        await updateTournament.mutateAsync({ id: editingTournament.id, ...tournamentData });
         toast({ title: "Tournament updated successfully" });
       } else {
-        await createTournament.mutateAsync(tournamentForm);
+        await createTournament.mutateAsync(tournamentData);
         toast({ title: "Tournament created successfully" });
       }
       setTournamentDialogOpen(false);
@@ -227,6 +273,7 @@ const Admin = () => {
       name: tournament.name,
       sport: tournament.sport,
       season: tournament.season,
+      logo_url: tournament.logo_url || '',
     });
     setTournamentDialogOpen(true);
   };
@@ -242,7 +289,55 @@ const Admin = () => {
 
   const resetTournamentForm = () => {
     setEditingTournament(null);
-    setTournamentForm({ name: '', sport: 'Cricket', season: '' });
+    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '' });
+  };
+
+  // Banner handlers
+  const handleSaveBanner = async () => {
+    try {
+      const bannerData = {
+        ...bannerForm,
+        link_url: bannerForm.link_url || null,
+      };
+      
+      if (editingBanner) {
+        await updateBanner.mutateAsync({ id: editingBanner.id, ...bannerData });
+        toast({ title: "Banner updated successfully" });
+      } else {
+        await createBanner.mutateAsync(bannerData);
+        toast({ title: "Banner created successfully" });
+      }
+      setBannerDialogOpen(false);
+      resetBannerForm();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleEditBanner = (banner: Banner) => {
+    setEditingBanner(banner);
+    setBannerForm({
+      title: banner.title,
+      image_url: banner.image_url,
+      link_url: banner.link_url || '',
+      is_active: banner.is_active,
+      display_order: banner.display_order,
+    });
+    setBannerDialogOpen(true);
+  };
+
+  const handleDeleteBanner = async (id: string) => {
+    try {
+      await deleteBanner.mutateAsync(id);
+      toast({ title: "Banner deleted successfully" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const resetBannerForm = () => {
+    setEditingBanner(null);
+    setBannerForm({ title: '', image_url: '', link_url: '', is_active: true, display_order: 0 });
   };
 
   return (
@@ -257,11 +352,11 @@ const Admin = () => {
             className="mb-8 flex items-center justify-between"
           >
             <div>
-              <h1 className="font-display text-4xl md:text-5xl tracking-wider text-gradient mb-2">
-                ADMIN PANEL
+              <h1 className="font-display text-3xl md:text-4xl tracking-wide text-gradient mb-2">
+                Admin Panel
               </h1>
               <p className="text-muted-foreground">
-                Manage your matches, teams, and tournaments
+                Manage matches, teams, tournaments & banners
               </p>
             </div>
             <Button variant="outline" onClick={handleSignOut}>
@@ -271,7 +366,7 @@ const Admin = () => {
           </motion.div>
 
           <Tabs defaultValue="matches" className="space-y-6">
-            <TabsList className="bg-muted/50 p-1">
+            <TabsList className="bg-muted/50 p-1 flex-wrap h-auto">
               <TabsTrigger value="matches" className="gap-2">
                 <Calendar className="w-4 h-4" />
                 Matches
@@ -283,6 +378,10 @@ const Admin = () => {
               <TabsTrigger value="tournaments" className="gap-2">
                 <Trophy className="w-4 h-4" />
                 Tournaments
+              </TabsTrigger>
+              <TabsTrigger value="banners" className="gap-2">
+                <Image className="w-4 h-4" />
+                Banners
               </TabsTrigger>
             </TabsList>
 
@@ -371,14 +470,31 @@ const Admin = () => {
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Match Date</Label>
-                          <Input placeholder="e.g., 26th December 2025 (Friday)" value={matchForm.match_date} onChange={(e) => setMatchForm({ ...matchForm, match_date: e.target.value })} />
+                          <Input placeholder="e.g., 26th December 2025" value={matchForm.match_date} onChange={(e) => setMatchForm({ ...matchForm, match_date: e.target.value })} />
                         </div>
                         <div className="space-y-2">
                           <Label>Match Time</Label>
-                          <Input placeholder="e.g., 3:00 PM (BST)" value={matchForm.match_time} onChange={(e) => setMatchForm({ ...matchForm, match_time: e.target.value })} />
+                          <Input placeholder="e.g., 3:00 PM" value={matchForm.match_time} onChange={(e) => setMatchForm({ ...matchForm, match_time: e.target.value })} />
                         </div>
                       </div>
-                      {matchForm.status === 'completed' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Duration (minutes)</Label>
+                          <Input type="number" placeholder="180" value={matchForm.match_duration_minutes} onChange={(e) => setMatchForm({ ...matchForm, match_duration_minutes: parseInt(e.target.value) || 180 })} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Venue</Label>
+                          <Input placeholder="Stadium name" value={matchForm.venue} onChange={(e) => setMatchForm({ ...matchForm, venue: e.target.value })} />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="flex items-center gap-2">
+                          <LinkIcon className="w-4 h-4" />
+                          Match Link (redirect URL)
+                        </Label>
+                        <Input placeholder="https://..." value={matchForm.match_link} onChange={(e) => setMatchForm({ ...matchForm, match_link: e.target.value })} />
+                      </div>
+                      {matchForm.status !== 'upcoming' && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Score A</Label>
@@ -425,6 +541,9 @@ const Admin = () => {
                                 <span className="text-muted-foreground text-sm">
                                   {match.tournament?.name} {match.tournament?.season}
                                 </span>
+                                {match.match_link && (
+                                  <LinkIcon className="w-3 h-3 text-primary" />
+                                )}
                               </div>
                               <p className="font-semibold text-lg">
                                 {match.team_a?.name} vs {match.team_b?.name}
@@ -572,11 +691,23 @@ const Admin = () => {
                       </div>
                       <div className="space-y-2">
                         <Label>Sport</Label>
-                        <Input placeholder="e.g., Cricket" value={tournamentForm.sport} onChange={(e) => setTournamentForm({ ...tournamentForm, sport: e.target.value })} />
+                        <Select value={tournamentForm.sport} onValueChange={(v) => setTournamentForm({ ...tournamentForm, sport: v })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Cricket">Cricket</SelectItem>
+                            <SelectItem value="Football">Football</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div className="space-y-2">
                         <Label>Season</Label>
                         <Input placeholder="e.g., 2025-26" value={tournamentForm.season} onChange={(e) => setTournamentForm({ ...tournamentForm, season: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Logo URL (optional)</Label>
+                        <Input placeholder="https://..." value={tournamentForm.logo_url} onChange={(e) => setTournamentForm({ ...tournamentForm, logo_url: e.target.value })} />
                       </div>
                     </div>
                     <DialogFooter>
@@ -607,15 +738,20 @@ const Admin = () => {
                       <Card className="hover:border-primary/50 transition-colors">
                         <CardContent className="p-6">
                           <div className="flex items-start justify-between">
-                            <div>
-                              <h3 className="font-display text-2xl text-gradient tracking-wider mb-2">
-                                {tournament.name}
-                              </h3>
-                              <div className="flex items-center gap-2">
-                                <Badge variant="sport">{tournament.sport}</Badge>
-                                <span className="text-muted-foreground text-sm">
-                                  Season {tournament.season}
-                                </span>
+                            <div className="flex items-start gap-4">
+                              {tournament.logo_url && (
+                                <img src={tournament.logo_url} alt={tournament.name} className="w-12 h-12 object-contain rounded-lg" />
+                              )}
+                              <div>
+                                <h3 className="font-display text-2xl text-gradient tracking-wider mb-2">
+                                  {tournament.name}
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="sport">{tournament.sport}</Badge>
+                                  <span className="text-muted-foreground text-sm">
+                                    Season {tournament.season}
+                                  </span>
+                                </div>
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
@@ -625,6 +761,112 @@ const Admin = () => {
                               <Button variant="ghost" size="icon" onClick={() => handleDeleteTournament(tournament.id)}>
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Banners Tab */}
+            <TabsContent value="banners" className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-semibold">All Banners</h2>
+                <Dialog open={bannerDialogOpen} onOpenChange={(open) => {
+                  setBannerDialogOpen(open);
+                  if (!open) resetBannerForm();
+                }}>
+                  <DialogTrigger asChild>
+                    <Button variant="gradient" size="sm">
+                      <Plus className="w-4 h-4" />
+                      Add Banner
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent>
+                    <DialogHeader>
+                      <DialogTitle>{editingBanner ? 'Edit Banner' : 'Add New Banner'}</DialogTitle>
+                      <DialogDescription>
+                        Banners appear above the match list
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>Title</Label>
+                        <Input placeholder="e.g., Watch Live Now!" value={bannerForm.title} onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Image URL</Label>
+                        <Input placeholder="https://..." value={bannerForm.image_url} onChange={(e) => setBannerForm({ ...bannerForm, image_url: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Link URL (optional)</Label>
+                        <Input placeholder="https://..." value={bannerForm.link_url} onChange={(e) => setBannerForm({ ...bannerForm, link_url: e.target.value })} />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Display Order</Label>
+                          <Input type="number" value={bannerForm.display_order} onChange={(e) => setBannerForm({ ...bannerForm, display_order: parseInt(e.target.value) || 0 })} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Active</Label>
+                          <div className="flex items-center h-10">
+                            <Switch checked={bannerForm.is_active} onCheckedChange={(checked) => setBannerForm({ ...bannerForm, is_active: checked })} />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button variant="outline" onClick={() => setBannerDialogOpen(false)}>Cancel</Button>
+                      <Button variant="gradient" onClick={handleSaveBanner} disabled={createBanner.isPending || updateBanner.isPending}>
+                        {(createBanner.isPending || updateBanner.isPending) && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                        {editingBanner ? 'Update' : 'Create'}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
+
+              {bannersLoading ? (
+                <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
+              ) : (
+                <div className="grid gap-4">
+                  {banners?.length === 0 && (
+                    <p className="text-center text-muted-foreground py-8">No banners yet. Add your first banner!</p>
+                  )}
+                  {banners?.map((banner, index) => (
+                    <motion.div
+                      key={banner.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <Card className="hover:border-primary/50 transition-colors overflow-hidden">
+                        <CardContent className="p-0">
+                          <div className="flex items-stretch">
+                            <div className="w-32 h-24 flex-shrink-0 bg-muted">
+                              <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover" />
+                            </div>
+                            <div className="flex-1 p-4 flex items-center justify-between">
+                              <div>
+                                <p className="font-semibold">{banner.title}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <Badge variant={banner.is_active ? 'completed' : 'secondary'}>
+                                    {banner.is_active ? 'Active' : 'Inactive'}
+                                  </Badge>
+                                  <span className="text-muted-foreground text-sm">Order: {banner.display_order}</span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1">
+                                <Button variant="ghost" size="icon" onClick={() => handleEditBanner(banner)}>
+                                  <Edit2 className="w-4 h-4" />
+                                </Button>
+                                <Button variant="ghost" size="icon" onClick={() => handleDeleteBanner(banner.id)}>
+                                  <Trash2 className="w-4 h-4 text-destructive" />
+                                </Button>
+                              </div>
                             </div>
                           </div>
                         </CardContent>
