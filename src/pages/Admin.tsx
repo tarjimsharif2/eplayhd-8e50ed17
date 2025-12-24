@@ -22,7 +22,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy } from "lucide-react";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -253,15 +253,13 @@ const Admin = () => {
   // Match handlers
   const handleSaveMatch = async () => {
     try {
-      // Generate SEO-friendly slug from team names
+      // Generate SEO-friendly slug from team names (format: team-a-vs-team-b)
       const teamAName = teams?.find(t => t.id === matchForm.team_a_id)?.name || '';
       const teamBName = teams?.find(t => t.id === matchForm.team_b_id)?.name || '';
       const generateSlug = (teamA: string, teamB: string) => {
-        const base = `${teamA}-vs-${teamB}`.toLowerCase()
+        return `${teamA}-vs-${teamB}`.toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)/g, '');
-        const random = Math.random().toString(36).substring(2, 8);
-        return `${base}-${random}`;
       };
 
       const matchData = {
@@ -350,6 +348,48 @@ const Admin = () => {
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
+  };
+
+  const handleCopyMatch = (match: Match) => {
+    // Generate new slug for copied match
+    const teamAName = match.team_a?.name || '';
+    const teamBName = match.team_b?.name || '';
+    const newSlug = `${teamAName}-vs-${teamBName}`.toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/(^-|-$)/g, '');
+
+    setEditingMatch(null); // Ensure we're creating, not editing
+    setMatchForm({
+      tournament_id: match.tournament_id || '',
+      team_a_id: match.team_a_id,
+      team_b_id: match.team_b_id,
+      match_number: match.match_number + 1,
+      match_date: match.match_date,
+      match_time: match.match_time,
+      status: 'upcoming',
+      venue: match.venue || '',
+      score_a: '',
+      score_b: '',
+      match_link: match.match_link || '',
+      match_duration_minutes: match.match_duration_minutes || 180,
+      match_start_time: match.match_start_time || null,
+      is_priority: match.is_priority || false,
+      match_label: match.match_label || '',
+      sport_id: match.sport_id || '',
+      page_type: match.page_type || 'redirect',
+      seo_title: match.seo_title || '',
+      seo_description: match.seo_description || '',
+      seo_keywords: match.seo_keywords || '',
+      match_minute: null,
+      match_format: match.match_format || '',
+      test_day: null,
+      is_stumps: false,
+      stumps_time: null,
+      day_start_time: match.day_start_time || '',
+      next_day_start: null,
+    });
+    setMatchDialogOpen(true);
+    toast({ title: "Match copied", description: "Edit the details and save to create a new match." });
   };
 
   const resetMatchForm = () => {
@@ -1111,10 +1151,13 @@ const Admin = () => {
                                   Innings
                                 </Button>
                               )}
-                              <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match)}>
+                              <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match)} title="Edit match">
                                 <Edit2 className="w-4 h-4" />
                               </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteMatch(match.id)}>
+                              <Button variant="ghost" size="icon" onClick={() => handleCopyMatch(match)} title="Duplicate match">
+                                <Copy className="w-4 h-4 text-primary" />
+                              </Button>
+                              <Button variant="ghost" size="icon" onClick={() => handleDeleteMatch(match.id)} title="Delete match">
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
                             </div>
