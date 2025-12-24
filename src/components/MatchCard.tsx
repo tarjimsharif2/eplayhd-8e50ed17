@@ -155,12 +155,23 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: index * 0.08 }}
+      whileHover={{ scale: 1.02, y: -4 }}
+      whileTap={{ scale: 0.98 }}
+      transition={{ 
+        duration: 0.3, 
+        delay: index * 0.05,
+        type: "spring",
+        stiffness: 400,
+        damping: 25
+      }}
       onClick={handleClick}
-      className={`relative overflow-hidden rounded-2xl transition-all duration-300 ${isClickable ? 'cursor-pointer' : ''} group`}
+      className={`relative overflow-hidden rounded-2xl ${isClickable ? 'cursor-pointer' : ''} group`}
     >
       {/* Glassmorphism card */}
-      <div className="relative bg-gradient-to-br from-card/90 via-card/70 to-card/50 backdrop-blur-xl border border-border/50 rounded-2xl overflow-hidden hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500">
+      <div className="relative bg-gradient-to-br from-card/95 via-card/85 to-card/75 backdrop-blur-xl border border-border/40 rounded-2xl overflow-hidden transition-all duration-300 group-hover:border-primary/50 group-hover:shadow-xl group-hover:shadow-primary/15">
+        
+        {/* Hover glow effect */}
+        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 bg-gradient-to-br from-primary/5 via-transparent to-accent/5 pointer-events-none" />
         
         {/* Priority indicator */}
         {match.is_priority && (
@@ -307,6 +318,17 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
               {getStatusText(match.status)}
             </Badge>
           </div>
+          
+          {/* Click indicator for clickable cards */}
+          {isClickable && (
+            <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-x-2 group-hover:translate-x-0">
+              <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center backdrop-blur-sm border border-primary/30">
+                <svg className="w-4 h-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M5 12h14M12 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

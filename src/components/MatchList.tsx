@@ -108,20 +108,6 @@ const MatchList = () => {
           <BannerSlider />
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.5 }}
-          className="text-center mb-8"
-        >
-          <h2 className="font-display text-3xl md:text-4xl tracking-wide text-gradient mb-2">
-            Matches
-          </h2>
-          <p className="text-muted-foreground">
-            Don't miss the action - check out the latest fixtures
-          </p>
-        </motion.div>
 
         {/* Filters */}
         <div className="mb-8">
