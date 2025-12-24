@@ -13,6 +13,8 @@ export interface StreamingServer {
   origin_value: string | null;
   cookie_value: string | null;
   user_agent: string | null;
+  drm_license_url: string | null;
+  drm_scheme: 'widevine' | 'playready' | 'clearkey' | null;
   created_at: string;
   updated_at: string;
 }

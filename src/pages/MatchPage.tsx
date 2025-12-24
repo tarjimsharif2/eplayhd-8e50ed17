@@ -162,6 +162,10 @@ const MatchPage = () => {
                       cookie: activeServer.cookie_value,
                       userAgent: activeServer.user_agent,
                     }}
+                    drm={{
+                      licenseUrl: activeServer.drm_license_url,
+                      scheme: activeServer.drm_scheme,
+                    }}
                   />
                 ) : (
                   <div className="aspect-video bg-muted flex items-center justify-center">
