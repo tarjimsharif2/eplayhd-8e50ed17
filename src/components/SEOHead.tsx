@@ -94,30 +94,50 @@ const SEOHead = ({
       favicon.href = settings.favicon_url;
     }
 
-    // Google Analytics
-    if (settings.google_analytics_id && !document.querySelector(`script[src*="${settings.google_analytics_id}"]`)) {
-      const gaScript = document.createElement('script');
-      gaScript.async = true;
-      gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${settings.google_analytics_id}`;
-      document.head.appendChild(gaScript);
+    // Google Analytics - with XSS protection via strict ID validation
+    if (settings.google_analytics_id && !document.querySelector('script[data-ga-initialized="true"]')) {
+      // Validate GA ID format: G-XXXXXXXXXX (GA4) or UA-XXXXXXXXX-X (Universal Analytics)
+      const gaIdRegex = /^(G-[A-Z0-9]{6,12}|UA-\d{6,10}-\d{1,2})$/i;
+      const sanitizedGaId = settings.google_analytics_id.trim();
+      
+      if (gaIdRegex.test(sanitizedGaId)) {
+        const gaScript = document.createElement('script');
+        gaScript.async = true;
+        gaScript.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(sanitizedGaId)}`;
+        gaScript.setAttribute('data-ga-initialized', 'true');
+        document.head.appendChild(gaScript);
 
-      const gaConfig = document.createElement('script');
-      gaConfig.innerHTML = `
-        window.dataLayer = window.dataLayer || [];
-        function gtag(){dataLayer.push(arguments);}
-        gtag('js', new Date());
-        gtag('config', '${settings.google_analytics_id}');
-      `;
-      document.head.appendChild(gaConfig);
+        const gaConfig = document.createElement('script');
+        // Use only alphanumeric and hyphen characters for extra safety
+        const safeGaId = sanitizedGaId.replace(/[^A-Z0-9-]/gi, '');
+        gaConfig.innerHTML = `
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+          gtag('config', '${safeGaId}');
+        `;
+        document.head.appendChild(gaConfig);
+      } else {
+        console.error('Invalid Google Analytics ID format:', sanitizedGaId);
+      }
     }
 
-    // Google AdSense
-    if (settings.google_adsense_id && settings.ads_enabled && !document.querySelector(`script[src*="adsbygoogle"]`)) {
-      const adsenseScript = document.createElement('script');
-      adsenseScript.async = true;
-      adsenseScript.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${settings.google_adsense_id}`;
-      adsenseScript.crossOrigin = 'anonymous';
-      document.head.appendChild(adsenseScript);
+    // Google AdSense - with XSS protection via strict ID validation
+    if (settings.google_adsense_id && settings.ads_enabled && !document.querySelector('script[data-adsense-initialized="true"]')) {
+      // Validate AdSense ID format: ca-pub-XXXXXXXXXX
+      const adsenseIdRegex = /^ca-pub-\d{10,20}$/i;
+      const sanitizedAdsenseId = settings.google_adsense_id.trim();
+      
+      if (adsenseIdRegex.test(sanitizedAdsenseId)) {
+        const adsenseScript = document.createElement('script');
+        adsenseScript.async = true;
+        adsenseScript.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(sanitizedAdsenseId)}`;
+        adsenseScript.crossOrigin = 'anonymous';
+        adsenseScript.setAttribute('data-adsense-initialized', 'true');
+        document.head.appendChild(adsenseScript);
+      } else {
+        console.error('Invalid Google AdSense ID format:', sanitizedAdsenseId);
+      }
     }
 
     // Schema.org JSON-LD
