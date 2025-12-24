@@ -1,5 +1,4 @@
 import Header from "@/components/Header";
-import HeroSection from "@/components/HeroSection";
 import MatchList from "@/components/MatchList";
 import Footer from "@/components/Footer";
 import SEOHead from "@/components/SEOHead";
@@ -19,7 +18,6 @@ const Index = () => {
       <Header />
       <AdSlot position="header" className="container mx-auto px-4 py-2" />
       <main className="flex-1">
-        <HeroSection />
         <MatchList />
       </main>
       <AdSlot position="footer" className="container mx-auto px-4 py-2" />
