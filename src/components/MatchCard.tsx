@@ -250,7 +250,7 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                     {countdown}
                   </div>
                 </div>
-              ) : match.status === 'live' && match.match_minute != null ? (
+              ) : match.status === 'live' && match.match_minute != null && (sportName.toLowerCase() === 'football' || sportName.toLowerCase() === 'soccer') ? (
                 <div className="flex flex-col items-center">
                   <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/20 flex items-center justify-center border border-red-500/30 shadow-inner relative">
                     <span className="font-display text-lg text-red-500 font-bold">{match.match_minute}'</span>
