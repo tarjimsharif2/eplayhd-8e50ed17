@@ -859,6 +859,15 @@ const Admin = () => {
                               onChange={(e) => setMatchForm({ ...matchForm, seo_description: e.target.value })} 
                             />
                           </div>
+                          <div className="space-y-2">
+                            <Label>SEO Keywords (optional)</Label>
+                            <Input 
+                              placeholder="team a, team b, live stream, cricket match" 
+                              value={matchForm.seo_keywords} 
+                              onChange={(e) => setMatchForm({ ...matchForm, seo_keywords: e.target.value })} 
+                            />
+                            <p className="text-xs text-muted-foreground">Comma-separated keywords for this match page</p>
+                          </div>
                         </>
                       )}
                       
