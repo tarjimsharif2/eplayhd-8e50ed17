@@ -43,7 +43,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
     cookie_value: '',
     user_agent: '',
     drm_license_url: '',
-    drm_scheme: '' as '' | 'widevine' | 'playready' | 'clearkey',
+    drm_scheme: 'none' as 'none' | 'widevine' | 'playready' | 'clearkey',
   });
 
   const resetForm = () => {
@@ -59,7 +59,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       cookie_value: '',
       user_agent: '',
       drm_license_url: '',
-      drm_scheme: '',
+      drm_scheme: 'none',
     });
   };
 
@@ -76,7 +76,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       cookie_value: server.cookie_value || '',
       user_agent: server.user_agent || '',
       drm_license_url: server.drm_license_url || '',
-      drm_scheme: server.drm_scheme || '',
+      drm_scheme: server.drm_scheme || 'none',
     });
     setDialogOpen(true);
   };
@@ -105,7 +105,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       cookie_value: serverForm.cookie_value || null,
       user_agent: serverForm.user_agent || null,
       drm_license_url: serverForm.drm_license_url || null,
-      drm_scheme: serverForm.drm_scheme || null,
+      drm_scheme: serverForm.drm_scheme === 'none' ? null : serverForm.drm_scheme,
     };
 
     try {
@@ -361,13 +361,13 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
                     <Label>DRM Scheme</Label>
                     <Select 
                       value={serverForm.drm_scheme} 
-                      onValueChange={(v: '' | 'widevine' | 'playready' | 'clearkey') => setServerForm({ ...serverForm, drm_scheme: v })}
+                      onValueChange={(v: 'none' | 'widevine' | 'playready' | 'clearkey') => setServerForm({ ...serverForm, drm_scheme: v })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="No DRM" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No DRM</SelectItem>
+                        <SelectItem value="none">No DRM</SelectItem>
                         <SelectItem value="widevine">Widevine (Chrome, Firefox, Android)</SelectItem>
                         <SelectItem value="playready">PlayReady (Edge, IE, Xbox)</SelectItem>
                         <SelectItem value="clearkey">ClearKey (Basic)</SelectItem>
@@ -375,7 +375,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
                     </Select>
                   </div>
 
-                  {serverForm.drm_scheme && (
+                  {serverForm.drm_scheme && serverForm.drm_scheme !== 'none' && (
                     <div className="space-y-2">
                       <Label>DRM License URL *</Label>
                       <Input
