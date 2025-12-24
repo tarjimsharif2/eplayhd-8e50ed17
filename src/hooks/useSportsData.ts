@@ -46,6 +46,10 @@ export interface Match {
   is_priority: boolean;
   match_label: string | null;
   sport_id: string | null;
+  slug: string | null;
+  page_type: string | null;
+  seo_title: string | null;
+  seo_description: string | null;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;

@@ -59,8 +59,12 @@ export type Database = {
           match_number: number
           match_start_time: string | null
           match_time: string
+          page_type: string | null
           score_a: string | null
           score_b: string | null
+          seo_description: string | null
+          seo_title: string | null
+          slug: string | null
           sport_id: string | null
           status: string
           team_a_id: string
@@ -80,8 +84,12 @@ export type Database = {
           match_number?: number
           match_start_time?: string | null
           match_time: string
+          page_type?: string | null
           score_a?: string | null
           score_b?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string | null
           sport_id?: string | null
           status?: string
           team_a_id: string
@@ -101,8 +109,12 @@ export type Database = {
           match_number?: number
           match_start_time?: string | null
           match_time?: string
+          page_type?: string | null
           score_a?: string | null
           score_b?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          slug?: string | null
           sport_id?: string | null
           status?: string
           team_a_id?: string
@@ -172,6 +184,51 @@ export type Database = {
         }
         Relationships: []
       }
+      site_settings: {
+        Row: {
+          created_at: string
+          favicon_url: string | null
+          footer_text: string | null
+          google_analytics_id: string | null
+          id: string
+          logo_url: string | null
+          og_image_url: string | null
+          site_description: string | null
+          site_keywords: string | null
+          site_name: string
+          site_title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          favicon_url?: string | null
+          footer_text?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          logo_url?: string | null
+          og_image_url?: string | null
+          site_description?: string | null
+          site_keywords?: string | null
+          site_name?: string
+          site_title?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          favicon_url?: string | null
+          footer_text?: string | null
+          google_analytics_id?: string | null
+          id?: string
+          logo_url?: string | null
+          og_image_url?: string | null
+          site_description?: string | null
+          site_keywords?: string | null
+          site_name?: string
+          site_title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       sports: {
         Row: {
           created_at: string
@@ -195,6 +252,50 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      streaming_servers: {
+        Row: {
+          created_at: string
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          match_id: string
+          server_name: string
+          server_type: string
+          server_url: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          match_id: string
+          server_name: string
+          server_type?: string
+          server_url: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          match_id?: string
+          server_name?: string
+          server_type?: string
+          server_url?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streaming_servers_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       teams: {
         Row: {
