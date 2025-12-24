@@ -17,10 +17,16 @@ interface StreamHeaders {
   userAgent?: string | null;
 }
 
+interface DrmConfig {
+  licenseUrl?: string | null;
+  scheme?: 'widevine' | 'playready' | 'clearkey' | null;
+}
+
 interface VideoPlayerProps {
   url: string;
   type: 'iframe' | 'm3u8' | 'embed';
   headers?: StreamHeaders;
+  drm?: DrmConfig;
 }
 
 // Validate that URL uses safe protocols (http:// or https://)
@@ -46,7 +52,7 @@ interface QualityLevel {
   label: string;
 }
 
-const HlsPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
+const HlsPlayer = ({ url, headers, drm }: { url: string; headers?: StreamHeaders; drm?: DrmConfig }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -129,11 +135,32 @@ const HlsPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) =
     const streamUrl = proxyPlaylistUrl || url;
 
     if (Hls.isSupported()) {
-      const hls = new Hls({
+      // Build HLS config with optional DRM
+      const hlsConfig: Partial<Hls['config']> = {
         enableWorker: true,
         lowLatencyMode: true,
         startLevel: -1, // Auto quality
-      });
+      };
+
+      // Add DRM configuration if specified
+      if (drm?.licenseUrl && drm?.scheme) {
+        const drmSystemId = drm.scheme === 'widevine' 
+          ? 'com.widevine.alpha' 
+          : drm.scheme === 'playready' 
+          ? 'com.microsoft.playready' 
+          : 'org.w3.clearkey';
+
+        (hlsConfig as any).drmSystems = {
+          [drmSystemId]: {
+            licenseUrl: drm.licenseUrl,
+          },
+        };
+
+        (hlsConfig as any).emeEnabled = true;
+        console.log('DRM enabled:', drm.scheme, 'License URL:', drm.licenseUrl);
+      }
+
+      const hls = new Hls(hlsConfig as any);
 
       hls.loadSource(streamUrl);
       hls.attachMedia(video);
@@ -189,7 +216,7 @@ const HlsPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) =
         hlsRef.current = null;
       }
     };
-  }, [url, headers, proxyPlaylistUrl]);
+  }, [url, headers, drm, proxyPlaylistUrl]);
 
   const handlePlay = async () => {
     try {
@@ -308,7 +335,7 @@ const HlsPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) =
   );
 };
 
-const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
+const VideoPlayer = ({ url, type, headers, drm }: VideoPlayerProps) => {
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
     return (
@@ -320,7 +347,7 @@ const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
 
   // For M3U8 streams, use HLS.js player
   if (type === 'm3u8') {
-    return <HlsPlayer url={url} headers={headers} />;
+    return <HlsPlayer url={url} headers={headers} drm={drm} />;
   }
 
   // For iframe and embed types

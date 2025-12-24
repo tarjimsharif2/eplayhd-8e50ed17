@@ -42,6 +42,8 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
     origin_value: '',
     cookie_value: '',
     user_agent: '',
+    drm_license_url: '',
+    drm_scheme: '' as '' | 'widevine' | 'playready' | 'clearkey',
   });
 
   const resetForm = () => {
@@ -56,6 +58,8 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       origin_value: '',
       cookie_value: '',
       user_agent: '',
+      drm_license_url: '',
+      drm_scheme: '',
     });
   };
 
@@ -71,6 +75,8 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       origin_value: server.origin_value || '',
       cookie_value: server.cookie_value || '',
       user_agent: server.user_agent || '',
+      drm_license_url: server.drm_license_url || '',
+      drm_scheme: server.drm_scheme || '',
     });
     setDialogOpen(true);
   };
@@ -98,6 +104,8 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       origin_value: serverForm.origin_value || null,
       cookie_value: serverForm.cookie_value || null,
       user_agent: serverForm.user_agent || null,
+      drm_license_url: serverForm.drm_license_url || null,
+      drm_scheme: serverForm.drm_scheme || null,
     };
 
     try {
@@ -341,6 +349,45 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
                     onChange={(e) => setServerForm({ ...serverForm, user_agent: e.target.value })}
                   />
                   <p className="text-xs text-muted-foreground">Leave empty to use default browser agent</p>
+                </div>
+
+                {/* DRM Settings */}
+                <div className="space-y-4 pt-4 border-t">
+                  <div className="flex items-center gap-2">
+                    <Label className="text-sm font-medium">DRM Protection (Optional)</Label>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>DRM Scheme</Label>
+                    <Select 
+                      value={serverForm.drm_scheme} 
+                      onValueChange={(v: '' | 'widevine' | 'playready' | 'clearkey') => setServerForm({ ...serverForm, drm_scheme: v })}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="No DRM" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">No DRM</SelectItem>
+                        <SelectItem value="widevine">Widevine (Chrome, Firefox, Android)</SelectItem>
+                        <SelectItem value="playready">PlayReady (Edge, IE, Xbox)</SelectItem>
+                        <SelectItem value="clearkey">ClearKey (Basic)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {serverForm.drm_scheme && (
+                    <div className="space-y-2">
+                      <Label>DRM License URL *</Label>
+                      <Input
+                        placeholder="https://license.example.com/widevine"
+                        value={serverForm.drm_license_url}
+                        onChange={(e) => setServerForm({ ...serverForm, drm_license_url: e.target.value })}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        License server URL for {serverForm.drm_scheme.charAt(0).toUpperCase() + serverForm.drm_scheme.slice(1)} DRM
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

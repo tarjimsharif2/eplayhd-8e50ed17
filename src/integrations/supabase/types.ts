@@ -306,6 +306,8 @@ export type Database = {
           cookie_value: string | null
           created_at: string
           display_order: number | null
+          drm_license_url: string | null
+          drm_scheme: string | null
           id: string
           is_active: boolean | null
           match_id: string
@@ -321,6 +323,8 @@ export type Database = {
           cookie_value?: string | null
           created_at?: string
           display_order?: number | null
+          drm_license_url?: string | null
+          drm_scheme?: string | null
           id?: string
           is_active?: boolean | null
           match_id: string
@@ -336,6 +340,8 @@ export type Database = {
           cookie_value?: string | null
           created_at?: string
           display_order?: number | null
+          drm_license_url?: string | null
+          drm_scheme?: string | null
           id?: string
           is_active?: boolean | null
           match_id?: string
