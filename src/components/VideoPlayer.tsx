@@ -330,61 +330,95 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   const playerRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const playerIdRef = useRef(`clappr-${Math.random().toString(36).substr(2, 9)}`);
 
   useEffect(() => {
+    let mounted = true;
+
     const loadClappr = async () => {
       if (!containerRef.current) return;
 
       try {
         // Dynamically import Clappr
-        const Clappr = await import('@clappr/player');
+        const ClapprModule = await import('@clappr/player');
+        const Clappr = ClapprModule.default || ClapprModule;
+
+        if (!mounted) return;
         
         // Cleanup previous player
         if (playerRef.current) {
-          playerRef.current.destroy();
+          try {
+            playerRef.current.destroy();
+          } catch (e) {
+            console.warn('Error destroying previous player:', e);
+          }
+          playerRef.current = null;
         }
 
-        // Create player
-        playerRef.current = new Clappr.default({
+        // Clear container
+        if (containerRef.current) {
+          containerRef.current.innerHTML = '';
+        }
+
+        // Create player using parent element directly
+        const player = new Clappr.Player({
           source: url,
-          parentId: `#${containerRef.current.id}`,
+          parent: containerRef.current,
           width: '100%',
           height: '100%',
           autoPlay: false,
           mute: false,
-          playback: {
-            hlsjsConfig: {
-              enableWorker: true,
-              lowLatencyMode: true,
-            },
-          },
-          events: {
-            onReady: () => {
-              setIsLoading(false);
-            },
-            onError: (e: any) => {
-              console.error('Clappr error:', e);
-              setError('Failed to load stream');
-              setIsLoading(false);
-            },
+          hlsPlayback: {
+            preload: true,
           },
         });
+
+        player.on('ready', () => {
+          if (mounted) {
+            setIsLoading(false);
+          }
+        });
+
+        player.on('error', (e: any) => {
+          console.error('Clappr playback error:', e);
+          if (mounted) {
+            setError('Failed to load stream');
+            setIsLoading(false);
+          }
+        });
+
+        playerRef.current = player;
+        
+        // Fallback - set loading to false after short delay
+        setTimeout(() => {
+          if (mounted && isLoading) {
+            setIsLoading(false);
+          }
+        }, 2000);
+
       } catch (err) {
         console.error('Failed to load Clappr:', err);
-        setError('Failed to initialize player');
-        setIsLoading(false);
+        if (mounted) {
+          setError('Failed to initialize player');
+          setIsLoading(false);
+        }
       }
     };
 
     loadClappr();
 
     return () => {
+      mounted = false;
       if (playerRef.current) {
-        playerRef.current.destroy();
+        try {
+          playerRef.current.destroy();
+        } catch (e) {
+          console.warn('Error during cleanup:', e);
+        }
         playerRef.current = null;
       }
     };
-  }, [url, headers]);
+  }, [url]);
 
   if (error) {
     return (
@@ -404,8 +438,8 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
       )}
       <div 
         ref={containerRef} 
-        id={`clappr-player-${Date.now()}`}
-        className="absolute inset-0 w-full h-full"
+        id={playerIdRef.current}
+        className="absolute inset-0 w-full h-full [&_.player-poster]:hidden"
       />
     </div>
   );
