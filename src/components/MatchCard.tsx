@@ -167,15 +167,6 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
           <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500" />
         )}
         
-        {/* Match label badge (Final, Semi-Final, etc.) */}
-        {match.match_label && (
-          <div className="absolute top-3 left-3 z-10">
-            <Badge className="bg-gradient-to-r from-yellow-500/90 to-orange-500/90 text-white border-0 font-semibold text-[10px] uppercase tracking-wider px-2 py-0.5 shadow-lg">
-              {match.match_label}
-            </Badge>
-          </div>
-        )}
-
         {/* Tournament Logo - Top Right */}
         {tournament?.logo_url && (
           <div className="absolute top-3 right-3 z-10">
@@ -190,13 +181,22 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
         )}
 
         <div className="p-5 md:p-6">
+          {/* Match Label Badge - Above Tournament Name */}
+          {match.match_label && (
+            <div className="flex justify-start mb-3">
+              <Badge className="bg-gradient-to-r from-yellow-500/90 to-orange-500/90 text-white border-0 font-semibold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg">
+                {match.match_label}
+              </Badge>
+            </div>
+          )}
+
           {/* Tournament Header - Optional */}
           {tournament && (
-            <div className="text-center mb-4 pr-14">
-              <h3 className="font-display text-lg md:text-xl text-gradient tracking-wide line-clamp-1">
+            <div className={`text-center mb-4 ${tournament.logo_url ? 'pr-14' : ''}`}>
+              <h3 className="font-display text-lg md:text-xl text-gradient tracking-wide line-clamp-2">
                 {tournament.name}
               </h3>
-              <p className="text-muted-foreground text-[11px] mt-0.5">
+              <p className="text-muted-foreground text-[11px] mt-1">
                 {tournament.season}
               </p>
             </div>

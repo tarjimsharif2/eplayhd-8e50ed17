@@ -21,7 +21,7 @@ import {
   Match, Team, Tournament, Banner, Sport
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -29,6 +29,7 @@ import DateTimePicker from "@/components/DateTimePicker";
 import { format } from "date-fns";
 import StreamingServersManager from "@/components/StreamingServersManager";
 import { Textarea } from "@/components/ui/textarea";
+import SearchableSelect from "@/components/SearchableSelect";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -671,48 +672,59 @@ const Admin = () => {
                         </Select>
                       </div>
                       
-                      {/* Tournament (Optional) */}
+                      {/* Tournament (Optional) - Searchable */}
                       <div className="space-y-2">
                         <Label>Tournament (optional)</Label>
-                        <Select value={matchForm.tournament_id || 'none'} onValueChange={(v) => setMatchForm({ ...matchForm, tournament_id: v === 'none' ? null : v })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select tournament (optional)" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">No Tournament</SelectItem>
-                            {tournaments?.map((t) => (
-                              <SelectItem key={t.id} value={t.id}>{t.name} {t.season}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                        <SearchableSelect
+                          options={[
+                            { value: 'none', label: 'No Tournament' },
+                            ...(tournaments?.map((t) => ({
+                              value: t.id,
+                              label: t.name,
+                              sublabel: t.season,
+                              imageUrl: t.logo_url,
+                            })) || [])
+                          ]}
+                          value={matchForm.tournament_id || 'none'}
+                          onValueChange={(v) => setMatchForm({ ...matchForm, tournament_id: v === 'none' ? null : v })}
+                          placeholder="Select tournament (optional)"
+                          searchPlaceholder="Search tournaments..."
+                          emptyText="No tournaments found."
+                        />
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Team A *</Label>
-                          <Select value={matchForm.team_a_id} onValueChange={(v) => setMatchForm({ ...matchForm, team_a_id: v })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select team" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {teams?.map((t) => (
-                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <SearchableSelect
+                            options={teams?.map((t) => ({
+                              value: t.id,
+                              label: t.name,
+                              sublabel: t.short_name,
+                              imageUrl: t.logo_url,
+                            })) || []}
+                            value={matchForm.team_a_id}
+                            onValueChange={(v) => setMatchForm({ ...matchForm, team_a_id: v })}
+                            placeholder="Select team"
+                            searchPlaceholder="Search teams..."
+                            emptyText="No teams found."
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>Team B *</Label>
-                          <Select value={matchForm.team_b_id} onValueChange={(v) => setMatchForm({ ...matchForm, team_b_id: v })}>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select team" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {teams?.map((t) => (
-                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                          <SearchableSelect
+                            options={teams?.map((t) => ({
+                              value: t.id,
+                              label: t.name,
+                              sublabel: t.short_name,
+                              imageUrl: t.logo_url,
+                            })) || []}
+                            value={matchForm.team_b_id}
+                            onValueChange={(v) => setMatchForm({ ...matchForm, team_b_id: v })}
+                            placeholder="Select team"
+                            searchPlaceholder="Search teams..."
+                            emptyText="No teams found."
+                          />
                         </div>
                       </div>
                       
