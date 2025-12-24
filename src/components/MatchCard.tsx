@@ -2,6 +2,7 @@ import { Match } from "@/hooks/useSportsData";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { MapPin, Clock, Star } from "lucide-react";
 
 interface MatchCardProps {
@@ -63,6 +64,7 @@ const SportIcon = ({ sport, iconUrl }: { sport: string; iconUrl?: string | null 
 };
 
 const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
+  const navigate = useNavigate();
   const [countdown, setCountdown] = useState<string | null>(null);
   const [localTime, setLocalTime] = useState<string>("");
   const [timezone, setTimezone] = useState<string>("");
@@ -136,10 +138,14 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
   }
 
   const handleClick = () => {
-    if (match.match_link) {
+    if (match.page_type === 'page' && match.slug) {
+      navigate(`/match/${match.slug}`);
+    } else if (match.match_link) {
       window.open(match.match_link, '_blank', 'noopener,noreferrer');
     }
   };
+
+  const isClickable = (match.page_type === 'page' && match.slug) || match.match_link;
 
   // Get sport name from sport object or tournament
   const sportName = sport?.name || tournament?.sport || 'Sport';
@@ -151,7 +157,7 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: index * 0.08 }}
       onClick={handleClick}
-      className={`relative overflow-hidden rounded-2xl transition-all duration-300 ${match.match_link ? 'cursor-pointer' : ''} group`}
+      className={`relative overflow-hidden rounded-2xl transition-all duration-300 ${isClickable ? 'cursor-pointer' : ''} group`}
     >
       {/* Glassmorphism card */}
       <div className="relative bg-gradient-to-br from-card/90 via-card/70 to-card/50 backdrop-blur-xl border border-border/50 rounded-2xl overflow-hidden hover:border-primary/40 hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500">

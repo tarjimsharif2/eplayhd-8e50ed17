@@ -21,7 +21,7 @@ import {
   Match, Team, Tournament, Banner, Sport
 } from "@/hooks/useSportsData";
 import { useState, useEffect } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import DateTimePicker from "@/components/DateTimePicker";
@@ -89,6 +89,9 @@ const Admin = () => {
     is_priority: false,
     match_label: '',
     sport_id: '' as string | null,
+    page_type: 'redirect' as string,
+    seo_title: '',
+    seo_description: '',
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -175,6 +178,17 @@ const Admin = () => {
   // Match handlers
   const handleSaveMatch = async () => {
     try {
+      // Generate SEO-friendly slug from team names
+      const teamAName = teams?.find(t => t.id === matchForm.team_a_id)?.name || '';
+      const teamBName = teams?.find(t => t.id === matchForm.team_b_id)?.name || '';
+      const generateSlug = (teamA: string, teamB: string) => {
+        const base = `${teamA}-vs-${teamB}`.toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+        const random = Math.random().toString(36).substring(2, 8);
+        return `${base}-${random}`;
+      };
+
       const matchData = {
         tournament_id: matchForm.tournament_id || null,
         team_a_id: matchForm.team_a_id,
@@ -186,12 +200,16 @@ const Admin = () => {
         venue: matchForm.venue || null,
         score_a: matchForm.score_a || null,
         score_b: matchForm.score_b || null,
-        match_link: matchForm.match_link || null,
+        match_link: matchForm.page_type === 'redirect' ? (matchForm.match_link || null) : null,
         match_duration_minutes: matchForm.match_duration_minutes || 180,
         match_start_time: matchForm.match_start_time || null,
         is_priority: matchForm.is_priority,
         match_label: matchForm.match_label || null,
         sport_id: matchForm.sport_id || null,
+        page_type: matchForm.page_type,
+        slug: matchForm.page_type === 'page' ? (editingMatch?.slug || generateSlug(teamAName, teamBName)) : null,
+        seo_title: matchForm.seo_title || null,
+        seo_description: matchForm.seo_description || null,
       };
       
       if (editingMatch) {
@@ -227,6 +245,9 @@ const Admin = () => {
       is_priority: match.is_priority || false,
       match_label: match.match_label || '',
       sport_id: match.sport_id || '',
+      page_type: match.page_type || 'redirect',
+      seo_title: match.seo_title || '',
+      seo_description: match.seo_description || '',
     });
     setMatchDialogOpen(true);
   };
@@ -259,6 +280,9 @@ const Admin = () => {
       is_priority: false,
       match_label: '',
       sport_id: '',
+      page_type: 'redirect',
+      seo_title: '',
+      seo_description: '',
     });
   };
 
@@ -495,6 +519,10 @@ const Admin = () => {
                 <Image className="w-4 h-4" />
                 Banners
               </TabsTrigger>
+              <TabsTrigger value="settings" className="gap-2">
+                <Settings className="w-4 h-4" />
+                Settings
+              </TabsTrigger>
             </TabsList>
 
             {/* Matches Tab */}
@@ -676,13 +704,54 @@ const Admin = () => {
                         </div>
                       </div>
                       
+                      {/* Page Type Selection */}
                       <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <LinkIcon className="w-4 h-4" />
-                          Match Link (redirect URL)
-                        </Label>
-                        <Input placeholder="https://..." value={matchForm.match_link} onChange={(e) => setMatchForm({ ...matchForm, match_link: e.target.value })} />
+                        <Label>Match Page Type</Label>
+                        <Select value={matchForm.page_type} onValueChange={(v) => setMatchForm({ ...matchForm, page_type: v })}>
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="redirect">Redirect URL</SelectItem>
+                            <SelectItem value="page">SEO Match Page</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground">
+                          {matchForm.page_type === 'redirect' 
+                            ? 'Match card will redirect to an external URL' 
+                            : 'Auto-generate an SEO-friendly match page with streaming servers'}
+                        </p>
                       </div>
+
+                      {matchForm.page_type === 'redirect' ? (
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <LinkIcon className="w-4 h-4" />
+                            Match Link (redirect URL)
+                          </Label>
+                          <Input placeholder="https://..." value={matchForm.match_link} onChange={(e) => setMatchForm({ ...matchForm, match_link: e.target.value })} />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-2">
+                            <Label>SEO Title (optional)</Label>
+                            <Input 
+                              placeholder="e.g., Team A vs Team B Live Stream" 
+                              value={matchForm.seo_title} 
+                              onChange={(e) => setMatchForm({ ...matchForm, seo_title: e.target.value })} 
+                            />
+                            <p className="text-xs text-muted-foreground">Leave empty to auto-generate from team names</p>
+                          </div>
+                          <div className="space-y-2">
+                            <Label>SEO Description (optional)</Label>
+                            <Input 
+                              placeholder="Watch live stream online..." 
+                              value={matchForm.seo_description} 
+                              onChange={(e) => setMatchForm({ ...matchForm, seo_description: e.target.value })} 
+                            />
+                          </div>
+                        </>
+                      )}
                       
                       {matchForm.status !== 'upcoming' && (
                         <div className="grid grid-cols-2 gap-4">
@@ -1158,6 +1227,19 @@ const Admin = () => {
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            {/* Settings Tab */}
+            <TabsContent value="settings" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Site Settings</CardTitle>
+                  <CardDescription>Configure your website name, logo, SEO settings and more</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Site settings management coming soon. You can manage streaming servers directly from match pages.</p>
+                </CardContent>
+              </Card>
             </TabsContent>
           </Tabs>
         </div>
