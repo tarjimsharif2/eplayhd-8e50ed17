@@ -3,7 +3,26 @@ interface VideoPlayerProps {
   type: 'iframe' | 'm3u8' | 'embed';
 }
 
+// Validate that URL uses safe protocols (http:// or https://)
+const isValidUrl = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
 const VideoPlayer = ({ url, type }: VideoPlayerProps) => {
+  // Validate URL before rendering to prevent XSS attacks
+  if (!isValidUrl(url)) {
+    return (
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center">
+        <p className="text-destructive">Invalid streaming URL</p>
+      </div>
+    );
+  }
+
   // For M3U8 streams, use an iframe-based player service
   if (type === 'm3u8') {
     // Use a public HLS player embed or convert to iframe
