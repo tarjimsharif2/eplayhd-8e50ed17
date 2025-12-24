@@ -330,6 +330,9 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   const playerRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
+  const [currentQuality, setCurrentQuality] = useState<number>(-1);
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
   const playerIdRef = useRef(`clappr-${Math.random().toString(36).substr(2, 9)}`);
 
   useEffect(() => {
@@ -339,13 +342,11 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
       if (!containerRef.current) return;
 
       try {
-        // Dynamically import Clappr
         const ClapprModule = await import('@clappr/player');
         const Clappr = ClapprModule.default || ClapprModule;
 
         if (!mounted) return;
         
-        // Cleanup previous player
         if (playerRef.current) {
           try {
             playerRef.current.destroy();
@@ -355,19 +356,23 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           playerRef.current = null;
         }
 
-        // Clear container
         if (containerRef.current) {
           containerRef.current.innerHTML = '';
         }
 
-        // Create player using parent element directly
         const player = new Clappr.Player({
           source: url,
           parent: containerRef.current,
           width: '100%',
           height: '100%',
-          autoPlay: false,
+          autoPlay: true,
           mute: false,
+          hideMediaControl: false,
+          mediacontrol: { seekbar: '#E91E63', buttons: '#E91E63' },
+          playback: {
+            playInline: true,
+            controls: true,
+          },
           hlsPlayback: {
             preload: true,
           },
@@ -376,6 +381,27 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
         player.on('ready', () => {
           if (mounted) {
             setIsLoading(false);
+            
+            // Extract quality levels from HLS playback
+            try {
+              const playback = player.core?.activePlayback;
+              if (playback && playback._hls) {
+                playback._hls.on('hlsManifestParsed', (_: any, data: any) => {
+                  if (data.levels && mounted) {
+                    const levels: QualityLevel[] = data.levels.map((level: any, index: number) => ({
+                      index,
+                      height: level.height,
+                      bitrate: level.bitrate,
+                      label: level.height ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}kbps`,
+                    }));
+                    levels.sort((a, b) => b.height - a.height);
+                    setQualityLevels(levels);
+                  }
+                });
+              }
+            } catch (e) {
+              console.warn('Could not extract quality levels:', e);
+            }
           }
         });
 
@@ -389,7 +415,6 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
 
         playerRef.current = player;
         
-        // Fallback - set loading to false after short delay
         setTimeout(() => {
           if (mounted && isLoading) {
             setIsLoading(false);
@@ -420,6 +445,25 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
     };
   }, [url]);
 
+  const handleQualityChange = (levelIndex: number) => {
+    try {
+      const playback = playerRef.current?.core?.activePlayback;
+      if (playback && playback._hls) {
+        playback._hls.currentLevel = levelIndex;
+        setCurrentQuality(levelIndex);
+      }
+    } catch (e) {
+      console.warn('Could not change quality:', e);
+    }
+    setShowQualityMenu(false);
+  };
+
+  const getCurrentQualityLabel = () => {
+    if (currentQuality === -1) return 'Auto';
+    const level = qualityLevels.find(l => l.index === currentQuality);
+    return level?.label || 'Auto';
+  };
+
   if (error) {
     return (
       <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
@@ -430,17 +474,56 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   }
 
   return (
-    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden">
+    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center z-10">
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black">
           <Loader2 className="w-10 h-10 text-primary animate-spin" />
         </div>
       )}
       <div 
         ref={containerRef} 
         id={playerIdRef.current}
-        className="absolute inset-0 w-full h-full [&_.player-poster]:hidden"
+        className="absolute inset-0 w-full h-full [&_.play-wrapper]:!hidden [&_.player-poster]:!hidden [&_.play-button]:!hidden"
       />
+      
+      {/* Quality Selector */}
+      {qualityLevels.length > 1 && (
+        <div className="absolute bottom-16 right-4 z-20">
+          <DropdownMenu open={showQualityMenu} onOpenChange={setShowQualityMenu}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="text-xs">{getCurrentQualityLabel()}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
+              <DropdownMenuItem 
+                onClick={() => handleQualityChange(-1)}
+                className="text-white hover:bg-white/20 gap-2"
+              >
+                {currentQuality === -1 && <Check className="w-4 h-4" />}
+                <span className={currentQuality !== -1 ? 'ml-6' : ''}>Auto</span>
+              </DropdownMenuItem>
+              {qualityLevels.map((level) => (
+                <DropdownMenuItem
+                  key={level.index}
+                  onClick={() => handleQualityChange(level.index)}
+                  className="text-white hover:bg-white/20 gap-2"
+                >
+                  {currentQuality === level.index && <Check className="w-4 h-4" />}
+                  <span className={currentQuality !== level.index ? 'ml-6' : ''}>
+                    {level.label}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      )}
     </div>
   );
 };
