@@ -29,6 +29,7 @@ import { useToast } from "@/hooks/use-toast";
 import DateTimePicker from "@/components/DateTimePicker";
 import { format } from "date-fns";
 import StreamingServersManager from "@/components/StreamingServersManager";
+import InningsManager from "@/components/InningsManager";
 import { Textarea } from "@/components/ui/textarea";
 import SearchableSelect from "@/components/SearchableSelect";
 
@@ -73,7 +74,9 @@ const Admin = () => {
   const [bannerDialogOpen, setBannerDialogOpen] = useState(false);
   const [sportDialogOpen, setSportDialogOpen] = useState(false);
   const [streamingDialogOpen, setStreamingDialogOpen] = useState(false);
+  const [inningsDialogOpen, setInningsDialogOpen] = useState(false);
   const [selectedMatchForStreaming, setSelectedMatchForStreaming] = useState<Match | null>(null);
+  const [selectedMatchForInnings, setSelectedMatchForInnings] = useState<Match | null>(null);
   const [editingMatch, setEditingMatch] = useState<Match | null>(null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
@@ -1025,6 +1028,19 @@ const Admin = () => {
                               <Badge variant={match.status === 'live' ? 'live' : match.status === 'completed' ? 'completed' : 'upcoming'}>
                                 {match.status}
                               </Badge>
+                              {match.sport?.name?.toLowerCase() === 'cricket' && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedMatchForInnings(match);
+                                    setInningsDialogOpen(true);
+                                  }}
+                                >
+                                  <Play className="w-3 h-3 mr-1" />
+                                  Innings
+                                </Button>
+                              )}
                               <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match)}>
                                 <Edit2 className="w-4 h-4" />
                               </Button>
@@ -1117,8 +1133,21 @@ const Admin = () => {
                                 }}
                               >
                                 <Tv className="w-4 h-4 mr-1" />
-                                Manage Servers
+                                Servers
                               </Button>
+                              {match.sport?.name?.toLowerCase() === 'cricket' && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => {
+                                    setSelectedMatchForInnings(match);
+                                    setInningsDialogOpen(true);
+                                  }}
+                                >
+                                  <Play className="w-4 h-4 mr-1" />
+                                  Innings
+                                </Button>
+                              )}
                             </div>
                           </div>
                         </CardContent>
@@ -1151,6 +1180,28 @@ const Admin = () => {
                       setStreamingDialogOpen(false);
                       setSelectedMatchForStreaming(null);
                     }}
+                  />
+                )}
+              </DialogContent>
+            </Dialog>
+
+            {/* Innings Management Dialog */}
+            <Dialog open={inningsDialogOpen} onOpenChange={(open) => {
+              setInningsDialogOpen(open);
+              if (!open) setSelectedMatchForInnings(null);
+            }}>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>
+                    Manage Innings - {selectedMatchForInnings?.team_a?.name} vs {selectedMatchForInnings?.team_b?.name}
+                  </DialogTitle>
+                </DialogHeader>
+                {selectedMatchForInnings && selectedMatchForInnings.team_a && selectedMatchForInnings.team_b && (
+                  <InningsManager
+                    matchId={selectedMatchForInnings.id}
+                    teamA={selectedMatchForInnings.team_a}
+                    teamB={selectedMatchForInnings.team_b}
+                    matchFormat={selectedMatchForInnings.match_format}
                   />
                 )}
               </DialogContent>

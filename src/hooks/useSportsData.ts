@@ -74,6 +74,21 @@ export interface Banner {
   updated_at: string;
 }
 
+export interface Innings {
+  id: string;
+  match_id: string;
+  innings_number: number;
+  batting_team_id: string;
+  runs: number;
+  wickets: number;
+  overs: number;
+  declared: boolean;
+  is_current: boolean;
+  extras: number;
+  created_at: string;
+  updated_at: string;
+  batting_team?: Team;
+}
 // Sports hooks
 export const useSports = () => {
   return useQuery({
@@ -469,6 +484,89 @@ export const useDeleteBanner = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['banners'] });
+    },
+  });
+};
+
+// Innings hooks
+export const useMatchInnings = (matchId: string | undefined) => {
+  return useQuery({
+    queryKey: ['match_innings', matchId],
+    queryFn: async () => {
+      if (!matchId) return [];
+      
+      const { data, error } = await supabase
+        .from('match_innings')
+        .select(`
+          *,
+          batting_team:teams(*)
+        `)
+        .eq('match_id', matchId)
+        .order('innings_number');
+      
+      if (error) throw error;
+      return data as Innings[];
+    },
+    enabled: !!matchId,
+  });
+};
+
+export const useCreateInnings = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (innings: Omit<Innings, 'id' | 'created_at' | 'updated_at' | 'batting_team'>) => {
+      const { data, error } = await supabase
+        .from('match_innings')
+        .insert(innings)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['match_innings', variables.match_id] });
+    },
+  });
+};
+
+export const useUpdateInnings = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, match_id, ...innings }: Partial<Innings> & { id: string; match_id: string }) => {
+      const { data, error } = await supabase
+        .from('match_innings')
+        .update(innings)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return { ...data, match_id };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['match_innings', data.match_id] });
+    },
+  });
+};
+
+export const useDeleteInnings = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, match_id }: { id: string; match_id: string }) => {
+      const { error } = await supabase
+        .from('match_innings')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+      return { match_id };
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['match_innings', data.match_id] });
     },
   });
 };

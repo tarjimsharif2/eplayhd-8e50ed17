@@ -47,6 +47,66 @@ export type Database = {
         }
         Relationships: []
       }
+      match_innings: {
+        Row: {
+          batting_team_id: string
+          created_at: string
+          declared: boolean | null
+          extras: number | null
+          id: string
+          innings_number: number
+          is_current: boolean | null
+          match_id: string
+          overs: number | null
+          runs: number | null
+          updated_at: string
+          wickets: number | null
+        }
+        Insert: {
+          batting_team_id: string
+          created_at?: string
+          declared?: boolean | null
+          extras?: number | null
+          id?: string
+          innings_number: number
+          is_current?: boolean | null
+          match_id: string
+          overs?: number | null
+          runs?: number | null
+          updated_at?: string
+          wickets?: number | null
+        }
+        Update: {
+          batting_team_id?: string
+          created_at?: string
+          declared?: boolean | null
+          extras?: number | null
+          id?: string
+          innings_number?: number
+          is_current?: boolean | null
+          match_id?: string
+          overs?: number | null
+          runs?: number | null
+          updated_at?: string
+          wickets?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_innings_batting_team_id_fkey"
+            columns: ["batting_team_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "match_innings_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       matches: {
         Row: {
           created_at: string

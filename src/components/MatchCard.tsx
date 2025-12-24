@@ -1,9 +1,10 @@
-import { Match } from "@/hooks/useSportsData";
+import { Match, useMatchInnings } from "@/hooks/useSportsData";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Clock, Star } from "lucide-react";
+import InningsDisplay from "@/components/InningsDisplay";
 
 interface MatchCardProps {
   match: Match;
@@ -118,6 +119,9 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
   // Check if it's a cricket match
   const sportName = match.sport?.name || match.tournament?.sport || 'Sport';
   const isCricket = sportName.toLowerCase() === 'cricket';
+
+  // Fetch innings for cricket matches
+  const { data: innings } = useMatchInnings(isCricket ? match.id : undefined);
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -371,6 +375,18 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
               )}
             </div>
           </div>
+
+          {/* Innings Display for Cricket */}
+          {isCricket && innings && innings.length > 0 && (
+            <div className="mt-4 pt-3 border-t border-border/20">
+              <InningsDisplay
+                innings={innings}
+                teamAId={teamA.id}
+                teamBId={teamB.id}
+                compact={true}
+              />
+            </div>
+          )}
 
           {/* Footer: Venue, Time & Status */}
           <div className="mt-6 pt-4 border-t border-border/30 flex flex-col items-center gap-2">
