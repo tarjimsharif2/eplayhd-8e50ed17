@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&family=Playfair+Display:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -179,6 +179,48 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  /* Premium title styling */
+  .premium-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-shadow: 0 2px 10px hsl(var(--foreground) / 0.1);
+  }
+
+  .premium-title-gradient {
+    font-family: 'Playfair Display', serif;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    background: linear-gradient(135deg, hsl(var(--foreground)), hsl(var(--primary)), hsl(var(--foreground)));
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: premium-shimmer 3s ease-in-out infinite;
+  }
+
+  .tournament-title {
+    font-family: 'Playfair Display', serif;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(280 90% 70%), hsl(var(--accent)));
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: none;
+    filter: drop-shadow(0 2px 4px hsl(var(--primary) / 0.2));
+  }
+
+  @keyframes premium-shimmer {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
   }
 
   .bg-gradient-primary {

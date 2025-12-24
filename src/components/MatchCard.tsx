@@ -203,13 +203,17 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
 
           {/* Tournament Header - Optional */}
           {tournament && (
-            <div className={`text-center mb-4 ${tournament.logo_url ? 'pr-14' : ''}`}>
-              <h3 className="font-display text-lg md:text-xl text-gradient tracking-wide line-clamp-2">
+            <div className={`text-center mb-5 ${tournament.logo_url ? 'pr-14' : ''}`}>
+              <h3 className="tournament-title text-lg md:text-xl lg:text-2xl tracking-wide line-clamp-2">
                 {tournament.name}
               </h3>
-              <p className="text-muted-foreground text-[11px] mt-1">
-                {tournament.season}
-              </p>
+              <div className="flex items-center justify-center gap-2 mt-2">
+                <div className="h-px w-8 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                <p className="text-muted-foreground text-[11px] uppercase tracking-widest font-medium">
+                  {tournament.season}
+                </p>
+                <div className="h-px w-8 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+              </div>
             </div>
           )}
 

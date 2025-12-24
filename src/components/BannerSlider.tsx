@@ -53,11 +53,15 @@ const BannerSlider = () => {
             alt={banners[currentIndex].title}
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
-          <div className="absolute bottom-4 left-4 right-4">
-            <h3 className="font-display text-xl md:text-2xl text-foreground drop-shadow-lg">
-              {banners[currentIndex].title}
-            </h3>
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-4 md:p-6">
+            <div className="flex items-center gap-3">
+              <div className="w-1 h-8 md:h-10 bg-gradient-to-b from-primary to-accent rounded-full" />
+              <h3 className="premium-title text-xl md:text-3xl lg:text-4xl text-foreground tracking-wide">
+                {banners[currentIndex].title}
+              </h3>
+            </div>
           </div>
         </motion.div>
       </AnimatePresence>
