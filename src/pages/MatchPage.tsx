@@ -154,6 +154,7 @@ const MatchPage = () => {
               <CardContent className="p-0">
                 {activeServer ? (
                   <VideoPlayer 
+                    key={`${activeServer.id}-${activeServer.player_type}`}
                     url={activeServer.server_url} 
                     type={activeServer.server_type}
                     headers={{

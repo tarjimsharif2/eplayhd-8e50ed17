@@ -483,7 +483,8 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
       <div 
         ref={containerRef} 
         id={playerIdRef.current}
-        className="absolute inset-0 w-full h-full [&_.play-wrapper]:!hidden [&_.player-poster]:!hidden [&_.play-button]:!hidden"
+        className="absolute inset-0 w-full h-full [&_.play-wrapper]:!hidden [&_.player-poster]:!hidden [&_.play-button]:!hidden [&_.poster-icon]:!hidden [&_.media-control-center-panel]:!opacity-0"
+        style={{ zIndex: 1 }}
       />
       
       {/* Quality Selector */}
