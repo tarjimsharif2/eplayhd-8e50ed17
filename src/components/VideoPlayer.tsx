@@ -9,9 +9,17 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 
+interface StreamHeaders {
+  referer?: string | null;
+  origin?: string | null;
+  cookie?: string | null;
+  userAgent?: string | null;
+}
+
 interface VideoPlayerProps {
   url: string;
   type: 'iframe' | 'm3u8' | 'embed';
+  headers?: StreamHeaders;
 }
 
 // Validate that URL uses safe protocols (http:// or https://)
@@ -31,7 +39,7 @@ interface QualityLevel {
   label: string;
 }
 
-const HlsPlayer = ({ url }: { url: string }) => {
+const HlsPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const hlsRef = useRef<Hls | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -55,10 +63,19 @@ const HlsPlayer = ({ url }: { url: string }) => {
     setCurrentQuality(-1);
 
     if (Hls.isSupported()) {
+      // Build custom headers for XHR requests
+      const xhrSetup = (xhr: XMLHttpRequest, url: string) => {
+        // Note: Due to browser security restrictions, we cannot set certain headers
+        // like Referer, Origin, or Cookie via XHR. These need to be handled by a proxy server.
+        // The user_agent also cannot be modified in browsers.
+        // This is a client-side limitation. For full header support, use a backend proxy.
+      };
+
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: true,
         startLevel: -1, // Auto quality
+        xhrSetup: xhrSetup,
       });
 
       hls.loadSource(url);
@@ -115,7 +132,7 @@ const HlsPlayer = ({ url }: { url: string }) => {
         hlsRef.current = null;
       }
     };
-  }, [url]);
+  }, [url, headers]);
 
   const handlePlay = async () => {
     try {
@@ -225,7 +242,7 @@ const HlsPlayer = ({ url }: { url: string }) => {
   );
 };
 
-const VideoPlayer = ({ url, type }: VideoPlayerProps) => {
+const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
     return (
@@ -237,7 +254,7 @@ const VideoPlayer = ({ url, type }: VideoPlayerProps) => {
 
   // For M3U8 streams, use HLS.js player
   if (type === 'm3u8') {
-    return <HlsPlayer url={url} />;
+    return <HlsPlayer url={url} headers={headers} />;
   }
 
   // For iframe and embed types

@@ -9,6 +9,10 @@ export interface StreamingServer {
   server_type: 'iframe' | 'm3u8' | 'embed';
   display_order: number;
   is_active: boolean;
+  referer_value: string | null;
+  origin_value: string | null;
+  cookie_value: string | null;
+  user_agent: string | null;
   created_at: string;
   updated_at: string;
 }

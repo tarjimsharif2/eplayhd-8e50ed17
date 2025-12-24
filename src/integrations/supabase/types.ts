@@ -303,37 +303,49 @@ export type Database = {
       }
       streaming_servers: {
         Row: {
+          cookie_value: string | null
           created_at: string
           display_order: number | null
           id: string
           is_active: boolean | null
           match_id: string
+          origin_value: string | null
+          referer_value: string | null
           server_name: string
           server_type: string
           server_url: string
           updated_at: string
+          user_agent: string | null
         }
         Insert: {
+          cookie_value?: string | null
           created_at?: string
           display_order?: number | null
           id?: string
           is_active?: boolean | null
           match_id: string
+          origin_value?: string | null
+          referer_value?: string | null
           server_name: string
           server_type?: string
           server_url: string
           updated_at?: string
+          user_agent?: string | null
         }
         Update: {
+          cookie_value?: string | null
           created_at?: string
           display_order?: number | null
           id?: string
           is_active?: boolean | null
           match_id?: string
+          origin_value?: string | null
+          referer_value?: string | null
           server_name?: string
           server_type?: string
           server_url?: string
           updated_at?: string
+          user_agent?: string | null
         }
         Relationships: [
           {

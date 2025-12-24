@@ -153,7 +153,16 @@ const MatchPage = () => {
             <Card className="overflow-hidden border-border/50 bg-card/80 backdrop-blur">
               <CardContent className="p-0">
                 {activeServer ? (
-                  <VideoPlayer url={activeServer.server_url} type={activeServer.server_type} />
+                  <VideoPlayer 
+                    url={activeServer.server_url} 
+                    type={activeServer.server_type}
+                    headers={{
+                      referer: activeServer.referer_value,
+                      origin: activeServer.origin_value,
+                      cookie: activeServer.cookie_value,
+                      userAgent: activeServer.user_agent,
+                    }}
+                  />
                 ) : (
                   <div className="aspect-video bg-muted flex items-center justify-center">
                     <div className="text-center text-muted-foreground">

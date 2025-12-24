@@ -38,6 +38,10 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
     server_type: 'iframe' as 'iframe' | 'm3u8' | 'embed',
     display_order: 0,
     is_active: true,
+    referer_value: '',
+    origin_value: '',
+    cookie_value: '',
+    user_agent: '',
   });
 
   const resetForm = () => {
@@ -48,6 +52,10 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       server_type: 'iframe',
       display_order: 0,
       is_active: true,
+      referer_value: '',
+      origin_value: '',
+      cookie_value: '',
+      user_agent: '',
     });
   };
 
@@ -59,6 +67,10 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       server_type: server.server_type,
       display_order: server.display_order,
       is_active: server.is_active,
+      referer_value: server.referer_value || '',
+      origin_value: server.origin_value || '',
+      cookie_value: server.cookie_value || '',
+      user_agent: server.user_agent || '',
     });
     setDialogOpen(true);
   };
@@ -75,14 +87,27 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       return;
     }
 
+    // Prepare data with null for empty strings
+    const serverData = {
+      server_name: serverForm.server_name,
+      server_url: serverForm.server_url,
+      server_type: serverForm.server_type,
+      display_order: serverForm.display_order,
+      is_active: serverForm.is_active,
+      referer_value: serverForm.referer_value || null,
+      origin_value: serverForm.origin_value || null,
+      cookie_value: serverForm.cookie_value || null,
+      user_agent: serverForm.user_agent || null,
+    };
+
     try {
       if (editingServer) {
-        await updateServer.mutateAsync({ id: editingServer.id, ...serverForm });
+        await updateServer.mutateAsync({ id: editingServer.id, ...serverData });
         toast({ title: "Server updated successfully" });
       } else {
         await createServer.mutateAsync({ 
           match_id: match.id, 
-          ...serverForm 
+          ...serverData 
         });
         toast({ title: "Server added successfully" });
       }
@@ -272,6 +297,53 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
                 onCheckedChange={(checked) => setServerForm({ ...serverForm, is_active: checked })}
               />
             </div>
+
+            {/* M3U8 Stream Headers - Only show for m3u8 type */}
+            {serverForm.server_type === 'm3u8' && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">Stream Headers (Optional)</Label>
+                  <span className="text-xs text-muted-foreground">(for M3U8 streams)</span>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Referer Value</Label>
+                  <Input
+                    placeholder="https://example.com"
+                    value={serverForm.referer_value}
+                    onChange={(e) => setServerForm({ ...serverForm, referer_value: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Origin Value</Label>
+                  <Input
+                    placeholder="https://example.com"
+                    value={serverForm.origin_value}
+                    onChange={(e) => setServerForm({ ...serverForm, origin_value: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Cookie Value</Label>
+                  <Input
+                    placeholder="session=abc123; token=xyz"
+                    value={serverForm.cookie_value}
+                    onChange={(e) => setServerForm({ ...serverForm, cookie_value: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>User Agent</Label>
+                  <Input
+                    placeholder="Mozilla/5.0..."
+                    value={serverForm.user_agent}
+                    onChange={(e) => setServerForm({ ...serverForm, user_agent: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">Leave empty to use default browser agent</p>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => {
