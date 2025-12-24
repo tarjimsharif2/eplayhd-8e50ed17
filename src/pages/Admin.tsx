@@ -99,6 +99,7 @@ const Admin = () => {
     page_type: 'redirect' as string,
     seo_title: '',
     seo_description: '',
+    seo_keywords: '',
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -137,6 +138,19 @@ const Admin = () => {
     og_image_url: '',
     footer_text: '',
     google_analytics_id: '',
+    // Ad settings
+    ads_enabled: false,
+    google_adsense_id: '',
+    header_ad_code: '',
+    sidebar_ad_code: '',
+    footer_ad_code: '',
+    in_article_ad_code: '',
+    popup_ad_code: '',
+    // Additional SEO
+    canonical_url: '',
+    twitter_handle: '',
+    facebook_app_id: '',
+    telegram_link: '',
   });
 
   // Initialize site settings form when data is loaded
@@ -152,6 +166,19 @@ const Admin = () => {
         og_image_url: siteSettings.og_image_url || '',
         footer_text: siteSettings.footer_text || '',
         google_analytics_id: siteSettings.google_analytics_id || '',
+        // Ad settings
+        ads_enabled: siteSettings.ads_enabled || false,
+        google_adsense_id: siteSettings.google_adsense_id || '',
+        header_ad_code: siteSettings.header_ad_code || '',
+        sidebar_ad_code: siteSettings.sidebar_ad_code || '',
+        footer_ad_code: siteSettings.footer_ad_code || '',
+        in_article_ad_code: siteSettings.in_article_ad_code || '',
+        popup_ad_code: siteSettings.popup_ad_code || '',
+        // Additional SEO
+        canonical_url: siteSettings.canonical_url || '',
+        twitter_handle: siteSettings.twitter_handle || '',
+        facebook_app_id: siteSettings.facebook_app_id || '',
+        telegram_link: siteSettings.telegram_link || '',
       });
     }
   }, [siteSettings]);
@@ -246,6 +273,7 @@ const Admin = () => {
         slug: matchForm.page_type === 'page' ? (editingMatch?.slug || generateSlug(teamAName, teamBName)) : null,
         seo_title: matchForm.seo_title || null,
         seo_description: matchForm.seo_description || null,
+        seo_keywords: matchForm.seo_keywords || null,
       };
       
       if (editingMatch) {
@@ -284,6 +312,7 @@ const Admin = () => {
       page_type: match.page_type || 'redirect',
       seo_title: match.seo_title || '',
       seo_description: match.seo_description || '',
+      seo_keywords: (match as any).seo_keywords || '',
     });
     setMatchDialogOpen(true);
   };
@@ -319,6 +348,7 @@ const Admin = () => {
       page_type: 'redirect',
       seo_title: '',
       seo_description: '',
+      seo_keywords: '',
     });
   };
 
@@ -527,6 +557,19 @@ const Admin = () => {
         og_image_url: siteSettingsForm.og_image_url || null,
         footer_text: siteSettingsForm.footer_text || null,
         google_analytics_id: siteSettingsForm.google_analytics_id || null,
+        // Ad settings
+        ads_enabled: siteSettingsForm.ads_enabled,
+        google_adsense_id: siteSettingsForm.google_adsense_id || null,
+        header_ad_code: siteSettingsForm.header_ad_code || null,
+        sidebar_ad_code: siteSettingsForm.sidebar_ad_code || null,
+        footer_ad_code: siteSettingsForm.footer_ad_code || null,
+        in_article_ad_code: siteSettingsForm.in_article_ad_code || null,
+        popup_ad_code: siteSettingsForm.popup_ad_code || null,
+        // Additional SEO
+        canonical_url: siteSettingsForm.canonical_url || null,
+        twitter_handle: siteSettingsForm.twitter_handle || null,
+        facebook_app_id: siteSettingsForm.facebook_app_id || null,
+        telegram_link: siteSettingsForm.telegram_link || null,
       });
       toast({ title: "Site settings updated successfully" });
     } catch (error: any) {
@@ -1389,92 +1432,140 @@ const Admin = () => {
               {siteSettingsLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
               ) : (
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Site Settings</CardTitle>
-                    <CardDescription>Configure your website name, logo, SEO settings and more</CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                    {/* Basic Info */}
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Site Name</Label>
-                        <Input 
-                          placeholder="My Sports Site" 
-                          value={siteSettingsForm.site_name} 
-                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, site_name: e.target.value })} 
-                        />
+                <div className="space-y-6">
+                  {/* General Site Settings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>General Settings</CardTitle>
+                      <CardDescription>Configure your website name, logo and basic info</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Site Name</Label>
+                          <Input 
+                            placeholder="My Sports Site" 
+                            value={siteSettingsForm.site_name} 
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, site_name: e.target.value })} 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Site Title (SEO)</Label>
+                          <Input 
+                            placeholder="My Sports Site - Watch Live Matches" 
+                            value={siteSettingsForm.site_title} 
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, site_title: e.target.value })} 
+                          />
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Site Title (SEO)</Label>
-                        <Input 
-                          placeholder="My Sports Site - Watch Live Matches" 
-                          value={siteSettingsForm.site_title} 
-                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, site_title: e.target.value })} 
-                        />
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Logo URL</Label>
+                          <Input 
+                            placeholder="https://..." 
+                            value={siteSettingsForm.logo_url} 
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, logo_url: e.target.value })} 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Favicon URL</Label>
+                          <Input 
+                            placeholder="https://..." 
+                            value={siteSettingsForm.favicon_url} 
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, favicon_url: e.target.value })} 
+                          />
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label>Site Description (SEO)</Label>
-                      <Textarea 
-                        placeholder="Describe your site for search engines..." 
-                        value={siteSettingsForm.site_description} 
-                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, site_description: e.target.value })} 
-                        rows={3}
-                      />
-                    </div>
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Footer Text</Label>
+                          <Input 
+                            placeholder="© 2025 My Sports Site. All rights reserved." 
+                            value={siteSettingsForm.footer_text} 
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, footer_text: e.target.value })} 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Telegram Link</Label>
+                          <Input 
+                            placeholder="https://t.me/yourchannel" 
+                            value={siteSettingsForm.telegram_link} 
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, telegram_link: e.target.value })} 
+                          />
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
 
-                    <div className="space-y-2">
-                      <Label>Site Keywords (SEO)</Label>
-                      <Input 
-                        placeholder="live sports, cricket, football, streaming" 
-                        value={siteSettingsForm.site_keywords} 
-                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, site_keywords: e.target.value })} 
-                      />
-                      <p className="text-xs text-muted-foreground">Comma-separated keywords for SEO</p>
-                    </div>
-
-                    {/* Media URLs */}
-                    <div className="grid gap-4 md:grid-cols-2">
+                  {/* SEO Settings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>SEO Settings</CardTitle>
+                      <CardDescription>Optimize your site for search engines like Google</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
                       <div className="space-y-2">
-                        <Label>Logo URL</Label>
+                        <Label>Site Description</Label>
+                        <Textarea 
+                          placeholder="Describe your site for search engines (max 160 characters recommended)..." 
+                          value={siteSettingsForm.site_description} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, site_description: e.target.value })} 
+                          rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground">{(siteSettingsForm.site_description || '').length}/160 characters</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Site Keywords</Label>
+                        <Input 
+                          placeholder="live sports, cricket, football, streaming, live match" 
+                          value={siteSettingsForm.site_keywords} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, site_keywords: e.target.value })} 
+                        />
+                        <p className="text-xs text-muted-foreground">Comma-separated keywords for SEO</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Canonical URL</Label>
+                        <Input 
+                          placeholder="https://yoursite.com" 
+                          value={siteSettingsForm.canonical_url} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, canonical_url: e.target.value })} 
+                        />
+                        <p className="text-xs text-muted-foreground">Your main website URL for canonical tags</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Open Graph Image URL (Social Sharing)</Label>
                         <Input 
                           placeholder="https://..." 
-                          value={siteSettingsForm.logo_url} 
-                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, logo_url: e.target.value })} 
+                          value={siteSettingsForm.og_image_url} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, og_image_url: e.target.value })} 
                         />
+                        <p className="text-xs text-muted-foreground">Image shown when shared on social media (1200x630 recommended)</p>
                       </div>
-                      <div className="space-y-2">
-                        <Label>Favicon URL</Label>
-                        <Input 
-                          placeholder="https://..." 
-                          value={siteSettingsForm.favicon_url} 
-                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, favicon_url: e.target.value })} 
-                        />
-                      </div>
-                    </div>
 
-                    <div className="space-y-2">
-                      <Label>Open Graph Image URL (Social Sharing)</Label>
-                      <Input 
-                        placeholder="https://..." 
-                        value={siteSettingsForm.og_image_url} 
-                        onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, og_image_url: e.target.value })} 
-                      />
-                      <p className="text-xs text-muted-foreground">Image shown when shared on social media</p>
-                    </div>
-
-                    {/* Footer & Analytics */}
-                    <div className="grid gap-4 md:grid-cols-2">
-                      <div className="space-y-2">
-                        <Label>Footer Text</Label>
-                        <Input 
-                          placeholder="© 2024 My Sports Site. All rights reserved." 
-                          value={siteSettingsForm.footer_text} 
-                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, footer_text: e.target.value })} 
-                        />
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Twitter Handle</Label>
+                          <Input 
+                            placeholder="@youraccount" 
+                            value={siteSettingsForm.twitter_handle} 
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, twitter_handle: e.target.value })} 
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Facebook App ID</Label>
+                          <Input 
+                            placeholder="123456789" 
+                            value={siteSettingsForm.facebook_app_id} 
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, facebook_app_id: e.target.value })} 
+                          />
+                        </div>
                       </div>
+
                       <div className="space-y-2">
                         <Label>Google Analytics ID</Label>
                         <Input 
@@ -1483,17 +1574,107 @@ const Admin = () => {
                           onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, google_analytics_id: e.target.value })} 
                         />
                       </div>
-                    </div>
+                    </CardContent>
+                  </Card>
 
-                    <div className="flex justify-end pt-4 border-t">
-                      <Button variant="gradient" onClick={handleSaveSiteSettings} disabled={updateSiteSettings.isPending}>
-                        {updateSiteSettings.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                        <Save className="w-4 h-4 mr-2" />
-                        Save Settings
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
+                  {/* Ad Settings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Advertisement Settings</CardTitle>
+                      <CardDescription>Configure Google Ads and other advertisement placements</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                        <div className="space-y-0.5">
+                          <Label className="text-base font-medium">Enable Ads</Label>
+                          <p className="text-sm text-muted-foreground">Turn on/off all advertisements across the site</p>
+                        </div>
+                        <Switch
+                          checked={siteSettingsForm.ads_enabled}
+                          onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, ads_enabled: checked })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Google AdSense Publisher ID</Label>
+                        <Input 
+                          placeholder="ca-pub-XXXXXXXXXXXXXXXX" 
+                          value={siteSettingsForm.google_adsense_id} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, google_adsense_id: e.target.value })} 
+                        />
+                        <p className="text-xs text-muted-foreground">Your AdSense publisher ID for auto ads</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Header Ad Code</Label>
+                        <Textarea 
+                          placeholder="Paste your ad code here (HTML/JavaScript)..." 
+                          value={siteSettingsForm.header_ad_code} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, header_ad_code: e.target.value })} 
+                          rows={4}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">Displayed at the top of pages</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>In-Article Ad Code</Label>
+                        <Textarea 
+                          placeholder="Paste your ad code here (HTML/JavaScript)..." 
+                          value={siteSettingsForm.in_article_ad_code} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, in_article_ad_code: e.target.value })} 
+                          rows={4}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">Displayed within match pages and content</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Sidebar Ad Code</Label>
+                        <Textarea 
+                          placeholder="Paste your ad code here (HTML/JavaScript)..." 
+                          value={siteSettingsForm.sidebar_ad_code} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, sidebar_ad_code: e.target.value })} 
+                          rows={4}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">Displayed in sidebars</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Footer Ad Code</Label>
+                        <Textarea 
+                          placeholder="Paste your ad code here (HTML/JavaScript)..." 
+                          value={siteSettingsForm.footer_ad_code} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, footer_ad_code: e.target.value })} 
+                          rows={4}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">Displayed at the bottom of pages</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Popup Ad Code</Label>
+                        <Textarea 
+                          placeholder="Paste your popup ad code here (HTML/JavaScript)..." 
+                          value={siteSettingsForm.popup_ad_code} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, popup_ad_code: e.target.value })} 
+                          rows={4}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">Popup/interstitial ads (use sparingly)</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  <div className="flex justify-end pt-4">
+                    <Button variant="gradient" onClick={handleSaveSiteSettings} disabled={updateSiteSettings.isPending}>
+                      {updateSiteSettings.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                      <Save className="w-4 h-4 mr-2" />
+                      Save All Settings
+                    </Button>
+                  </div>
+                </div>
               )}
             </TabsContent>
           </Tabs>

@@ -1,17 +1,32 @@
 import { Tv, MessageCircle } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 const Footer = () => {
+  const { data: settings } = useSiteSettings();
+
+  const siteName = settings?.site_name || "LIVE SPORTS";
+  const footerText = settings?.footer_text || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`;
+  const telegramLink = settings?.telegram_link || "#";
+
   return (
     <footer className="bg-card border-t border-border py-8">
       <div className="container mx-auto px-4">
         <div className="flex flex-col md:flex-row items-center justify-between gap-4">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-pink-500 flex items-center justify-center">
-              <Tv className="w-4 h-4 text-primary-foreground" />
-            </div>
-            <span className="font-display text-lg tracking-wider text-gradient">LIVE SPORTS</span>
+            {settings?.logo_url ? (
+              <img 
+                src={settings.logo_url} 
+                alt={siteName}
+                className="w-8 h-8 rounded-lg object-contain"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-pink-500 flex items-center justify-center">
+                <Tv className="w-4 h-4 text-primary-foreground" />
+              </div>
+            )}
+            <span className="font-display text-lg tracking-wider text-gradient">{siteName}</span>
           </Link>
 
           {/* Links */}
@@ -22,7 +37,9 @@ const Footer = () => {
 
           {/* Social / CTA */}
           <a
-            href="#"
+            href={telegramLink}
+            target="_blank"
+            rel="noopener noreferrer"
             className="inline-flex items-center gap-2 bg-accent/20 hover:bg-accent/30 text-accent px-4 py-2 rounded-full transition-colors text-sm font-medium"
           >
             <MessageCircle className="w-4 h-4" />
@@ -31,7 +48,7 @@ const Footer = () => {
         </div>
 
         <div className="mt-8 pt-6 border-t border-border text-center text-sm text-muted-foreground">
-          <p>© 2025 Live Sports. All rights reserved.</p>
+          <p>{footerText}</p>
         </div>
       </div>
     </footer>

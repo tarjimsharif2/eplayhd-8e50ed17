@@ -14,6 +14,22 @@ export interface SiteSettings {
   google_analytics_id: string | null;
   created_at: string;
   updated_at: string;
+  // Ad settings
+  header_ad_code: string | null;
+  sidebar_ad_code: string | null;
+  footer_ad_code: string | null;
+  in_article_ad_code: string | null;
+  popup_ad_code: string | null;
+  ads_enabled: boolean;
+  google_adsense_id: string | null;
+  // Additional SEO
+  canonical_url: string | null;
+  robots_txt: string | null;
+  schema_org_enabled: boolean;
+  twitter_handle: string | null;
+  facebook_app_id: string | null;
+  telegram_link: string | null;
+  social_links: Record<string, string>;
 }
 
 export const useSiteSettings = () => {
@@ -24,10 +40,10 @@ export const useSiteSettings = () => {
         .from('site_settings')
         .select('*')
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
-      return data as SiteSettings;
+      return data as SiteSettings | null;
     },
   });
 };

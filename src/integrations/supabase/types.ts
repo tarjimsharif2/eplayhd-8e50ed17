@@ -63,6 +63,7 @@ export type Database = {
           score_a: string | null
           score_b: string | null
           seo_description: string | null
+          seo_keywords: string | null
           seo_title: string | null
           slug: string | null
           sport_id: string | null
@@ -88,6 +89,7 @@ export type Database = {
           score_a?: string | null
           score_b?: string | null
           seo_description?: string | null
+          seo_keywords?: string | null
           seo_title?: string | null
           slug?: string | null
           sport_id?: string | null
@@ -113,6 +115,7 @@ export type Database = {
           score_a?: string | null
           score_b?: string | null
           seo_description?: string | null
+          seo_keywords?: string | null
           seo_title?: string | null
           slug?: string | null
           sport_id?: string | null
@@ -186,45 +189,87 @@ export type Database = {
       }
       site_settings: {
         Row: {
+          ads_enabled: boolean | null
+          canonical_url: string | null
           created_at: string
+          facebook_app_id: string | null
           favicon_url: string | null
+          footer_ad_code: string | null
           footer_text: string | null
+          google_adsense_id: string | null
           google_analytics_id: string | null
+          header_ad_code: string | null
           id: string
+          in_article_ad_code: string | null
           logo_url: string | null
           og_image_url: string | null
+          popup_ad_code: string | null
+          robots_txt: string | null
+          schema_org_enabled: boolean | null
+          sidebar_ad_code: string | null
           site_description: string | null
           site_keywords: string | null
           site_name: string
           site_title: string
+          social_links: Json | null
+          telegram_link: string | null
+          twitter_handle: string | null
           updated_at: string
         }
         Insert: {
+          ads_enabled?: boolean | null
+          canonical_url?: string | null
           created_at?: string
+          facebook_app_id?: string | null
           favicon_url?: string | null
+          footer_ad_code?: string | null
           footer_text?: string | null
+          google_adsense_id?: string | null
           google_analytics_id?: string | null
+          header_ad_code?: string | null
           id?: string
+          in_article_ad_code?: string | null
           logo_url?: string | null
           og_image_url?: string | null
+          popup_ad_code?: string | null
+          robots_txt?: string | null
+          schema_org_enabled?: boolean | null
+          sidebar_ad_code?: string | null
           site_description?: string | null
           site_keywords?: string | null
           site_name?: string
           site_title?: string
+          social_links?: Json | null
+          telegram_link?: string | null
+          twitter_handle?: string | null
           updated_at?: string
         }
         Update: {
+          ads_enabled?: boolean | null
+          canonical_url?: string | null
           created_at?: string
+          facebook_app_id?: string | null
           favicon_url?: string | null
+          footer_ad_code?: string | null
           footer_text?: string | null
+          google_adsense_id?: string | null
           google_analytics_id?: string | null
+          header_ad_code?: string | null
           id?: string
+          in_article_ad_code?: string | null
           logo_url?: string | null
           og_image_url?: string | null
+          popup_ad_code?: string | null
+          robots_txt?: string | null
+          schema_org_enabled?: boolean | null
+          sidebar_ad_code?: string | null
           site_description?: string | null
           site_keywords?: string | null
           site_name?: string
           site_title?: string
+          social_links?: Json | null
+          telegram_link?: string | null
+          twitter_handle?: string | null
           updated_at?: string
         }
         Relationships: []

@@ -4,10 +4,12 @@ import { Menu, X, Tv } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "@/components/ThemeToggle";
+import { useSiteSettings } from "@/hooks/useSiteSettings";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
+  const { data: settings } = useSiteSettings();
 
   // Only show Home and Matches - no Admin link
   const navItems = [
@@ -15,17 +17,27 @@ const Header = () => {
     { name: "Matches", path: "/#matches" },
   ];
 
+  const siteName = settings?.site_name || "LIVE SPORTS";
+
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center premium-shadow group-hover:glow-primary transition-shadow">
-              <Tv className="w-5 h-5 text-primary-foreground" />
-            </div>
+            {settings?.logo_url ? (
+              <img 
+                src={settings.logo_url} 
+                alt={siteName}
+                className="w-10 h-10 rounded-xl object-contain"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center premium-shadow group-hover:glow-primary transition-shadow">
+                <Tv className="w-5 h-5 text-primary-foreground" />
+              </div>
+            )}
             <div className="flex flex-col">
-              <span className="font-display text-lg tracking-wide text-gradient">LIVE SPORTS</span>
+              <span className="font-display text-lg tracking-wide text-gradient">{siteName}</span>
               <span className="text-[9px] text-muted-foreground -mt-1 tracking-wider">ANYTIME, ANYWHERE</span>
             </div>
           </Link>
