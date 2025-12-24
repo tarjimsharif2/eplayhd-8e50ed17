@@ -3,6 +3,8 @@ import { useEffect, useState } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import VideoPlayer from '@/components/VideoPlayer';
+import SEOHead from '@/components/SEOHead';
+import AdSlot from '@/components/AdSlot';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -78,23 +80,6 @@ const MatchPage = () => {
     }
   }, [servers, activeServer]);
 
-  // Update document title and meta for SEO
-  useEffect(() => {
-    if (match) {
-      const teamA = match.team_a;
-      const teamB = match.team_b;
-      const seoTitle = match.seo_title || `${teamA?.name} vs ${teamB?.name} Live Stream - ${siteSettings?.site_name || 'Live Sports'}`;
-      document.title = seoTitle;
-      
-      // Update meta description
-      const metaDescription = document.querySelector('meta[name="description"]');
-      const seoDescription = match.seo_description || `Watch ${teamA?.name} vs ${teamB?.name} live stream online. ${match.tournament?.name || ''} match on ${match.match_date}.`;
-      if (metaDescription) {
-        metaDescription.setAttribute('content', seoDescription);
-      }
-    }
-  }, [match, siteSettings]);
-
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -123,6 +108,11 @@ const MatchPage = () => {
   const tournament = match.tournament;
   const sport = match.sport;
 
+  // SEO data
+  const seoTitle = match.seo_title || `${teamA?.name} vs ${teamB?.name} Live Stream - ${siteSettings?.site_name || 'Live Sports'}`;
+  const seoDescription = match.seo_description || `Watch ${teamA?.name} vs ${teamB?.name} live stream online. ${tournament?.name || ''} match on ${match.match_date}.`;
+  const seoKeywords = (match as any).seo_keywords || `${teamA?.name}, ${teamB?.name}, live stream, ${sport?.name || 'sports'}, ${tournament?.name || ''}`;
+
   const getStatusVariant = (status: string) => {
     switch (status) {
       case 'live': return 'live';
@@ -141,7 +131,16 @@ const MatchPage = () => {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
+      <SEOHead 
+        title={seoTitle}
+        description={seoDescription}
+        keywords={seoKeywords}
+        type="article"
+      />
       <Header />
+      
+      {/* Header Ad */}
+      <AdSlot position="header" className="container mx-auto px-4 py-2" />
       
       <main className="flex-1 py-6">
         <div className="container mx-auto px-4 max-w-6xl">
@@ -193,6 +192,9 @@ const MatchPage = () => {
               </div>
             </motion.div>
           )}
+
+          {/* In-Article Ad */}
+          <AdSlot position="in_article" className="mb-6" />
 
           {/* Match Header - AFTER video */}
           <motion.div
@@ -276,6 +278,9 @@ const MatchPage = () => {
 
         </div>
       </main>
+
+      {/* Footer Ad */}
+      <AdSlot position="footer" className="container mx-auto px-4 py-2" />
 
       <Footer />
     </div>
