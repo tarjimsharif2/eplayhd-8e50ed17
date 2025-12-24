@@ -41,8 +41,15 @@ const isValidUrl = (url: string): boolean => {
   }
 };
 
-// Check if headers are specified and need proxy
-const needsProxy = (headers?: StreamHeaders): boolean => {
+// Check if headers are specified or if HTTP URL on HTTPS site
+const needsProxy = (url: string, headers?: StreamHeaders): boolean => {
+  // Always proxy HTTP streams when on HTTPS site (mixed content issue)
+  const isHttpStream = url.startsWith('http://');
+  const isHttpsSite = typeof window !== 'undefined' && window.location.protocol === 'https:';
+  
+  if (isHttpStream && isHttpsSite) return true;
+  
+  // Also proxy if custom headers are needed
   if (!headers) return false;
   return !!(headers.referer || headers.origin || headers.cookie || headers.userAgent);
 };
@@ -105,7 +112,7 @@ const HlsPlayer = ({ url, headers, drm }: { url: string; headers?: StreamHeaders
 
   useEffect(() => {
     const fetchPlaylistViaProxy = async () => {
-      if (!needsProxy(headers)) {
+      if (!needsProxy(url, headers)) {
         setProxyPlaylistUrl(null);
         return;
       }
@@ -157,7 +164,7 @@ const HlsPlayer = ({ url, headers, drm }: { url: string; headers?: StreamHeaders
     const video = videoRef.current;
     if (!video) return;
 
-    if (needsProxy(headers) && !proxyPlaylistUrl) return;
+    if (needsProxy(url, headers) && !proxyPlaylistUrl) return;
 
     if (hlsRef.current) {
       hlsRef.current.destroy();

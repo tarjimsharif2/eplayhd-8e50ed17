@@ -12,7 +12,22 @@ serve(async (req) => {
   }
 
   try {
-    const { url, headers } = await req.json();
+    // Support both POST body and GET query parameter
+    let url: string | null = null;
+    let headers: any = {};
+    
+    const urlParams = new URL(req.url).searchParams;
+    const queryUrl = urlParams.get('url');
+    
+    if (queryUrl) {
+      // GET request with URL in query string (for segments)
+      url = queryUrl;
+    } else if (req.method === 'POST') {
+      // POST request with URL in body (for initial playlist)
+      const body = await req.json();
+      url = body.url;
+      headers = body.headers || {};
+    }
 
     if (!url) {
       console.error('No URL provided');
@@ -69,33 +84,71 @@ serve(async (req) => {
       });
     }
 
-    const contentType = response.headers.get('content-type') || 'application/vnd.apple.mpegurl';
+    const contentType = response.headers.get('content-type') || 'application/octet-stream';
+    
+    // For binary content (ts segments, etc.), return as-is
+    const isM3u8 = url.endsWith('.m3u8') || contentType.includes('mpegurl') || contentType.includes('x-mpegURL');
+    
+    if (!isM3u8) {
+      // Return binary content directly for segments
+      const arrayBuffer = await response.arrayBuffer();
+      console.log('Successfully fetched binary content, length:', arrayBuffer.byteLength);
+      
+      return new Response(arrayBuffer, {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': contentType,
+          'Cache-Control': 'max-age=3600',
+        },
+      });
+    }
+    
     const content = await response.text();
+    console.log('Successfully fetched M3U8 content, length:', content.length);
 
-    console.log('Successfully fetched content, length:', content.length);
-
-    // For M3U8 playlists, we need to rewrite relative URLs to absolute URLs
+    // For M3U8 playlists, we need to rewrite URLs to go through the proxy
     let processedContent = content;
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const proxyBaseUrl = `${supabaseUrl}/functions/v1/stream-proxy`;
     
     if (url.endsWith('.m3u8') || contentType.includes('mpegurl') || contentType.includes('x-mpegURL')) {
       const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
       
-      // Rewrite relative URLs in the playlist
+      // Rewrite all URLs to go through the proxy
       processedContent = content.split('\n').map(line => {
         const trimmedLine = line.trim();
         
-        // Skip empty lines, comments, and tags
-        if (!trimmedLine || trimmedLine.startsWith('#')) {
+        // Skip empty lines and tags (but check for URI in tags)
+        if (!trimmedLine) {
           return line;
         }
         
-        // If it's already an absolute URL, leave it
-        if (trimmedLine.startsWith('http://') || trimmedLine.startsWith('https://')) {
+        // Handle #EXT-X-KEY and similar tags with URI attribute
+        if (trimmedLine.startsWith('#') && trimmedLine.includes('URI="')) {
+          return line.replace(/URI="([^"]+)"/g, (match, uri) => {
+            let absoluteUri = uri;
+            if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
+              absoluteUri = baseUrl + uri;
+            }
+            // Encode the URL for proxy
+            const proxyUrl = `${proxyBaseUrl}?url=${encodeURIComponent(absoluteUri)}`;
+            return `URI="${proxyUrl}"`;
+          });
+        }
+        
+        // Skip other comments/tags
+        if (trimmedLine.startsWith('#')) {
           return line;
         }
         
         // Convert relative URL to absolute
-        return baseUrl + trimmedLine;
+        let absoluteUrl = trimmedLine;
+        if (!trimmedLine.startsWith('http://') && !trimmedLine.startsWith('https://')) {
+          absoluteUrl = baseUrl + trimmedLine;
+        }
+        
+        // For .ts segments and other M3U8 files, route through proxy
+        return `${proxyBaseUrl}?url=${encodeURIComponent(absoluteUrl)}`;
       }).join('\n');
     }
 
