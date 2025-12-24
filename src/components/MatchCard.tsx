@@ -225,8 +225,8 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                   </span>
                 )}
               </div>
-              <div className="max-w-[100px] md:max-w-[120px]">
-                <span className="font-semibold text-foreground text-sm md:text-base leading-tight block truncate">
+              <div className="w-full px-1">
+                <span className="font-semibold text-foreground text-xs md:text-sm leading-tight block text-center break-words hyphens-auto">
                   {teamA.name}
                 </span>
               </div>
@@ -262,8 +262,8 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                   </span>
                 )}
               </div>
-              <div className="max-w-[100px] md:max-w-[120px]">
-                <span className="font-semibold text-foreground text-sm md:text-base leading-tight block truncate">
+              <div className="w-full px-1">
+                <span className="font-semibold text-foreground text-xs md:text-sm leading-tight block text-center break-words hyphens-auto">
                   {teamB.name}
                 </span>
               </div>
