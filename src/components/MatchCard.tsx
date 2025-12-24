@@ -234,7 +234,7 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
         {/* Tournament Logo - Top Right */}
         {tournament?.logo_url && (
           <div className="absolute top-3 right-3 z-10">
-            <div className="w-12 h-12 rounded-xl bg-background/60 backdrop-blur-sm p-1.5 border border-border/30 shadow-lg">
+            <div className="w-10 h-10 rounded-xl bg-background/60 backdrop-blur-sm p-1 border border-border/30 shadow-lg">
               <img 
                 src={tournament.logo_url} 
                 alt={tournament.name}
@@ -275,24 +275,17 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
             </div>
           )}
 
-          {/* Tournament Header with Logo */}
-          <div className="flex items-start justify-between gap-2 mb-3">
-            {tournament && (
-              <div className="flex-1 min-w-0">
-                <h3 className="tournament-title text-base md:text-lg tracking-wide line-clamp-2">
-                  {tournament.name}
-                </h3>
-                <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-medium mt-0.5">
-                  {tournament.season}
-                </p>
-              </div>
-            )}
-            {tournament?.logo_url && (
-              <div className="w-10 h-10 rounded-xl bg-background/60 backdrop-blur-sm p-1 border border-border/30 shadow-lg flex-shrink-0">
-                <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-contain" />
-              </div>
-            )}
-          </div>
+          {/* Tournament Header - Centered */}
+          {tournament && (
+            <div className={`text-center mb-3 ${tournament.logo_url ? 'pr-12' : ''}`}>
+              <h3 className="tournament-title text-base md:text-lg tracking-wide line-clamp-2">
+                {tournament.name}
+              </h3>
+              <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-medium mt-0.5">
+                {tournament.season}
+              </p>
+            </div>
+          )}
 
           {/* Sport Badge & Match Number */}
           <div className="flex items-center justify-between mb-3">
