@@ -50,6 +50,8 @@ export interface Match {
   page_type: string | null;
   seo_title: string | null;
   seo_description: string | null;
+  seo_keywords: string | null;
+  match_minute: number | null;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;

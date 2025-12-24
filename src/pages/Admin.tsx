@@ -22,7 +22,8 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play } from "lucide-react";
+import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import DateTimePicker from "@/components/DateTimePicker";
@@ -101,6 +102,7 @@ const Admin = () => {
     seo_title: '',
     seo_description: '',
     seo_keywords: '',
+    match_minute: null as number | null,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -275,6 +277,7 @@ const Admin = () => {
         seo_title: matchForm.seo_title || null,
         seo_description: matchForm.seo_description || null,
         seo_keywords: matchForm.seo_keywords || null,
+        match_minute: matchForm.match_minute,
       };
       
       if (editingMatch) {
@@ -313,7 +316,8 @@ const Admin = () => {
       page_type: match.page_type || 'redirect',
       seo_title: match.seo_title || '',
       seo_description: match.seo_description || '',
-      seo_keywords: (match as any).seo_keywords || '',
+      seo_keywords: match.seo_keywords || '',
+      match_minute: match.match_minute,
     });
     setMatchDialogOpen(true);
   };
@@ -350,6 +354,7 @@ const Admin = () => {
       seo_title: '',
       seo_description: '',
       seo_keywords: '',
+      match_minute: null,
     });
   };
 
@@ -608,6 +613,10 @@ const Admin = () => {
               <TabsTrigger value="matches" className="gap-2">
                 <Calendar className="w-4 h-4" />
                 Matches
+              </TabsTrigger>
+              <TabsTrigger value="live-scores" className="gap-2">
+                <Play className="w-4 h-4" />
+                Live Scores
               </TabsTrigger>
               <TabsTrigger value="streaming" className="gap-2">
                 <Tv className="w-4 h-4" />
@@ -961,6 +970,32 @@ const Admin = () => {
                         </CardContent>
                       </Card>
                     </motion.div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Live Scores Tab */}
+            <TabsContent value="live-scores" className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-semibold">Live Score Updates</h2>
+                  <p className="text-sm text-muted-foreground">Quickly update scores for live matches</p>
+                </div>
+              </div>
+
+              {matchesLoading ? (
+                <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {matches?.filter(m => m.status === 'live').length === 0 && (
+                    <div className="col-span-full text-center py-8">
+                      <p className="text-muted-foreground">No live matches at the moment.</p>
+                      <p className="text-sm text-muted-foreground mt-1">Set a match status to "Live" to update its score here.</p>
+                    </div>
+                  )}
+                  {matches?.filter(m => m.status === 'live').map((match) => (
+                    <LiveScoreUpdater key={match.id} match={match} />
                   ))}
                 </div>
               )}

@@ -241,7 +241,7 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
               )}
             </div>
 
-            {/* VS / Countdown */}
+            {/* VS / Countdown / Match Minute */}
             <div className="flex flex-col items-center gap-2 px-2">
               {countdown ? (
                 <div className="flex flex-col items-center">
@@ -249,6 +249,14 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                   <div className="bg-gradient-to-br from-primary to-accent text-primary-foreground px-3 py-2 rounded-xl font-mono text-sm font-bold shadow-lg shadow-primary/30 animate-pulse">
                     {countdown}
                   </div>
+                </div>
+              ) : match.status === 'live' && match.match_minute != null ? (
+                <div className="flex flex-col items-center">
+                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-red-500/20 to-red-600/20 flex items-center justify-center border border-red-500/30 shadow-inner relative">
+                    <span className="font-display text-lg text-red-500 font-bold">{match.match_minute}'</span>
+                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                  </div>
+                  <span className="text-[9px] text-red-500 uppercase tracking-widest mt-1 font-semibold">LIVE</span>
                 </div>
               ) : (
                 <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30 shadow-inner">
