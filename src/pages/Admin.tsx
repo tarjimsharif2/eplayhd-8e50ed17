@@ -23,6 +23,8 @@ import { useState, useEffect } from "react";
 import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
+import DateTimePicker from "@/components/DateTimePicker";
+import { format } from "date-fns";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -467,15 +469,36 @@ const Admin = () => {
                           </Select>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Match Date</Label>
-                          <Input placeholder="e.g., 26th December 2025" value={matchForm.match_date} onChange={(e) => setMatchForm({ ...matchForm, match_date: e.target.value })} />
-                        </div>
-                        <div className="space-y-2">
-                          <Label>Match Time</Label>
-                          <Input placeholder="e.g., 3:00 PM" value={matchForm.match_time} onChange={(e) => setMatchForm({ ...matchForm, match_time: e.target.value })} />
-                        </div>
+                      <div className="space-y-2">
+                        <Label>Match Date & Time</Label>
+                        <DateTimePicker
+                          value={matchForm.match_start_time ? new Date(matchForm.match_start_time) : null}
+                          onChange={(date) => {
+                            if (date) {
+                              const dateStr = format(date, "do MMMM yyyy");
+                              const timeStr = format(date, "h:mm a");
+                              setMatchForm({
+                                ...matchForm,
+                                match_start_time: date.toISOString(),
+                                match_date: dateStr,
+                                match_time: timeStr
+                              });
+                            } else {
+                              setMatchForm({
+                                ...matchForm,
+                                match_start_time: null,
+                                match_date: '',
+                                match_time: ''
+                              });
+                            }
+                          }}
+                          placeholder="Select match date & time"
+                        />
+                        {matchForm.match_date && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {matchForm.match_date} at {matchForm.match_time}
+                          </p>
+                        )}
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">

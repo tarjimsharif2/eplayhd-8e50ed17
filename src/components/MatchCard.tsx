@@ -45,72 +45,44 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
     setTimezone(tzAbbr);
   }, []);
 
-  // Parse match datetime and calculate countdown
+  // Use match_start_time for countdown and local time display
   useEffect(() => {
-    const parseMatchDateTime = () => {
-      try {
-        // Try to parse the date string
-        const dateStr = match.match_date;
-        const timeStr = match.match_time;
-        
-        // Extract date parts (handles formats like "26th December 2025")
-        const dateMatch = dateStr.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
-        if (!dateMatch) return null;
-        
-        const [, day, month, year] = dateMatch;
-        const monthMap: Record<string, number> = {
-          january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
-          july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
-        };
-        const monthNum = monthMap[month.toLowerCase()];
-        
-        // Extract time (handles formats like "3:00 PM")
-        const timeMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
-        if (!timeMatch) return null;
-        
-        let [, hours, minutes, period] = timeMatch;
-        let hour = parseInt(hours);
-        if (period.toUpperCase() === 'PM' && hour !== 12) hour += 12;
-        if (period.toUpperCase() === 'AM' && hour === 12) hour = 0;
-        
-        return new Date(parseInt(year), monthNum, parseInt(day), hour, parseInt(minutes));
-      } catch {
-        return null;
-      }
-    };
-
-    const matchDate = parseMatchDateTime();
-    if (!matchDate) return;
-
-    // Set local time display
-    setLocalTime(matchDate.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
-      minute: '2-digit',
-      hour12: true 
-    }));
-
-    // Countdown logic (48 hours before)
-    const updateCountdown = () => {
-      const now = new Date();
-      const diff = matchDate.getTime() - now.getTime();
+    // If we have match_start_time (ISO timestamp), use it directly
+    if (match.match_start_time) {
+      const matchDate = new Date(match.match_start_time);
       
-      // Only show countdown within 48 hours
-      if (diff > 0 && diff <= 48 * 60 * 60 * 1000) {
-        const hours = Math.floor(diff / (1000 * 60 * 60));
-        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-        setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-      } else if (diff <= 0) {
-        setCountdown(null);
-      } else {
-        setCountdown(null);
-      }
-    };
+      // Set local time display
+      setLocalTime(matchDate.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      }));
 
-    updateCountdown();
-    const interval = setInterval(updateCountdown, 1000);
-    return () => clearInterval(interval);
-  }, [match.match_date, match.match_time]);
+      // Countdown logic (48 hours before)
+      const updateCountdown = () => {
+        const now = new Date();
+        const diff = matchDate.getTime() - now.getTime();
+        
+        // Only show countdown within 48 hours and for upcoming matches
+        if (diff > 0 && diff <= 48 * 60 * 60 * 1000 && match.status === 'upcoming') {
+          const hours = Math.floor(diff / (1000 * 60 * 60));
+          const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+          setCountdown(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+        } else {
+          setCountdown(null);
+        }
+      };
+
+      updateCountdown();
+      const interval = setInterval(updateCountdown, 1000);
+      return () => clearInterval(interval);
+    } else {
+      // Fallback to match_time string for display only
+      setLocalTime(match.match_time);
+      setCountdown(null);
+    }
+  }, [match.match_start_time, match.match_time, match.status]);
 
   const getStatusVariant = (status: string) => {
     switch (status) {
@@ -250,8 +222,13 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
           </div>
         </div>
 
-        {/* Time & Status */}
+        {/* Venue, Time & Status */}
         <div className="mt-5 flex flex-col items-center gap-2">
+          {match.venue && (
+            <p className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+              📍 {match.venue}
+            </p>
+          )}
           <p className="text-muted-foreground text-xs">
             {match.match_date} • {localTime || match.match_time} <span className="text-primary">({timezone})</span>
           </p>

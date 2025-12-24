@@ -6,58 +6,60 @@
 
 @layer base {
   :root {
-    --background: 220 20% 97%;
-    --foreground: 220 25% 10%;
+    /* Premium warm cream/ivory theme */
+    --background: 40 30% 96%;
+    --foreground: 220 25% 12%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 25% 10%;
+    --card: 40 40% 99%;
+    --card-foreground: 220 25% 12%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 25% 10%;
+    --popover: 40 40% 99%;
+    --popover-foreground: 220 25% 12%;
 
     --primary: 262 83% 58%;
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 220 14% 96%;
-    --secondary-foreground: 220 25% 10%;
+    --secondary: 40 20% 93%;
+    --secondary-foreground: 220 25% 12%;
 
-    --muted: 220 14% 94%;
-    --muted-foreground: 220 10% 46%;
+    --muted: 40 15% 90%;
+    --muted-foreground: 220 10% 40%;
 
-    --accent: 172 66% 50%;
-    --accent-foreground: 220 25% 10%;
+    --accent: 172 66% 45%;
+    --accent-foreground: 220 25% 12%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 220 13% 90%;
-    --input: 220 13% 90%;
+    --border: 40 20% 85%;
+    --input: 40 20% 88%;
     --ring: 262 83% 58%;
 
     --radius: 0.75rem;
 
     /* Premium sports theme */
     --gradient-primary: linear-gradient(135deg, hsl(262 83% 58%), hsl(280 90% 65%));
-    --gradient-accent: linear-gradient(135deg, hsl(172 66% 50%), hsl(185 80% 55%));
+    --gradient-accent: linear-gradient(135deg, hsl(172 66% 45%), hsl(185 80% 50%));
     --gradient-gold: linear-gradient(135deg, hsl(45 100% 50%), hsl(35 100% 55%));
-    --gradient-card: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 14% 98%));
-    --gradient-border: linear-gradient(135deg, hsl(262 83% 58% / 0.5), hsl(172 66% 50% / 0.5));
+    --gradient-card: linear-gradient(180deg, hsl(40 40% 99%), hsl(40 30% 96%));
+    --gradient-border: linear-gradient(135deg, hsl(262 83% 58% / 0.5), hsl(172 66% 45% / 0.5));
+    --gradient-surface: linear-gradient(135deg, hsl(40 30% 97%), hsl(40 25% 94%));
     
-    --glow-primary: 0 4px 30px hsl(262 83% 58% / 0.25);
-    --glow-accent: 0 4px 30px hsl(172 66% 50% / 0.2);
-    --glow-gold: 0 4px 30px hsl(45 100% 50% / 0.3);
+    --glow-primary: 0 4px 30px hsl(262 83% 58% / 0.2);
+    --glow-accent: 0 4px 30px hsl(172 66% 45% / 0.15);
+    --glow-gold: 0 4px 30px hsl(45 100% 50% / 0.25);
     
     --status-upcoming: 262 83% 58%;
     --status-live: 0 84% 55%;
     --status-completed: 160 84% 39%;
 
-    --sidebar-background: 0 0% 100%;
-    --sidebar-foreground: 220 25% 10%;
+    --sidebar-background: 40 40% 99%;
+    --sidebar-foreground: 220 25% 12%;
     --sidebar-primary: 262 83% 58%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 14% 96%;
-    --sidebar-accent-foreground: 220 25% 10%;
-    --sidebar-border: 220 13% 90%;
+    --sidebar-accent: 40 20% 93%;
+    --sidebar-accent-foreground: 220 25% 12%;
+    --sidebar-border: 40 20% 85%;
     --sidebar-ring: 262 83% 58%;
   }
 
@@ -269,5 +271,14 @@
     animation: shimmer 2s linear infinite;
     background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.1), transparent);
     background-size: 200% 100%;
+  }
+
+  /* Hide scrollbar for wheel picker */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
   }
 }
