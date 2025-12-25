@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+// Full site settings (only accessible by admins)
 export interface SiteSettings {
   id: string;
   site_name: string;
@@ -30,14 +31,15 @@ export interface SiteSettings {
   facebook_app_id: string | null;
   telegram_link: string | null;
   social_links: Record<string, string>;
-  // Cricket API settings
+  // Cricket API settings (sensitive - admin only)
   cricket_api_key: string | null;
   cricket_api_enabled: boolean;
 }
 
+// Admin-only hook for full site settings (requires admin role)
 export const useSiteSettings = () => {
   return useQuery({
-    queryKey: ['site_settings'],
+    queryKey: ['site_settings_admin'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('site_settings')
@@ -45,7 +47,14 @@ export const useSiteSettings = () => {
         .limit(1)
         .maybeSingle();
       
-      if (error) throw error;
+      if (error) {
+        // If RLS blocks access, return null instead of throwing
+        if (error.code === 'PGRST116' || error.message.includes('row-level security')) {
+          console.warn('Access to full site settings denied - admin role required');
+          return null;
+        }
+        throw error;
+      }
       return data as SiteSettings | null;
     },
   });

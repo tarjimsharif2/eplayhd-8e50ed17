@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useSiteSettings } from './useSiteSettings';
+import { usePublicSiteSettings } from './usePublicSiteSettings';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface CricketScoreData {
   teamA: {
@@ -36,10 +37,10 @@ export const useLiveCricketScore = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const { data: siteSettings } = useSiteSettings();
+  const { data: siteSettings } = usePublicSiteSettings();
 
   const fetchScore = useCallback(async () => {
-    if (!siteSettings?.cricket_api_enabled || !siteSettings?.cricket_api_key) {
+    if (!siteSettings?.cricket_api_enabled) {
       return;
     }
 
@@ -47,43 +48,27 @@ export const useLiveCricketScore = ({
     setError(null);
 
     try {
-      // Fetch current matches from CricAPI
-      const response = await fetch(
-        `https://api.cricapi.com/v1/currentMatches?apikey=${siteSettings.cricket_api_key}&offset=0`
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch cricket scores');
-      }
-
-      const data = await response.json();
-
-      if (data.status !== 'success' || !data.data) {
-        throw new Error(data.reason || 'No match data available');
-      }
-
-      // Find the matching match based on team names
-      const normalizeTeamName = (name: string) => 
-        name.toLowerCase().replace(/[^a-z0-9]/g, '');
-
-      const teamANormalized = normalizeTeamName(teamAName);
-      const teamBNormalized = normalizeTeamName(teamBName);
-
-      const matchingMatch = data.data.find((match: any) => {
-        if (!match.teams || match.teams.length < 2) return false;
-        
-        const matchTeams = match.teams.map((t: string) => normalizeTeamName(t));
-        
-        // Check if both teams are present in either order
-        const hasTeamA = matchTeams.some((t: string) => 
-          t.includes(teamANormalized) || teamANormalized.includes(t)
-        );
-        const hasTeamB = matchTeams.some((t: string) => 
-          t.includes(teamBNormalized) || teamBNormalized.includes(t)
-        );
-        
-        return hasTeamA && hasTeamB;
+      // Call edge function instead of direct API call
+      const { data, error: fnError } = await supabase.functions.invoke('cricket-api', {
+        body: {
+          action: 'getCurrentMatches',
+          teamAName,
+          teamBName,
+        },
       });
+
+      if (fnError) {
+        throw new Error(fnError.message || 'Failed to fetch cricket scores');
+      }
+
+      if (!data?.success) {
+        if (data?.error) {
+          throw new Error(data.error);
+        }
+        return;
+      }
+
+      const matchingMatch = data.match;
 
       if (!matchingMatch) {
         setScoreData(null);
@@ -91,6 +76,12 @@ export const useLiveCricketScore = ({
       }
 
       // Parse score data
+      const normalizeTeamName = (name: string) => 
+        name.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+      const teamANormalized = normalizeTeamName(teamAName);
+      const teamBNormalized = normalizeTeamName(teamBName);
+
       const scores = matchingMatch.score || [];
       const teamAScore = scores.find((s: any) => 
         normalizeTeamName(s.inning || '').includes(teamANormalized)
@@ -124,7 +115,7 @@ export const useLiveCricketScore = ({
     } finally {
       setIsLoading(false);
     }
-  }, [siteSettings?.cricket_api_enabled, siteSettings?.cricket_api_key, teamAName, teamBName]);
+  }, [siteSettings?.cricket_api_enabled, teamAName, teamBName]);
 
   useEffect(() => {
     if (!enabled || !siteSettings?.cricket_api_enabled) {
@@ -145,6 +136,6 @@ export const useLiveCricketScore = ({
     isLoading,
     error,
     refetch: fetchScore,
-    isEnabled: siteSettings?.cricket_api_enabled && siteSettings?.cricket_api_key,
+    isEnabled: siteSettings?.cricket_api_enabled,
   };
 };
