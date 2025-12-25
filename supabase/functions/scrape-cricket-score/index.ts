@@ -22,7 +22,6 @@ serve(async (req) => {
 
     console.log(`Fetching score for Cricbuzz match ID: ${cricbuzzMatchId}`);
 
-    // Fetch the Cricbuzz live score page
     const url = `https://www.cricbuzz.com/live-cricket-scores/${cricbuzzMatchId}`;
     
     const response = await fetch(url, {
@@ -42,11 +41,11 @@ serve(async (req) => {
     }
 
     const html = await response.text();
+    console.log(`Fetched HTML length: ${html.length} characters`);
     
-    // Parse the HTML to extract score data
     const scoreData = parseScoreFromHtml(html);
     
-    console.log('Parsed score data:', scoreData);
+    console.log('Final result:', JSON.stringify(scoreData, null, 2));
 
     return new Response(
       JSON.stringify(scoreData),
@@ -76,80 +75,113 @@ function parseScoreFromHtml(html: string): {
   };
 
   try {
-    // Extract match status - look for the status text
-    const statusMatch = html.match(/<div[^>]*class="[^"]*cb-text-complete[^"]*"[^>]*>([^<]+)<\/div>/i) ||
-                        html.match(/<div[^>]*class="[^"]*cb-text-live[^"]*"[^>]*>([^<]+)<\/div>/i) ||
-                        html.match(/<div[^>]*class="[^"]*cb-text-stumps[^"]*"[^>]*>([^<]+)<\/div>/i) ||
-                        html.match(/<span[^>]*class="[^"]*cb-text-complete[^"]*"[^>]*>([^<]+)<\/span>/i);
-    
-    if (statusMatch) {
-      result.status = statusMatch[1].trim();
+    // Debug: Look for any JSON-like score data
+    const scoreJsonMatch = html.match(/"score"\s*:\s*"(\d+\/\d+[^"]*)"/) ||
+                           html.match(/score['"]\s*:\s*['"](\d+\/\d+[^'"]*)['"]/);
+    if (scoreJsonMatch) {
+      console.log('Found score in JSON:', scoreJsonMatch[1]);
     }
 
-    // Try to extract team scores using multiple patterns
-    // Pattern 1: Look for score blocks with team name and score
-    const scoreBlockPattern = /<div[^>]*class="[^"]*cb-min-bat-rw[^"]*"[^>]*>[\s\S]*?<div[^>]*class="[^"]*cb-hmscg-bwl-txt[^"]*"[^>]*>([^<]+)<\/div>[\s\S]*?<div[^>]*class="[^"]*cb-hmscg-bat-txt[^"]*"[^>]*>([^<]+)<\/div>[\s\S]*?<\/div>/gi;
+    // Look for status in JSON
+    const statusJsonMatch = html.match(/"status"\s*:\s*"([^"]{10,100})"/);
+    if (statusJsonMatch) {
+      result.status = statusJsonMatch[1].replace(/\\n/g, ' ').trim();
+      console.log('Found status:', result.status);
+    }
+
+    // Extract team names from JSON - more flexible pattern
+    const teamJsonPattern = /"teamName"\s*:\s*"([^"]+)"/g;
+    const teamMatches = [...html.matchAll(teamJsonPattern)];
+    const uniqueTeams = [...new Set(teamMatches.map(m => m[1]))].slice(0, 2);
     
-    const matches = [...html.matchAll(scoreBlockPattern)];
+    console.log('Found teams:', uniqueTeams);
     
-    if (matches.length >= 1) {
+    if (uniqueTeams.length >= 1) {
+      result.team1 = { name: uniqueTeams[0], score: '', overs: '' };
+    }
+    if (uniqueTeams.length >= 2) {
+      result.team2 = { name: uniqueTeams[1], score: '', overs: '' };
+    }
+
+    // Look for innings data with score - search for multiple formats
+    // Format: {"inngsId":1,"batTeamName":"Indonesia","batTeamId":566,"score":"177/5 (20.0 Ov)"
+    const inningsPattern1 = /"batTeamName"\s*:\s*"([^"]+)"[^}]*?"score"\s*:\s*"([^"]+)"/g;
+    const inningsPattern2 = /"score"\s*:\s*"([^"]+)"[^}]*?"batTeamName"\s*:\s*"([^"]+)"/g;
+    
+    let inningsMatches = [...html.matchAll(inningsPattern1)];
+    console.log(`Pattern 1 found ${inningsMatches.length} innings`);
+    
+    if (inningsMatches.length === 0) {
+      const pattern2Matches = [...html.matchAll(inningsPattern2)];
+      console.log(`Pattern 2 found ${pattern2Matches.length} innings`);
+      // Convert pattern 2 matches to same format (swap score and team)
+      for (const m of pattern2Matches) {
+        inningsMatches.push([m[0], m[2], m[1]] as unknown as RegExpExecArray);
+      }
+    }
+
+    // Process innings matches
+    const processedTeams: Record<string, { score: string; overs: string }> = {};
+    
+    for (const match of inningsMatches) {
+      const teamName = match[1];
+      const scoreText = match[2];
+      
+      // Parse score: "177/5 (20.0 Ov)" or "177/5"
+      const scoreParts = scoreText.match(/(\d+)\/(\d+)(?:\s*\((\d+\.?\d*)\s*(?:Ov|ov))?/);
+      
+      if (scoreParts) {
+        console.log(`Found innings: ${teamName} - ${scoreParts[1]}/${scoreParts[2]} (${scoreParts[3] || '-'} ov)`);
+        processedTeams[teamName] = {
+          score: `${scoreParts[1]}/${scoreParts[2]}`,
+          overs: scoreParts[3] || '',
+        };
+      }
+    }
+
+    // Assign scores to teams
+    const processedTeamNames = Object.keys(processedTeams);
+    if (processedTeamNames.length >= 1) {
       result.team1 = {
-        name: matches[0][1]?.trim() || 'Team 1',
-        score: matches[0][2]?.trim() || '',
-        overs: '',
+        name: processedTeamNames[0],
+        score: processedTeams[processedTeamNames[0]].score,
+        overs: processedTeams[processedTeamNames[0]].overs,
       };
     }
-    if (matches.length >= 2) {
+    if (processedTeamNames.length >= 2) {
       result.team2 = {
-        name: matches[1][1]?.trim() || 'Team 2',
-        score: matches[1][2]?.trim() || '',
-        overs: '',
+        name: processedTeamNames[1],
+        score: processedTeams[processedTeamNames[1]].score,
+        overs: processedTeams[processedTeamNames[1]].overs,
       };
     }
 
-    // Alternative pattern: Look for miniscore container
-    if (!result.team1) {
-      // Try finding team names in the title or header
+    // Fallback: Look for simple score patterns in visible text
+    if (!result.team1?.score) {
+      // Remove scripts and find visible score
+      const cleanHtml = html.replace(/<script[\s\S]*?<\/script>/gi, '');
+      
+      // Look for "TeamName 123/4 (20.0)" in text content
+      const visibleScorePattern = />([A-Z][a-z]+(?:\s[A-Z][a-z]+)?)\s+(\d{2,3})\/(\d{1,2})(?:\s*\((\d{1,2}\.?\d?)[^)]*\))?</g;
+      const visibleMatches = [...cleanHtml.matchAll(visibleScorePattern)];
+      
+      console.log(`Found ${visibleMatches.length} visible score patterns`);
+      
+      for (const m of visibleMatches.slice(0, 2)) {
+        console.log(`Visible score: ${m[1]} - ${m[2]}/${m[3]}`);
+      }
+    }
+
+    // Last resort: extract from title
+    if (!result.team1 && !result.team2) {
       const titleMatch = html.match(/<title>([^<]+)<\/title>/i);
       if (titleMatch) {
-        const title = titleMatch[1];
-        // Title format: "Team1 vs Team2 Live Score"
-        const teamsMatch = title.match(/(.+?)\s+vs\s+(.+?)\s+(?:Live|Score|Match)/i);
+        const teamsMatch = titleMatch[1].match(/([^|,]+?)\s+vs\s+([^|,]+?)(?:,|\s+\d|$)/i);
         if (teamsMatch) {
-          result.team1 = { name: teamsMatch[1].trim(), score: '', overs: '' };
+          result.team1 = { name: teamsMatch[1].replace(/^.*\|\s*/, '').trim(), score: '', overs: '' };
           result.team2 = { name: teamsMatch[2].trim(), score: '', overs: '' };
         }
       }
-
-      // Try to extract scores from various score patterns
-      const scorePatterns = [
-        /(\d+)\/(\d+)\s*\((\d+\.?\d*)\s*ov(?:ers?)?\)/gi,  // 150/5 (20.3 overs)
-        /(\d+)-(\d+)\s*\((\d+\.?\d*)\)/gi,                   // 150-5 (20.3)
-        /(\d+)\/(\d+)/gi,                                     // 150/5
-      ];
-
-      for (const pattern of scorePatterns) {
-        const scoreMatches = [...html.matchAll(pattern)];
-        if (scoreMatches.length >= 1 && result.team1) {
-          result.team1.score = `${scoreMatches[0][1]}/${scoreMatches[0][2]}`;
-          result.team1.overs = scoreMatches[0][3] || '';
-        }
-        if (scoreMatches.length >= 2 && result.team2) {
-          result.team2.score = `${scoreMatches[1][1]}/${scoreMatches[1][2]}`;
-          result.team2.overs = scoreMatches[1][3] || '';
-        }
-        if (result.team1?.score) break;
-      }
-    }
-
-    // Extract overs if not already found
-    const oversPattern = /\((\d+\.?\d*)\s*ov(?:ers?)?\)/gi;
-    const oversMatches = [...html.matchAll(oversPattern)];
-    if (oversMatches.length >= 1 && result.team1 && !result.team1.overs) {
-      result.team1.overs = oversMatches[0][1];
-    }
-    if (oversMatches.length >= 2 && result.team2 && !result.team2.overs) {
-      result.team2.overs = oversMatches[1][1];
     }
 
   } catch (parseError) {
