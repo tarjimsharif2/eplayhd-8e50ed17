@@ -121,6 +121,7 @@ const Admin = () => {
     stumps_time: null as string | null,
     day_start_time: '' as string | null,
     next_day_start: null as string | null,
+    match_result: null as 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -302,6 +303,7 @@ const Admin = () => {
         stumps_time: matchForm.stumps_time || null,
         day_start_time: matchForm.day_start_time || null,
         next_day_start: matchForm.next_day_start || null,
+        match_result: matchForm.match_result,
       };
       
       if (editingMatch) {
@@ -348,6 +350,7 @@ const Admin = () => {
       stumps_time: match.stumps_time || null,
       day_start_time: match.day_start_time || '',
       next_day_start: match.next_day_start || null,
+      match_result: match.match_result,
     });
     setMatchDialogOpen(true);
   };
@@ -398,6 +401,7 @@ const Admin = () => {
       stumps_time: null,
       day_start_time: match.day_start_time || '',
       next_day_start: null,
+      match_result: null,
     });
     setMatchDialogOpen(true);
     toast({ title: "Match copied", description: "Edit the details and save to create a new match." });
@@ -433,6 +437,7 @@ const Admin = () => {
       stumps_time: null,
       day_start_time: '',
       next_day_start: null,
+      match_result: null,
     });
   };
 
@@ -849,6 +854,39 @@ const Admin = () => {
                           </Select>
                         </div>
                       </div>
+                      
+                      {/* Match Result - Only show when status is completed */}
+                      {matchForm.status === 'completed' && (
+                        <div className="space-y-2">
+                          <Label>Match Result *</Label>
+                          <Select 
+                            value={matchForm.match_result || 'none'} 
+                            onValueChange={(v) => setMatchForm({ 
+                              ...matchForm, 
+                              match_result: v === 'none' ? null : v as 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw'
+                            })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select result" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">Not Set</SelectItem>
+                              <SelectItem value="team_a_won">
+                                {teams?.find(t => t.id === matchForm.team_a_id)?.short_name || 'Team A'} Won
+                              </SelectItem>
+                              <SelectItem value="team_b_won">
+                                {teams?.find(t => t.id === matchForm.team_b_id)?.short_name || 'Team B'} Won
+                              </SelectItem>
+                              <SelectItem value="tied">Tied</SelectItem>
+                              <SelectItem value="no_result">No Result</SelectItem>
+                              <SelectItem value="draw">Draw</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <p className="text-xs text-muted-foreground">
+                            This will automatically update points table if tournament is set
+                          </p>
+                        </div>
+                      )}
                       
                       {/* Match Label (Optional - Final, Semi-Final, etc.) */}
                       <div className="space-y-2">

@@ -178,6 +178,7 @@ export type Database = {
           match_link: string | null
           match_minute: number | null
           match_number: number
+          match_result: string | null
           match_start_time: string | null
           match_time: string
           next_day_start: string | null
@@ -211,6 +212,7 @@ export type Database = {
           match_link?: string | null
           match_minute?: number | null
           match_number?: number
+          match_result?: string | null
           match_start_time?: string | null
           match_time: string
           next_day_start?: string | null
@@ -244,6 +246,7 @@ export type Database = {
           match_link?: string | null
           match_minute?: number | null
           match_number?: number
+          match_result?: string | null
           match_start_time?: string | null
           match_time?: string
           next_day_start?: string | null
@@ -531,13 +534,18 @@ export type Database = {
       tournament_points_table: {
         Row: {
           created_at: string
+          head_to_head: Json | null
           id: string
           lost: number | null
           net_run_rate: number | null
           no_result: number | null
+          overs_bowled: number | null
+          overs_faced: number | null
           played: number | null
           points: number | null
           position: number | null
+          runs_conceded: number | null
+          runs_scored: number | null
           team_id: string
           tied: number | null
           tournament_id: string
@@ -546,13 +554,18 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          head_to_head?: Json | null
           id?: string
           lost?: number | null
           net_run_rate?: number | null
           no_result?: number | null
+          overs_bowled?: number | null
+          overs_faced?: number | null
           played?: number | null
           points?: number | null
           position?: number | null
+          runs_conceded?: number | null
+          runs_scored?: number | null
           team_id: string
           tied?: number | null
           tournament_id: string
@@ -561,13 +574,18 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          head_to_head?: Json | null
           id?: string
           lost?: number | null
           net_run_rate?: number | null
           no_result?: number | null
+          overs_bowled?: number | null
+          overs_faced?: number | null
           played?: number | null
           points?: number | null
           position?: number | null
+          runs_conceded?: number | null
+          runs_scored?: number | null
           team_id?: string
           tied?: number | null
           tournament_id?: string
@@ -659,6 +677,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      recalculate_tournament_positions: {
+        Args: { p_tournament_id: string }
+        Returns: undefined
       }
     }
     Enums: {

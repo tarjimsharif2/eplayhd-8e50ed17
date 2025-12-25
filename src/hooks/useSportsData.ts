@@ -30,6 +30,8 @@ export interface Tournament {
   updated_at: string;
 }
 
+export type MatchResult = 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null;
+
 export interface Match {
   id: string;
   tournament_id: string | null;
@@ -60,6 +62,7 @@ export interface Match {
   stumps_time: string | null;
   day_start_time: string | null;
   next_day_start: string | null;
+  match_result: MatchResult;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;

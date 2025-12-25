@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Loader2 } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, RefreshCw } from "lucide-react";
 import { Tournament, Team } from "@/hooks/useSportsData";
 import SearchableSelect from "@/components/SearchableSelect";
 
@@ -23,6 +23,10 @@ interface PointsTableEntry {
   no_result: number;
   points: number;
   net_run_rate: number;
+  runs_scored?: number;
+  overs_faced?: number;
+  runs_conceded?: number;
+  overs_bowled?: number;
   team?: Team;
 }
 
@@ -48,7 +52,7 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
     net_run_rate: 0,
   });
 
-  // Fetch points table entries for this tournament
+  // Fetch points table entries for this tournament - sorted by position
   const { data: entries, isLoading } = useQuery({
     queryKey: ['tournament_points_table', tournament.id],
     queryFn: async () => {
@@ -132,6 +136,24 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
     },
   });
 
+  // Recalculate positions mutation
+  const recalculatePositions = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('recalculate_tournament_positions', {
+        p_tournament_id: tournament.id
+      });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tournament_points_table', tournament.id] });
+      toast({ title: "Positions recalculated", description: "Rankings updated based on points, NRR, and wins" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
   const resetForm = () => {
     setEditingEntry(null);
     setForm({
@@ -204,19 +226,36 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-semibold">Points Table - {tournament.name}</h3>
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => {
-            resetForm();
-            setDialogOpen(true);
-          }}
-        >
-          <Plus className="w-4 h-4 mr-1" />
-          Add Team
-        </Button>
+        <div className="flex items-center gap-2">
+          {entries && entries.length > 1 && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => recalculatePositions.mutate()}
+              disabled={recalculatePositions.isPending}
+            >
+              {recalculatePositions.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-1" />
+              ) : (
+                <RefreshCw className="w-4 h-4 mr-1" />
+              )}
+              Recalculate Positions
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              resetForm();
+              setDialogOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4 mr-1" />
+            Add Team
+          </Button>
+        </div>
       </div>
 
       {entries && entries.length > 0 ? (
