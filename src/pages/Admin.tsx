@@ -273,17 +273,12 @@ const Admin = () => {
     });
   };
 
-  // Fetch match result from CricAPI
+  // Fetch match result from CricAPI (auto-finds by team names)
   const handleFetchMatchResult = async (match: Match) => {
-    if (!match.cricbuzz_match_id) {
-      toast({ title: "Error", description: "CricAPI Match ID not configured", variant: "destructive" });
-      return;
-    }
-
     setFetchingResultFor(match.id);
     try {
       const { data, error } = await supabase.functions.invoke('fetch-match-result', {
-        body: { matchId: match.id, cricbuzzMatchId: match.cricbuzz_match_id },
+        body: { matchId: match.id },
       });
 
       if (error) throw error;
@@ -1220,12 +1215,12 @@ const Admin = () => {
                         </div>
                       )}
 
-                      {/* CricAPI Match Result */}
-                      <div className="space-y-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+                      {/* CricAPI Auto-Fetch */}
+                      <div className="space-y-3 p-3 rounded-lg bg-muted/50 border border-border/50">
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable CricAPI (Experimental)</Label>
-                            <p className="text-xs text-amber-600 dark:text-amber-400">⚠️ CricAPI often blocks cloud servers. Set result manually (above) for reliability.</p>
+                            <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable CricAPI Auto-Fetch</Label>
+                            <p className="text-xs text-muted-foreground">Auto-find match by team names and fetch result when match ends</p>
                           </div>
                           <Switch
                             id="api_score_enabled"
@@ -1234,27 +1229,9 @@ const Admin = () => {
                           />
                         </div>
                         {matchForm.api_score_enabled && (
-                          <div className="space-y-2">
-                            <Label htmlFor="cricbuzz_match_id" className="text-sm">CricAPI Match ID</Label>
-                            <Input
-                              id="cricbuzz_match_id"
-                              placeholder="e.g., d5a80164-cd97-4b95-b49b-c6b1e35e56e1"
-                              value={matchForm.cricbuzz_match_id || ''}
-                              onChange={(e) => setMatchForm({ ...matchForm, cricbuzz_match_id: e.target.value })}
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              <strong>⚠️ NOT a Cricbuzz ID!</strong> Get this from{' '}
-                              <a 
-                                href="https://www.cricapi.com/matches" 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="text-primary underline"
-                              >
-                                CricAPI Matches
-                              </a>
-                              {' '}(alphanumeric ID like "d5a80164-cd97...")
-                            </p>
-                          </div>
+                          <p className="text-xs text-amber-600 dark:text-amber-400">
+                            ⚠️ CricAPI may block cloud servers. If fetch fails, set result manually above.
+                          </p>
                         )}
                       </div>
                     </div>
@@ -1359,13 +1336,13 @@ const Admin = () => {
                                   Innings
                                 </Button>
                               )}
-                              {match.sport?.name?.toLowerCase() === 'cricket' && match.api_score_enabled && match.cricbuzz_match_id && (
+                              {match.sport?.name?.toLowerCase() === 'cricket' && match.api_score_enabled && (
                                 <Button 
                                   variant="outline" 
                                   size="sm"
                                   onClick={() => handleFetchMatchResult(match)}
                                   disabled={fetchingResultFor === match.id}
-                                  title="Fetch match result from CricAPI"
+                                  title="Auto-fetch result by team names from CricAPI"
                                 >
                                   {fetchingResultFor === match.id ? (
                                     <Loader2 className="w-3 h-3 mr-1 animate-spin" />
