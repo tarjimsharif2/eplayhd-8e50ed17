@@ -22,7 +22,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, Download } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, Download, RefreshCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
@@ -270,6 +270,48 @@ const Admin = () => {
     return null;
   }
 
+
+  const handleClearCache = async () => {
+    try {
+      // Clear React Query cache
+      const queryClient = (await import('@tanstack/react-query')).useQueryClient;
+      
+      // Clear browser caches
+      if ('caches' in window) {
+        const cacheNames = await caches.keys();
+        await Promise.all(cacheNames.map(name => caches.delete(name)));
+      }
+      
+      // Clear localStorage cache items (keep auth)
+      const authKeys = ['supabase.auth.token'];
+      Object.keys(localStorage).forEach(key => {
+        if (!authKeys.some(authKey => key.includes(authKey))) {
+          if (key.includes('cache') || key.includes('query')) {
+            localStorage.removeItem(key);
+          }
+        }
+      });
+      
+      // Clear sessionStorage
+      sessionStorage.clear();
+      
+      toast({
+        title: "Cache cleared",
+        description: "All cached data has been cleared. Refreshing page...",
+      });
+      
+      // Reload the page to refresh all data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to clear cache. Please try refreshing the page manually.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -911,10 +953,16 @@ const Admin = () => {
                 Manage matches, teams, tournaments, sports & banners
               </p>
             </div>
-            <Button variant="outline" onClick={handleSignOut}>
-              <LogOut className="w-4 h-4 mr-2" />
-              Sign Out
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleClearCache}>
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Clear Cache
+              </Button>
+              <Button variant="outline" onClick={handleSignOut}>
+                <LogOut className="w-4 h-4 mr-2" />
+                Sign Out
+              </Button>
+            </div>
           </motion.div>
 
           <Tabs defaultValue="matches" className="space-y-6">
