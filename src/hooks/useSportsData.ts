@@ -63,6 +63,7 @@ export interface Match {
   day_start_time: string | null;
   next_day_start: string | null;
   match_result: MatchResult;
+  api_score_enabled: boolean;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;

@@ -30,6 +30,9 @@ export interface SiteSettings {
   facebook_app_id: string | null;
   telegram_link: string | null;
   social_links: Record<string, string>;
+  // Cricket API settings
+  cricket_api_key: string | null;
+  cricket_api_enabled: boolean;
 }
 
 export const useSiteSettings = () => {

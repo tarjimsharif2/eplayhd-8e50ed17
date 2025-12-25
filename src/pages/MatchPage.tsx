@@ -211,12 +211,12 @@ const MatchPage = () => {
             </motion.div>
           )}
 
-          {/* Live Score Card - Only for Cricket */}
-          {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && (
+          {/* Live Score Card - Only for Cricket when API is enabled */}
+          {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && match.api_score_enabled && (
             <LiveScoreCard 
               teamAName={teamA.name} 
               teamBName={teamB.name}
-              isLive={match.status === 'live'}
+              apiScoreEnabled={match.api_score_enabled}
             />
           )}
 

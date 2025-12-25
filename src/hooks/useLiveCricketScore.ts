@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
+import { useSiteSettings } from './useSiteSettings';
 
-const CRICKET_API_KEY = 'abd0d45e-09e6-4d37-b0b1-88e0b553901e';
 const API_BASE_URL = 'https://api.cricapi.com/v1';
 
 export interface CricketScore {
@@ -76,11 +76,24 @@ export const findMatchingMatch = (
   return null;
 };
 
-export const useLiveCricketScore = (teamAName: string, teamBName: string, enabled: boolean = true) => {
+export const useLiveCricketScore = (
+  teamAName: string, 
+  teamBName: string, 
+  apiScoreEnabled: boolean = true
+) => {
+  const { data: siteSettings } = useSiteSettings();
+  
+  const apiKey = siteSettings?.cricket_api_key;
+  const globalEnabled = siteSettings?.cricket_api_enabled !== false;
+  
   return useQuery({
-    queryKey: ['cricketScore', teamAName, teamBName],
+    queryKey: ['cricketScore', teamAName, teamBName, apiKey],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}/currentMatches?apikey=${CRICKET_API_KEY}&offset=0`);
+      if (!apiKey) {
+        throw new Error('Cricket API key not configured');
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/currentMatches?apikey=${apiKey}&offset=0`);
       
       if (!response.ok) {
         throw new Error('Failed to fetch cricket scores');
@@ -94,7 +107,7 @@ export const useLiveCricketScore = (teamAName: string, teamBName: string, enable
       
       return findMatchingMatch(data.data, teamAName, teamBName);
     },
-    enabled: enabled && !!teamAName && !!teamBName,
+    enabled: !!apiKey && globalEnabled && apiScoreEnabled && !!teamAName && !!teamBName,
     refetchInterval: 30000, // Refetch every 30 seconds for live updates
     staleTime: 15000, // Consider data stale after 15 seconds
     retry: 2,

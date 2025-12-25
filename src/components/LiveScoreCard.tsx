@@ -1,4 +1,5 @@
 import { useLiveCricketScore, CricketMatch } from '@/hooks/useLiveCricketScore';
+import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Loader2, RefreshCw, Trophy } from 'lucide-react';
@@ -8,7 +9,7 @@ import { motion } from 'framer-motion';
 interface LiveScoreCardProps {
   teamAName: string;
   teamBName: string;
-  isLive: boolean;
+  apiScoreEnabled?: boolean;
 }
 
 const ScoreDisplay = ({ match }: { match: CricketMatch }) => {
@@ -37,12 +38,18 @@ const ScoreDisplay = ({ match }: { match: CricketMatch }) => {
   );
 };
 
-const LiveScoreCard = ({ teamAName, teamBName, isLive }: LiveScoreCardProps) => {
+const LiveScoreCard = ({ teamAName, teamBName, apiScoreEnabled = true }: LiveScoreCardProps) => {
+  const { data: siteSettings } = useSiteSettings();
   const { data: match, isLoading, isError, refetch, isFetching } = useLiveCricketScore(
     teamAName,
     teamBName,
-    true
+    apiScoreEnabled
   );
+
+  // Don't render if API is not configured
+  if (!siteSettings?.cricket_api_key || !siteSettings?.cricket_api_enabled) {
+    return null;
+  }
 
   if (isLoading) {
     return (

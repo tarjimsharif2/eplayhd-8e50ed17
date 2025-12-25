@@ -166,6 +166,7 @@ export type Database = {
       }
       matches: {
         Row: {
+          api_score_enabled: boolean | null
           created_at: string
           day_start_time: string | null
           id: string
@@ -200,6 +201,7 @@ export type Database = {
           venue: string | null
         }
         Insert: {
+          api_score_enabled?: boolean | null
           created_at?: string
           day_start_time?: string | null
           id?: string
@@ -234,6 +236,7 @@ export type Database = {
           venue?: string | null
         }
         Update: {
+          api_score_enabled?: boolean | null
           created_at?: string
           day_start_time?: string | null
           id?: string
@@ -333,6 +336,8 @@ export type Database = {
           ads_enabled: boolean | null
           canonical_url: string | null
           created_at: string
+          cricket_api_enabled: boolean | null
+          cricket_api_key: string | null
           facebook_app_id: string | null
           favicon_url: string | null
           footer_ad_code: string | null
@@ -361,6 +366,8 @@ export type Database = {
           ads_enabled?: boolean | null
           canonical_url?: string | null
           created_at?: string
+          cricket_api_enabled?: boolean | null
+          cricket_api_key?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
           footer_ad_code?: string | null
@@ -389,6 +396,8 @@ export type Database = {
           ads_enabled?: boolean | null
           canonical_url?: string | null
           created_at?: string
+          cricket_api_enabled?: boolean | null
+          cricket_api_key?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
           footer_ad_code?: string | null

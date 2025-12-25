@@ -122,6 +122,7 @@ const Admin = () => {
     day_start_time: '' as string | null,
     next_day_start: null as string | null,
     match_result: null as 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null,
+    api_score_enabled: true,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -175,6 +176,9 @@ const Admin = () => {
     twitter_handle: '',
     facebook_app_id: '',
     telegram_link: '',
+    // Cricket API settings
+    cricket_api_key: '',
+    cricket_api_enabled: true,
   });
 
   // Initialize site settings form when data is loaded
@@ -203,6 +207,9 @@ const Admin = () => {
         twitter_handle: siteSettings.twitter_handle || '',
         facebook_app_id: siteSettings.facebook_app_id || '',
         telegram_link: siteSettings.telegram_link || '',
+        // Cricket API settings
+        cricket_api_key: siteSettings.cricket_api_key || '',
+        cricket_api_enabled: siteSettings.cricket_api_enabled !== false,
       });
     }
   }, [siteSettings]);
@@ -304,6 +311,7 @@ const Admin = () => {
         day_start_time: matchForm.day_start_time || null,
         next_day_start: matchForm.next_day_start || null,
         match_result: matchForm.match_result,
+        api_score_enabled: matchForm.api_score_enabled,
       };
       
       if (editingMatch) {
@@ -351,6 +359,7 @@ const Admin = () => {
       day_start_time: match.day_start_time || '',
       next_day_start: match.next_day_start || null,
       match_result: match.match_result,
+      api_score_enabled: match.api_score_enabled !== false,
     });
     setMatchDialogOpen(true);
   };
@@ -402,6 +411,7 @@ const Admin = () => {
       day_start_time: match.day_start_time || '',
       next_day_start: null,
       match_result: null,
+      api_score_enabled: true,
     });
     setMatchDialogOpen(true);
     toast({ title: "Match copied", description: "Edit the details and save to create a new match." });
@@ -438,6 +448,7 @@ const Admin = () => {
       day_start_time: '',
       next_day_start: null,
       match_result: null,
+      api_score_enabled: true,
     });
   };
 
@@ -919,6 +930,21 @@ const Admin = () => {
                         <Switch
                           checked={matchForm.is_priority}
                           onCheckedChange={(checked) => setMatchForm({ ...matchForm, is_priority: checked })}
+                        />
+                      </div>
+
+                      {/* API Score Toggle - only for cricket */}
+                      <div className="flex items-center justify-between p-3 rounded-lg border bg-card/50">
+                        <div>
+                          <Label className="flex items-center gap-2">
+                            <Trophy className="w-4 h-4 text-primary" />
+                            Live Score API
+                          </Label>
+                          <p className="text-xs text-muted-foreground">Fetch live scores from CricketData API</p>
+                        </div>
+                        <Switch
+                          checked={matchForm.api_score_enabled}
+                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, api_score_enabled: checked })}
                         />
                       </div>
                       
@@ -2061,6 +2087,42 @@ const Admin = () => {
                           value={siteSettingsForm.google_analytics_id} 
                           onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, google_analytics_id: e.target.value })} 
                         />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Cricket API Settings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Cricket Score API</CardTitle>
+                      <CardDescription>Configure live cricket score updates from CricketData.org API</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                        <div className="space-y-0.5">
+                          <Label className="text-base font-medium">Enable Live Scores</Label>
+                          <p className="text-sm text-muted-foreground">Globally enable/disable live score updates from API</p>
+                        </div>
+                        <Switch
+                          checked={siteSettingsForm.cricket_api_enabled}
+                          onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, cricket_api_enabled: checked })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Cricket API Key</Label>
+                        <Input 
+                          type="password"
+                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" 
+                          value={siteSettingsForm.cricket_api_key} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, cricket_api_key: e.target.value })} 
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Get your free API key from{' '}
+                          <a href="https://cricketdata.org/signup.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                            cricketdata.org
+                          </a>
+                        </p>
                       </div>
                     </CardContent>
                   </Card>
