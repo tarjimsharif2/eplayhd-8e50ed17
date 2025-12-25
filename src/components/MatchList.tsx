@@ -5,10 +5,12 @@ import BannerSlider from "@/components/BannerSlider";
 import { motion } from "framer-motion";
 import { Loader2 } from "lucide-react";
 import { useState, useMemo } from "react";
+import { Button } from "@/components/ui/button";
 
 const MatchList = () => {
   const { data: matches, isLoading, error } = useMatches();
   const [activeFilter, setActiveFilter] = useState<MatchFilter>('all');
+  const [activeSportFilter, setActiveSportFilter] = useState<string>('all');
 
   // Filter and sort matches: Live first, then upcoming, then completed - sorted by match start time
   const filteredMatches = useMemo(() => {
@@ -82,6 +84,12 @@ const MatchList = () => {
         }
       }
 
+      // Apply sport filter
+      if (activeSportFilter !== 'all') {
+        const matchSportName = match.sport?.name || match.tournament?.sport;
+        if (matchSportName?.toLowerCase() !== activeSportFilter.toLowerCase()) return false;
+      }
+
       // Apply status filter
       if (activeFilter === 'all') return true;
       return match.status === activeFilter;
@@ -104,7 +112,44 @@ const MatchList = () => {
       }
       return dateB.getTime() - dateA.getTime();
     });
-  }, [matches, activeFilter]);
+  }, [matches, activeFilter, activeSportFilter]);
+
+  // Get unique sports that have matches (for sport filter)
+  const sportsWithMatches = useMemo(() => {
+    if (!matches) return [];
+    
+    const now = new Date();
+    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    
+    const sportSet = new Set<string>();
+    
+    matches.forEach((match) => {
+      // Skip completed matches older than 2 days
+      if (match.status === 'completed') {
+        try {
+          const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
+          if (dateMatch) {
+            const [, day, month, year] = dateMatch;
+            const monthMap: Record<string, number> = {
+              january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+              july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+            };
+            const matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
+            if (matchDate < twoDaysAgo) return;
+          }
+        } catch {
+          // Continue if date parsing fails
+        }
+      }
+      
+      const sportName = match.sport?.name || match.tournament?.sport;
+      if (sportName) {
+        sportSet.add(sportName);
+      }
+    });
+    
+    return Array.from(sportSet).sort();
+  }, [matches]);
 
   // Calculate counts for filter badges
   const counts = useMemo(() => {
@@ -172,8 +217,35 @@ const MatchList = () => {
           <BannerSlider />
         </div>
 
+        {/* Sport Filters - Only show when multiple sports have matches */}
+        {sportsWithMatches.length > 1 && (
+          <div className="mb-4 flex flex-wrap justify-center gap-2">
+            <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+              <Button
+                variant={activeSportFilter === 'all' ? "gradient" : "outline"}
+                size="sm"
+                onClick={() => setActiveSportFilter('all')}
+                className="gap-1.5"
+              >
+                All Sports
+              </Button>
+            </motion.div>
+            {sportsWithMatches.map((sport) => (
+              <motion.div key={sport} whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                <Button
+                  variant={activeSportFilter === sport ? "gradient" : "outline"}
+                  size="sm"
+                  onClick={() => setActiveSportFilter(sport)}
+                  className="gap-1.5"
+                >
+                  {sport}
+                </Button>
+              </motion.div>
+            ))}
+          </div>
+        )}
 
-        {/* Filters */}
+        {/* Status Filters */}
         <div className="mb-8">
           <MatchFilters 
             activeFilter={activeFilter} 

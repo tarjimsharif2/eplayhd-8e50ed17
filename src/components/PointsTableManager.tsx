@@ -1,0 +1,399 @@
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useToast } from "@/hooks/use-toast";
+import { Plus, Edit2, Trash2, Loader2 } from "lucide-react";
+import { Tournament, Team } from "@/hooks/useSportsData";
+
+interface PointsTableEntry {
+  id: string;
+  tournament_id: string;
+  team_id: string;
+  position: number;
+  played: number;
+  won: number;
+  lost: number;
+  tied: number;
+  no_result: number;
+  points: number;
+  net_run_rate: number;
+  team?: Team;
+}
+
+interface PointsTableManagerProps {
+  tournament: Tournament;
+  teams: Team[];
+}
+
+const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<PointsTableEntry | null>(null);
+  const [form, setForm] = useState({
+    team_id: '',
+    position: 1,
+    played: 0,
+    won: 0,
+    lost: 0,
+    tied: 0,
+    no_result: 0,
+    points: 0,
+    net_run_rate: 0,
+  });
+
+  // Fetch points table entries for this tournament
+  const { data: entries, isLoading } = useQuery({
+    queryKey: ['tournament_points_table', tournament.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tournament_points_table')
+        .select(`
+          *,
+          team:teams(*)
+        `)
+        .eq('tournament_id', tournament.id)
+        .order('position');
+      
+      if (error) throw error;
+      return data as PointsTableEntry[];
+    },
+  });
+
+  // Create mutation
+  const createEntry = useMutation({
+    mutationFn: async (entry: Omit<PointsTableEntry, 'id' | 'team'>) => {
+      const { data, error } = await supabase
+        .from('tournament_points_table')
+        .insert(entry)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tournament_points_table', tournament.id] });
+      toast({ title: "Entry added successfully" });
+      setDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Update mutation
+  const updateEntry = useMutation({
+    mutationFn: async ({ id, ...entry }: Partial<PointsTableEntry> & { id: string }) => {
+      const { data, error } = await supabase
+        .from('tournament_points_table')
+        .update(entry)
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tournament_points_table', tournament.id] });
+      toast({ title: "Entry updated successfully" });
+      setDialogOpen(false);
+      resetForm();
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Delete mutation
+  const deleteEntry = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('tournament_points_table')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tournament_points_table', tournament.id] });
+      toast({ title: "Entry deleted successfully" });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const resetForm = () => {
+    setEditingEntry(null);
+    setForm({
+      team_id: '',
+      position: (entries?.length || 0) + 1,
+      played: 0,
+      won: 0,
+      lost: 0,
+      tied: 0,
+      no_result: 0,
+      points: 0,
+      net_run_rate: 0,
+    });
+  };
+
+  const handleEdit = (entry: PointsTableEntry) => {
+    setEditingEntry(entry);
+    setForm({
+      team_id: entry.team_id,
+      position: entry.position,
+      played: entry.played,
+      won: entry.won,
+      lost: entry.lost,
+      tied: entry.tied,
+      no_result: entry.no_result,
+      points: entry.points,
+      net_run_rate: entry.net_run_rate,
+    });
+    setDialogOpen(true);
+  };
+
+  const handleSave = () => {
+    if (!form.team_id) {
+      toast({ title: "Please select a team", variant: "destructive" });
+      return;
+    }
+
+    const entryData = {
+      tournament_id: tournament.id,
+      team_id: form.team_id,
+      position: form.position,
+      played: form.played,
+      won: form.won,
+      lost: form.lost,
+      tied: form.tied,
+      no_result: form.no_result,
+      points: form.points,
+      net_run_rate: form.net_run_rate,
+    };
+
+    if (editingEntry) {
+      updateEntry.mutate({ id: editingEntry.id, ...entryData });
+    } else {
+      createEntry.mutate(entryData);
+    }
+  };
+
+  // Get teams that are not already in the points table
+  const availableTeams = teams.filter(
+    team => !entries?.some(e => e.team_id === team.id) || editingEntry?.team_id === team.id
+  );
+
+  if (isLoading) {
+    return (
+      <div className="text-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin mx-auto text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">Points Table - {tournament.name}</h3>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={() => {
+            resetForm();
+            setDialogOpen(true);
+          }}
+        >
+          <Plus className="w-4 h-4 mr-1" />
+          Add Team
+        </Button>
+      </div>
+
+      {entries && entries.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="text-left py-2 px-2">#</th>
+                <th className="text-left py-2 px-2">Team</th>
+                <th className="text-center py-2 px-1">P</th>
+                <th className="text-center py-2 px-1">W</th>
+                <th className="text-center py-2 px-1">L</th>
+                <th className="text-center py-2 px-1">T</th>
+                <th className="text-center py-2 px-1">NR</th>
+                <th className="text-center py-2 px-1">NRR</th>
+                <th className="text-center py-2 px-1">Pts</th>
+                <th className="text-right py-2 px-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map((entry) => (
+                <tr key={entry.id} className="border-b border-border/50 hover:bg-muted/30">
+                  <td className="py-2 px-2 font-medium">{entry.position}</td>
+                  <td className="py-2 px-2">
+                    <div className="flex items-center gap-2">
+                      {entry.team?.logo_url && (
+                        <img src={entry.team.logo_url} alt="" className="w-5 h-5 object-contain" />
+                      )}
+                      <span>{entry.team?.short_name || entry.team?.name}</span>
+                    </div>
+                  </td>
+                  <td className="text-center py-2 px-1">{entry.played}</td>
+                  <td className="text-center py-2 px-1">{entry.won}</td>
+                  <td className="text-center py-2 px-1">{entry.lost}</td>
+                  <td className="text-center py-2 px-1">{entry.tied}</td>
+                  <td className="text-center py-2 px-1">{entry.no_result}</td>
+                  <td className="text-center py-2 px-1">
+                    <span className={entry.net_run_rate >= 0 ? 'text-green-500' : 'text-red-500'}>
+                      {entry.net_run_rate >= 0 ? '+' : ''}{entry.net_run_rate.toFixed(3)}
+                    </span>
+                  </td>
+                  <td className="text-center py-2 px-1 font-bold">{entry.points}</td>
+                  <td className="text-right py-2 px-2">
+                    <div className="flex items-center justify-end gap-1">
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEdit(entry)}>
+                        <Edit2 className="w-3 h-3" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => deleteEntry.mutate(entry.id)}>
+                        <Trash2 className="w-3 h-3 text-destructive" />
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className="text-center text-muted-foreground py-4">No entries yet. Add teams to the points table.</p>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingEntry ? 'Edit Entry' : 'Add Team to Points Table'}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Team</Label>
+              <Select value={form.team_id} onValueChange={(value) => setForm({ ...form, team_id: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select team" />
+                </SelectTrigger>
+                <SelectContent>
+                  {availableTeams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      {team.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2">
+                <Label>Position</Label>
+                <Input 
+                  type="number" 
+                  min={1}
+                  value={form.position} 
+                  onChange={(e) => setForm({ ...form, position: parseInt(e.target.value) || 1 })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Played</Label>
+                <Input 
+                  type="number" 
+                  min={0}
+                  value={form.played} 
+                  onChange={(e) => setForm({ ...form, played: parseInt(e.target.value) || 0 })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Points</Label>
+                <Input 
+                  type="number" 
+                  min={0}
+                  value={form.points} 
+                  onChange={(e) => setForm({ ...form, points: parseInt(e.target.value) || 0 })} 
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-4 gap-3">
+              <div className="space-y-2">
+                <Label>Won</Label>
+                <Input 
+                  type="number" 
+                  min={0}
+                  value={form.won} 
+                  onChange={(e) => setForm({ ...form, won: parseInt(e.target.value) || 0 })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Lost</Label>
+                <Input 
+                  type="number" 
+                  min={0}
+                  value={form.lost} 
+                  onChange={(e) => setForm({ ...form, lost: parseInt(e.target.value) || 0 })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Tied</Label>
+                <Input 
+                  type="number" 
+                  min={0}
+                  value={form.tied} 
+                  onChange={(e) => setForm({ ...form, tied: parseInt(e.target.value) || 0 })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>NR</Label>
+                <Input 
+                  type="number" 
+                  min={0}
+                  value={form.no_result} 
+                  onChange={(e) => setForm({ ...form, no_result: parseInt(e.target.value) || 0 })} 
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Net Run Rate</Label>
+              <Input 
+                type="number" 
+                step="0.001"
+                value={form.net_run_rate} 
+                onChange={(e) => setForm({ ...form, net_run_rate: parseFloat(e.target.value) || 0 })} 
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+            <Button 
+              variant="gradient" 
+              onClick={handleSave}
+              disabled={createEntry.isPending || updateEntry.isPending}
+            >
+              {(createEntry.isPending || updateEntry.isPending) && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {editingEntry ? 'Update' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default PointsTableManager;

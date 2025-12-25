@@ -31,8 +31,10 @@ import { format } from "date-fns";
 import StreamingServersManager from "@/components/StreamingServersManager";
 import InningsManager from "@/components/InningsManager";
 import PlayingXIManager from "@/components/PlayingXIManager";
+import PointsTableManager from "@/components/PointsTableManager";
 import { Textarea } from "@/components/ui/textarea";
 import SearchableSelect from "@/components/SearchableSelect";
+import { Table } from "lucide-react";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -715,6 +717,10 @@ const Admin = () => {
               <TabsTrigger value="tournaments" className="gap-2">
                 <Trophy className="w-4 h-4" />
                 Tournaments
+              </TabsTrigger>
+              <TabsTrigger value="points-table" className="gap-2">
+                <Table className="w-4 h-4" />
+                Points Table
               </TabsTrigger>
               <TabsTrigger value="sports" className="gap-2">
                 <Gamepad2 className="w-4 h-4" />
@@ -1602,6 +1608,35 @@ const Admin = () => {
                       </Card>
                     </motion.div>
                   ))}
+                </div>
+              )}
+            </TabsContent>
+
+            {/* Points Table Tab */}
+            <TabsContent value="points-table" className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-2">Tournament Points Tables</h2>
+                <p className="text-sm text-muted-foreground">Manage team standings for each tournament</p>
+              </div>
+
+              {tournamentsLoading || teamsLoading ? (
+                <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
+              ) : tournaments && tournaments.length > 0 ? (
+                <div className="space-y-6">
+                  {tournaments.map((tournament) => (
+                    <Card key={tournament.id}>
+                      <CardContent className="p-6">
+                        <PointsTableManager 
+                          tournament={tournament} 
+                          teams={teams || []} 
+                        />
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <p className="text-muted-foreground">No tournaments yet. Create tournaments first to manage points tables.</p>
                 </div>
               )}
             </TabsContent>
