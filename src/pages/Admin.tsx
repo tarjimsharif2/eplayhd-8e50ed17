@@ -1164,6 +1164,19 @@ const Admin = () => {
                           </div>
                         </div>
                       )}
+
+                      {/* API Score Toggle */}
+                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
+                        <div className="space-y-0.5">
+                          <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable Live API Scores</Label>
+                          <p className="text-xs text-muted-foreground">Fetch live scores from CricAPI (requires API key in settings)</p>
+                        </div>
+                        <Switch
+                          id="api_score_enabled"
+                          checked={matchForm.api_score_enabled}
+                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, api_score_enabled: checked })}
+                        />
+                      </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setMatchDialogOpen(false)}>Cancel</Button>
