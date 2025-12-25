@@ -6,46 +6,36 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface CricAPIMatchInfo {
+interface CricAPIMatch {
   id: string;
   name: string;
   status: string;
   matchType: string;
-  venue: {
-    name: string;
-    city: string;
-  };
+  venue?: string;
   date: string;
   dateTimeGMT: string;
   teams: string[];
-  score: {
-    r: number;
-    w: number;
-    o: number;
-    inning: string;
-  }[];
+  teamInfo?: { name: string; shortname: string; img: string }[];
+  score?: { r: number; w: number; o: number; inning: string }[];
   matchWinner?: string;
   matchEnded?: boolean;
 }
 
 // Retry fetch with exponential backoff
-async function fetchWithRetry(url: string, options: RequestInit = {}, maxRetries = 3): Promise<Response> {
+async function fetchWithRetry(url: string, maxRetries = 3): Promise<Response> {
   let lastError: Error | null = null;
   
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
       const response = await fetch(url, {
-        ...options,
-        signal: AbortSignal.timeout(15000), // 15 second timeout
+        signal: AbortSignal.timeout(15000),
       });
       return response;
     } catch (err) {
       lastError = err as Error;
-      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.log(`Attempt ${attempt + 1} failed: ${errorMessage}`);
+      console.log(`Attempt ${attempt + 1} failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
       
       if (attempt < maxRetries - 1) {
-        // Wait with exponential backoff
         const delay = Math.pow(2, attempt) * 1000;
         console.log(`Retrying in ${delay}ms...`);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -56,13 +46,31 @@ async function fetchWithRetry(url: string, options: RequestInit = {}, maxRetries
   throw lastError || new Error('All retry attempts failed');
 }
 
+// Normalize team name for comparison
+function normalizeTeamName(name: string): string {
+  return name.toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+    .replace(/cricket|club|team|xi|eleven/g, '');
+}
+
+// Check if two team names match
+function teamsMatch(apiTeam: string, dbTeamName: string, dbTeamShort: string): boolean {
+  const apiNorm = normalizeTeamName(apiTeam);
+  const nameNorm = normalizeTeamName(dbTeamName);
+  const shortNorm = normalizeTeamName(dbTeamShort);
+  
+  return apiNorm.includes(nameNorm) || nameNorm.includes(apiNorm) ||
+         apiNorm.includes(shortNorm) || shortNorm === apiNorm ||
+         apiNorm === nameNorm;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { matchId, cricbuzzMatchId } = await req.json();
+    const { matchId } = await req.json();
 
     if (!matchId) {
       return new Response(
@@ -71,9 +79,8 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Fetching result for match ID: ${matchId}, CricAPI ID: ${cricbuzzMatchId}`);
+    console.log(`Fetching result for match ID: ${matchId}`);
 
-    // Get Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -83,7 +90,7 @@ serve(async (req) => {
       .from('site_settings')
       .select('cricket_api_key, cricket_api_enabled')
       .limit(1)
-      .single();
+      .maybeSingle();
 
     if (settingsError || !settings?.cricket_api_key || !settings?.cricket_api_enabled) {
       console.error('Cricket API not configured:', settingsError);
@@ -93,7 +100,7 @@ serve(async (req) => {
       );
     }
 
-    // Get match details to map team names
+    // Get match details with team info
     const { data: matchData, error: matchError } = await supabase
       .from('matches')
       .select(`
@@ -102,7 +109,7 @@ serve(async (req) => {
         team_b:teams!matches_team_b_id_fkey(id, name, short_name)
       `)
       .eq('id', matchId)
-      .single();
+      .maybeSingle();
 
     if (matchError || !matchData) {
       console.error('Match not found:', matchError);
@@ -112,21 +119,28 @@ serve(async (req) => {
       );
     }
 
-    // Fetch match info from CricAPI with retry
-    const apiUrl = `https://api.cricapi.com/v1/match_info?apikey=${settings.cricket_api_key}&id=${cricbuzzMatchId}`;
+    const teamAName = matchData.team_a.name;
+    const teamBName = matchData.team_b.name;
+    const teamAShort = matchData.team_a.short_name;
+    const teamBShort = matchData.team_b.short_name;
+
+    console.log(`Looking for match: ${teamAName} (${teamAShort}) vs ${teamBName} (${teamBShort})`);
+
+    // Fetch current matches from CricAPI
+    const matchesUrl = `https://api.cricapi.com/v1/currentMatches?apikey=${settings.cricket_api_key}&offset=0`;
     
-    console.log('Fetching from CricAPI...');
+    console.log('Fetching matches from CricAPI...');
     
     let apiResponse: Response;
     try {
-      apiResponse = await fetchWithRetry(apiUrl);
+      apiResponse = await fetchWithRetry(matchesUrl);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      console.error('CricAPI fetch failed after retries:', errorMessage);
+      console.error('CricAPI fetch failed:', errorMessage);
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: 'Failed to connect to CricAPI. Please check your API key and match ID.',
+          error: 'Failed to connect to CricAPI. Please set match result manually.',
           details: errorMessage
         }),
         { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -135,67 +149,92 @@ serve(async (req) => {
 
     const apiData = await apiResponse.json();
 
-    console.log('CricAPI response:', JSON.stringify(apiData, null, 2));
-
     if (apiData.status !== 'success' || !apiData.data) {
       console.error('CricAPI error:', apiData);
       return new Response(
         JSON.stringify({ 
           success: false,
-          error: apiData.info || apiData.message || 'Failed to fetch from CricAPI',
-          details: 'Make sure the CricAPI Match ID is correct (not Cricbuzz ID)'
+          error: apiData.info || 'Failed to fetch matches from CricAPI'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const matchInfo: CricAPIMatchInfo = apiData.data;
+    // Find matching match by team names
+    const matches: CricAPIMatch[] = apiData.data;
+    console.log(`Found ${matches.length} matches from API`);
 
-    // Only process if match has ended
-    if (!matchInfo.matchEnded) {
-      console.log('Match has not ended yet');
+    let foundMatch: CricAPIMatch | null = null;
+
+    for (const match of matches) {
+      if (!match.teams || match.teams.length < 2) continue;
+
+      const [apiTeam1, apiTeam2] = match.teams;
+      
+      // Check if both teams match (in any order)
+      const team1MatchesA = teamsMatch(apiTeam1, teamAName, teamAShort);
+      const team1MatchesB = teamsMatch(apiTeam1, teamBName, teamBShort);
+      const team2MatchesA = teamsMatch(apiTeam2, teamAName, teamAShort);
+      const team2MatchesB = teamsMatch(apiTeam2, teamBName, teamBShort);
+
+      if ((team1MatchesA && team2MatchesB) || (team1MatchesB && team2MatchesA)) {
+        foundMatch = match;
+        console.log(`Found matching match: ${match.name} (ID: ${match.id})`);
+        break;
+      }
+    }
+
+    if (!foundMatch) {
+      console.log('No matching match found in API');
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: 'Match has not ended yet',
-          status: matchInfo.status 
+          message: `No match found for ${teamAName} vs ${teamBName}. The match may not be in CricAPI's current list.`
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Determine winner based on status text
+    // Check if match has ended
+    if (!foundMatch.matchEnded) {
+      console.log('Match has not ended yet');
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          message: 'Match has not ended yet',
+          status: foundMatch.status 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Determine winner
     let matchResult: 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null = null;
-    const statusLower = matchInfo.status.toLowerCase();
-    const teamAName = matchData.team_a.name.toLowerCase();
-    const teamBName = matchData.team_b.name.toLowerCase();
-    const teamAShort = matchData.team_a.short_name.toLowerCase();
-    const teamBShort = matchData.team_b.short_name.toLowerCase();
+    const statusLower = foundMatch.status.toLowerCase();
 
-    console.log(`Checking status: "${matchInfo.status}"`);
-    console.log(`Team A: ${teamAName} (${teamAShort}), Team B: ${teamBName} (${teamBShort})`);
+    console.log(`Match status: "${foundMatch.status}", Winner: ${foundMatch.matchWinner || 'N/A'}`);
 
-    // Check for winner
-    if (matchInfo.matchWinner) {
-      const winnerLower = matchInfo.matchWinner.toLowerCase();
-      if (winnerLower.includes(teamAName) || winnerLower.includes(teamAShort) || 
-          teamAName.includes(winnerLower) || teamAShort === winnerLower) {
+    // Check matchWinner first
+    if (foundMatch.matchWinner) {
+      if (teamsMatch(foundMatch.matchWinner, teamAName, teamAShort)) {
         matchResult = 'team_a_won';
-      } else if (winnerLower.includes(teamBName) || winnerLower.includes(teamBShort) ||
-                 teamBName.includes(winnerLower) || teamBShort === winnerLower) {
+      } else if (teamsMatch(foundMatch.matchWinner, teamBName, teamBShort)) {
         matchResult = 'team_b_won';
       }
     }
 
     // Fallback: check status text
     if (!matchResult) {
-      if (statusLower.includes(teamAName) && statusLower.includes('won')) {
+      const teamALower = teamAName.toLowerCase();
+      const teamBLower = teamBName.toLowerCase();
+      const teamAShortLower = teamAShort.toLowerCase();
+      const teamBShortLower = teamBShort.toLowerCase();
+
+      if ((statusLower.includes(teamALower) || statusLower.includes(teamAShortLower)) && 
+          statusLower.includes('won')) {
         matchResult = 'team_a_won';
-      } else if (statusLower.includes(teamBName) && statusLower.includes('won')) {
-        matchResult = 'team_b_won';
-      } else if (statusLower.includes(teamAShort) && statusLower.includes('won')) {
-        matchResult = 'team_a_won';
-      } else if (statusLower.includes(teamBShort) && statusLower.includes('won')) {
+      } else if ((statusLower.includes(teamBLower) || statusLower.includes(teamBShortLower)) && 
+                 statusLower.includes('won')) {
         matchResult = 'team_b_won';
       } else if (statusLower.includes('tied') || statusLower.includes('tie')) {
         matchResult = 'tied';
@@ -212,83 +251,63 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: 'Could not determine match result from API response',
-          status: matchInfo.status,
-          winner: matchInfo.matchWinner
+          message: 'Could not determine match result',
+          status: foundMatch.status,
+          winner: foundMatch.matchWinner
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get innings data for NRR calculation
-    const scores = matchInfo.score || [];
+    // Parse score data for innings
+    const scores = foundMatch.score || [];
     let teamARuns = 0, teamAOvers = 0;
     let teamBRuns = 0, teamBOvers = 0;
 
     for (const score of scores) {
       const inningLower = score.inning.toLowerCase();
-      if (inningLower.includes(teamAName) || inningLower.includes(teamAShort)) {
+      if (teamsMatch(score.inning, teamAName, teamAShort)) {
         teamARuns += score.r || 0;
         teamAOvers += score.o || 0;
-      } else if (inningLower.includes(teamBName) || inningLower.includes(teamBShort)) {
+      } else if (teamsMatch(score.inning, teamBName, teamBShort)) {
         teamBRuns += score.r || 0;
         teamBOvers += score.o || 0;
       }
     }
 
-    console.log(`Team A: ${teamARuns}/${teamAOvers}ov, Team B: ${teamBRuns}/${teamBOvers}ov`);
+    console.log(`Scores - ${teamAShort}: ${teamARuns}/${teamAOvers}ov, ${teamBShort}: ${teamBRuns}/${teamBOvers}ov`);
 
     // Delete existing innings and insert new ones
-    await supabase
-      .from('match_innings')
-      .delete()
-      .eq('match_id', matchId);
+    await supabase.from('match_innings').delete().eq('match_id', matchId);
 
-    // Insert innings data for Team A
     if (teamARuns > 0 || teamAOvers > 0) {
-      const { error: inningsAError } = await supabase
-        .from('match_innings')
-        .insert({
-          match_id: matchId,
-          batting_team_id: matchData.team_a.id,
-          innings_number: 1,
-          runs: teamARuns,
-          overs: teamAOvers,
-          wickets: 0,
-          is_current: false,
-        });
-
-      if (inningsAError) {
-        console.error('Error inserting team A innings:', inningsAError);
-      }
+      await supabase.from('match_innings').insert({
+        match_id: matchId,
+        batting_team_id: matchData.team_a.id,
+        innings_number: 1,
+        runs: teamARuns,
+        overs: teamAOvers,
+        wickets: 0,
+        is_current: false,
+      });
     }
 
-    // Insert innings data for Team B
     if (teamBRuns > 0 || teamBOvers > 0) {
-      const { error: inningsBError } = await supabase
-        .from('match_innings')
-        .insert({
-          match_id: matchId,
-          batting_team_id: matchData.team_b.id,
-          innings_number: 2,
-          runs: teamBRuns,
-          overs: teamBOvers,
-          wickets: 0,
-          is_current: false,
-        });
-
-      if (inningsBError) {
-        console.error('Error inserting team B innings:', inningsBError);
-      }
+      await supabase.from('match_innings').insert({
+        match_id: matchId,
+        batting_team_id: matchData.team_b.id,
+        innings_number: 2,
+        runs: teamBRuns,
+        overs: teamBOvers,
+        wickets: 0,
+        is_current: false,
+      });
     }
 
-    // Update match with result - this triggers the points table update
+    // Update match result - triggers points table update
     const { error: updateError } = await supabase
       .from('matches')
-      .update({
-        match_result: matchResult,
-        status: 'completed',
-      })
+      .update({ match_result: matchResult, status: 'completed' })
       .eq('id', matchId);
 
     if (updateError) {
@@ -305,7 +324,8 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         matchResult,
-        status: matchInfo.status,
+        cricApiMatchId: foundMatch.id,
+        status: foundMatch.status,
         teamA: { runs: teamARuns, overs: teamAOvers },
         teamB: { runs: teamBRuns, overs: teamBOvers },
       }),
@@ -313,10 +333,9 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error fetching match result:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
