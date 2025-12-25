@@ -14,18 +14,18 @@ const FlipClock = ({ time }: FlipClockProps) => {
         <div key={index} className="flex items-center">
           {/* Time segment */}
           <div className="flex flex-col items-center">
-            <div className="bg-black/90 rounded-md px-1.5 py-1 min-w-[28px] border border-white/10 shadow-lg">
+            <div className="bg-black/90 rounded-md px-2 py-1.5 min-w-[32px] border border-white/10 shadow-lg">
               <motion.span
                 key={segment}
                 initial={{ y: -8, opacity: 0 }}
                 animate={{ y: 0, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="block text-center text-sm font-bold font-mono text-white tabular-nums"
+                className="block text-center text-base font-bold font-mono text-white tabular-nums"
               >
                 {segment}
               </motion.span>
             </div>
-            <span className="text-[6px] text-muted-foreground mt-0.5 font-medium tracking-wider">
+            <span className="text-[7px] text-muted-foreground mt-0.5 font-medium tracking-wider">
               {labels[index]}
             </span>
           </div>

@@ -250,17 +250,17 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
           {isCricket && (cricketFormat || match.test_day) && (
             <div className="flex items-center justify-center gap-2 mb-2">
               {cricketFormat && (
-                <Badge className={`${cricketFormat.color} text-white border-0 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg`}>
+                <Badge className={`${cricketFormat.color} text-white border-0 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg`}>
                   {cricketFormat.label}
                 </Badge>
               )}
               {match.test_day && match.match_format?.toLowerCase() === 'test' && (
-                <Badge className="bg-gradient-to-r from-amber-600 to-amber-700 text-white border-0 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg">
+                <Badge className="bg-gradient-to-r from-amber-600 to-amber-700 text-white border-0 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg">
                   Day-{match.test_day}
                 </Badge>
               )}
               {match.is_stumps && match.match_format?.toLowerCase() === 'test' && (
-                <Badge className="bg-gradient-to-r from-slate-600 to-slate-700 text-white border-0 font-bold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg animate-pulse">
+                <Badge className="bg-gradient-to-r from-slate-600 to-slate-700 text-white border-0 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg animate-pulse">
                   STUMPS
                 </Badge>
               )}
@@ -270,7 +270,7 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
           {/* Match Label Badge - Above Tournament Name */}
           {match.match_label && (
             <div className="flex justify-start mb-2">
-              <Badge className="bg-gradient-to-r from-yellow-500/90 to-orange-500/90 text-white border-0 font-semibold text-[10px] uppercase tracking-wider px-2.5 py-1 shadow-lg">
+              <Badge className="bg-gradient-to-r from-yellow-500/90 to-orange-500/90 text-white border-0 font-semibold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg">
                 {match.match_label}
               </Badge>
             </div>
@@ -279,10 +279,10 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
           {/* Tournament Header - Centered */}
           {tournament && (
             <div className={`text-center mb-3 ${tournament.logo_url ? 'pr-12' : ''}`}>
-              <h3 className="tournament-title text-base md:text-lg tracking-wide line-clamp-2">
+              <h3 className="tournament-title text-lg md:text-xl tracking-wide line-clamp-2">
                 {tournament.name}
               </h3>
-              <p className="text-muted-foreground text-[10px] uppercase tracking-widest font-medium mt-0.5">
+              <p className="text-muted-foreground text-xs uppercase tracking-widest font-medium mt-0.5">
                 {tournament.season}
               </p>
             </div>
@@ -290,7 +290,7 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
 
           {/* Sport Badge & Match Number */}
           <div className="flex items-center justify-between mb-3">
-            <Badge variant="sport" className="gap-1.5 text-xs">
+            <Badge variant="sport" className="gap-1.5 text-sm">
               <SportIcon sport={sportName} iconUrl={sportIconUrl} />
               {sportName}
             </Badge>
@@ -298,7 +298,7 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
               {match.is_priority && (
                 <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
               )}
-              <span className="text-muted-foreground text-[11px] font-medium bg-muted/40 px-2.5 py-1 rounded-full">
+              <span className="text-muted-foreground text-xs font-medium bg-muted/40 px-3 py-1.5 rounded-full">
                 Match #{match.match_number}
               </span>
             </div>
@@ -315,29 +315,29 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                   <span className="font-display text-lg text-primary">{getInitials(teamA.name)}</span>
                 )}
               </div>
-              <span className="font-medium text-foreground text-[11px] md:text-xs leading-tight line-clamp-2">{teamA.name}</span>
-              {match.score_a && <span className="text-base md:text-lg font-bold text-primary">{match.score_a}</span>}
+              <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamA.name}</span>
+              {match.score_a && <span className="text-lg md:text-xl font-bold text-primary">{match.score_a}</span>}
             </div>
 
             {/* VS / Countdown / Match Minute */}
             <div className="flex flex-col items-center gap-1 px-1">
               {countdown ? (
                 <div className="flex flex-col items-center gap-1">
-                  <span className="text-[9px] text-orange-400 uppercase tracking-widest font-bold">
+                  <span className="text-[11px] text-orange-400 uppercase tracking-widest font-bold">
                     Starts in
                   </span>
                   <FlipClock time={countdown} />
                 </div>
               ) : match.status === 'live' && match.match_minute != null && (sportName.toLowerCase() === 'football' || sportName.toLowerCase() === 'soccer') ? (
                 <div className="flex flex-col items-center">
-                  <div className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/30 relative">
-                    <span className="font-display text-sm text-red-500 font-bold">{match.match_minute}'</span>
+                  <div className="w-11 h-11 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/30 relative">
+                    <span className="font-display text-base text-red-500 font-bold">{match.match_minute}'</span>
                     <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                   </div>
                 </div>
               ) : (
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30">
-                  <span className="font-display text-xs text-foreground/80">VS</span>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30">
+                  <span className="font-display text-sm text-foreground/80">VS</span>
                 </div>
               )}
             </div>
@@ -351,8 +351,8 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                   <span className="font-display text-lg text-accent">{getInitials(teamB.name)}</span>
                 )}
               </div>
-              <span className="font-medium text-foreground text-[11px] md:text-xs leading-tight line-clamp-2">{teamB.name}</span>
-              {match.score_b && <span className="text-base md:text-lg font-bold text-accent">{match.score_b}</span>}
+              <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamB.name}</span>
+              {match.score_b && <span className="text-lg md:text-xl font-bold text-accent">{match.score_b}</span>}
             </div>
           </div>
 
@@ -366,20 +366,20 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
           {/* Footer: Venue, Time & Status */}
           <div className="mt-3 pt-2 border-t border-border/30 flex flex-col items-center gap-1.5">
             {match.venue && (
-              <p className="text-muted-foreground text-xs font-medium flex items-center gap-1.5">
-                <MapPin className="w-3 h-3" />
+              <p className="text-muted-foreground text-sm font-medium flex items-center gap-1.5">
+                <MapPin className="w-3.5 h-3.5" />
                 {match.venue}
               </p>
             )}
-            <div className="flex items-center gap-2 text-muted-foreground text-xs">
-              <Clock className="w-3 h-3" />
+            <div className="flex items-center gap-2 text-muted-foreground text-sm">
+              <Clock className="w-3.5 h-3.5" />
               <span className={dateLabel.isTodayOrTomorrow ? 'text-primary font-semibold' : ''}>
                 {dateLabel.label}
               </span>
               <span>• {localTime || match.match_time}</span>
               <span className="text-primary font-medium">({timezone})</span>
             </div>
-            <Badge variant={getStatusVariant(match.status)} className="px-4 py-1.5 text-xs">
+            <Badge variant={getStatusVariant(match.status)} className="px-4 py-1.5 text-sm">
               {match.status === 'live' && (
                 <span className="w-2 h-2 bg-current rounded-full mr-1.5 animate-pulse" />
               )}
