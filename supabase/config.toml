@@ -2,3 +2,6 @@ project_id = "doqteforumjdugifxryl"
 
 [functions.stream-proxy]
 verify_jwt = false
+
+[functions.scrape-cricket-score]
+verify_jwt = false

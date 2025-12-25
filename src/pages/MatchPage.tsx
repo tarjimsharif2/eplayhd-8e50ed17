@@ -8,7 +8,7 @@ import AdSlot from '@/components/AdSlot';
 import PlayingXI from '@/components/PlayingXI';
 import PointsTable from '@/components/PointsTable';
 import ManualScoreCard from '@/components/ManualScoreCard';
-import LiveScoreCard from '@/components/LiveScoreCard';
+import { CricbuzzScoreCard } from '@/components/CricbuzzScoreCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -212,13 +212,10 @@ const MatchPage = () => {
             </motion.div>
           )}
 
-          {/* Live Score Card - CricAPI (if enabled for this match) */}
-          {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && match.api_score_enabled && (
-            <LiveScoreCard
-              teamAName={teamA.name}
-              teamBName={teamB.name}
-              teamALogo={teamA.logo_url}
-              teamBLogo={teamB.logo_url}
+          {/* Live Score Card - Cricbuzz scraping (if enabled and match ID configured) */}
+          {sport?.name?.toLowerCase() === 'cricket' && match.api_score_enabled && match.cricbuzz_match_id && (
+            <CricbuzzScoreCard
+              cricbuzzMatchId={match.cricbuzz_match_id}
               enabled={match.status === 'live'}
             />
           )}

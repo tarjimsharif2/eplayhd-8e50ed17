@@ -123,6 +123,7 @@ const Admin = () => {
     next_day_start: null as string | null,
     match_result: null as 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null,
     api_score_enabled: false,
+    cricbuzz_match_id: '' as string | null,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -312,7 +313,7 @@ const Admin = () => {
         next_day_start: matchForm.next_day_start || null,
         match_result: matchForm.match_result,
         api_score_enabled: matchForm.api_score_enabled,
-        cricbuzz_match_id: null,
+        cricbuzz_match_id: matchForm.cricbuzz_match_id || null,
       };
       
       if (editingMatch) {
@@ -361,6 +362,7 @@ const Admin = () => {
       next_day_start: match.next_day_start || null,
       match_result: match.match_result,
       api_score_enabled: match.api_score_enabled !== false,
+      cricbuzz_match_id: match.cricbuzz_match_id || '',
     });
     setMatchDialogOpen(true);
   };
@@ -413,6 +415,7 @@ const Admin = () => {
       next_day_start: null,
       match_result: null,
       api_score_enabled: false,
+      cricbuzz_match_id: '',
     });
     setMatchDialogOpen(true);
     toast({ title: "Match copied", description: "Edit the details and save to create a new match." });
@@ -450,6 +453,7 @@ const Admin = () => {
       next_day_start: null,
       match_result: null,
       api_score_enabled: false,
+      cricbuzz_match_id: '',
     });
   };
 
@@ -1165,17 +1169,33 @@ const Admin = () => {
                         </div>
                       )}
 
-                      {/* API Score Toggle */}
-                      <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border/50">
-                        <div className="space-y-0.5">
-                          <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable Live API Scores</Label>
-                          <p className="text-xs text-muted-foreground">Fetch live scores from CricAPI (requires API key in settings)</p>
+                      {/* Live Score Scraping */}
+                      <div className="space-y-3 p-3 rounded-lg bg-muted/50 border border-border/50">
+                        <div className="flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable Live Score Scraping</Label>
+                            <p className="text-xs text-muted-foreground">Fetch live scores from Cricbuzz automatically</p>
+                          </div>
+                          <Switch
+                            id="api_score_enabled"
+                            checked={matchForm.api_score_enabled}
+                            onCheckedChange={(checked) => setMatchForm({ ...matchForm, api_score_enabled: checked })}
+                          />
                         </div>
-                        <Switch
-                          id="api_score_enabled"
-                          checked={matchForm.api_score_enabled}
-                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, api_score_enabled: checked })}
-                        />
+                        {matchForm.api_score_enabled && (
+                          <div className="space-y-2">
+                            <Label htmlFor="cricbuzz_match_id" className="text-sm">Cricbuzz Match ID</Label>
+                            <Input
+                              id="cricbuzz_match_id"
+                              placeholder="e.g., 12345 (from Cricbuzz URL)"
+                              value={matchForm.cricbuzz_match_id || ''}
+                              onChange={(e) => setMatchForm({ ...matchForm, cricbuzz_match_id: e.target.value })}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Find this in the Cricbuzz match URL: cricbuzz.com/live-cricket-scores/<strong>12345</strong>/match-title
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <DialogFooter>
