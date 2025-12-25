@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 
 interface SEOHeadProps {
   title?: string;
@@ -18,7 +18,7 @@ const SEOHead = ({
   canonicalUrl,
   type = 'website'
 }: SEOHeadProps) => {
-  const { data: settings } = useSiteSettings();
+  const { data: settings } = usePublicSiteSettings();
 
   useEffect(() => {
     if (!settings) return;
