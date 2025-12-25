@@ -32,7 +32,6 @@ const Footer = () => {
           {/* Links */}
           <nav className="flex items-center gap-6 text-sm text-muted-foreground">
             <Link to="/" className="hover:text-foreground transition-colors">Home</Link>
-            <Link to="/admin" className="hover:text-foreground transition-colors">Admin</Link>
           </nav>
 
           {/* Social / CTA */}
