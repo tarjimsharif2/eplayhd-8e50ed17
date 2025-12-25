@@ -321,10 +321,24 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
             {/* VS / Countdown / Match Minute */}
             <div className="flex flex-col items-center gap-1 px-1">
               {countdown ? (
-                <div className="flex flex-col items-center">
-                  <span className="text-[8px] text-muted-foreground uppercase tracking-wider">Starts in</span>
-                  <div className="bg-gradient-to-br from-primary to-accent text-primary-foreground px-2 py-1 rounded-lg font-mono text-xs font-bold shadow-lg animate-pulse">
-                    {countdown}
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[8px] text-muted-foreground uppercase tracking-wider font-medium">Starts in</span>
+                  <div className="relative">
+                    {/* Animated glow ring */}
+                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-cyan-400 to-emerald-500 rounded-lg blur-sm opacity-75 animate-pulse" />
+                    {/* Main countdown container */}
+                    <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 px-2.5 py-1.5 rounded-lg border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
+                      <div className="flex items-center gap-0.5 font-mono text-sm font-bold">
+                        {countdown.split(':').map((segment, i) => (
+                          <div key={i} className="flex items-center">
+                            <span className="bg-gradient-to-b from-emerald-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]">
+                              {segment}
+                            </span>
+                            {i < 2 && <span className="text-emerald-400 mx-0.5 animate-pulse">:</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : match.status === 'live' && match.match_minute != null && (sportName.toLowerCase() === 'football' || sportName.toLowerCase() === 'soccer') ? (
