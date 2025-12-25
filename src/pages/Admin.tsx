@@ -681,6 +681,9 @@ const Admin = () => {
         twitter_handle: siteSettingsForm.twitter_handle || null,
         facebook_app_id: siteSettingsForm.facebook_app_id || null,
         telegram_link: siteSettingsForm.telegram_link || null,
+        // Cricket API settings
+        cricket_api_key: siteSettingsForm.cricket_api_key || null,
+        cricket_api_enabled: siteSettingsForm.cricket_api_enabled,
       });
       toast({ title: "Site settings updated successfully" });
     } catch (error: any) {
