@@ -95,6 +95,7 @@ const Admin = () => {
   const [streamingSearchQuery, setStreamingSearchQuery] = useState('');
   const [streamingStatusFilter, setStreamingStatusFilter] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
   const [tournamentSearchQuery, setTournamentSearchQuery] = useState('');
+  const [teamSearchQuery, setTeamSearchQuery] = useState('');
   const [fetchingResultFor, setFetchingResultFor] = useState<string | null>(null);
 
   // Form states
@@ -1804,6 +1805,16 @@ const Admin = () => {
                 </Dialog>
               </div>
 
+              {/* Team Search */}
+              <div className="mb-4">
+                <Input
+                  placeholder="Search teams by name or short name..."
+                  value={teamSearchQuery}
+                  onChange={(e) => setTeamSearchQuery(e.target.value)}
+                  className="max-w-md"
+                />
+              </div>
+
               {teamsLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
               ) : (
@@ -1811,7 +1822,16 @@ const Admin = () => {
                   {teams?.length === 0 && (
                     <p className="text-center text-muted-foreground py-8 col-span-full">No teams yet. Add your first team!</p>
                   )}
-                  {teams?.map((team, index) => (
+                  {teams
+                    ?.filter((team) => {
+                      if (!teamSearchQuery.trim()) return true;
+                      const query = teamSearchQuery.toLowerCase();
+                      return (
+                        team.name?.toLowerCase().includes(query) ||
+                        team.short_name?.toLowerCase().includes(query)
+                      );
+                    })
+                    .map((team, index) => (
                     <motion.div
                       key={team.id}
                       initial={{ opacity: 0, scale: 0.95 }}

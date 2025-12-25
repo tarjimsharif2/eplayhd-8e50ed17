@@ -6,9 +6,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, Loader2, Users } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Plus, Edit2, Trash2, Loader2, Upload } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from "@/hooks/useSportsData";
@@ -72,6 +73,29 @@ export const useCreatePlayer = () => {
   });
 };
 
+export const useBulkCreatePlayers = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (players: Omit<Player, 'id'>[]) => {
+      if (players.length === 0) return [];
+      
+      const { data, error } = await supabase
+        .from('match_playing_xi')
+        .insert(players)
+        .select();
+      
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      if (variables.length > 0) {
+        queryClient.invalidateQueries({ queryKey: ['playing_xi', variables[0].match_id] });
+      }
+    },
+  });
+};
+
 export const useUpdatePlayer = () => {
   const queryClient = useQueryClient();
   
@@ -127,10 +151,12 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
   const { toast } = useToast();
   const { data: players, isLoading } = usePlayingXI(matchId);
   const createPlayer = useCreatePlayer();
+  const bulkCreatePlayers = useBulkCreatePlayers();
   const updatePlayer = useUpdatePlayer();
   const deletePlayer = useDeletePlayer();
 
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [activeTeam, setActiveTeam] = useState<string>(teamA.id);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [form, setForm] = useState({
@@ -141,6 +167,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
     is_wicket_keeper: false,
     batting_order: null as number | null,
   });
+  const [bulkText, setBulkText] = useState('');
 
   const teamAPlayers = players?.filter(p => p.team_id === teamA.id) || [];
   const teamBPlayers = players?.filter(p => p.team_id === teamB.id) || [];
@@ -173,6 +200,12 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
       resetForm();
     }
     setDialogOpen(true);
+  };
+
+  const handleOpenBulkDialog = (teamId: string) => {
+    setActiveTeam(teamId);
+    setBulkText('');
+    setBulkDialogOpen(true);
   };
 
   const handleSave = async () => {
@@ -209,6 +242,68 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
       }
       setDialogOpen(false);
       resetForm();
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const handleBulkAdd = async () => {
+    const lines = bulkText.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    if (lines.length === 0) {
+      toast({ title: "Error", description: "Please enter at least one player name", variant: "destructive" });
+      return;
+    }
+
+    const currentTeamPlayers = activeTeam === teamA.id ? teamAPlayers : teamBPlayers;
+    const availableSlots = 11 - currentTeamPlayers.length;
+
+    if (lines.length > availableSlots) {
+      toast({ 
+        title: "Error", 
+        description: `Only ${availableSlots} slots available. You entered ${lines.length} players.`, 
+        variant: "destructive" 
+      });
+      return;
+    }
+
+    const playersToAdd: Omit<Player, 'id'>[] = lines.map((name, index) => {
+      // Parse player name with optional markers: (C), (VC), (WK)
+      let playerName = name;
+      let isCaptain = false;
+      let isViceCaptain = false;
+      let isWicketKeeper = false;
+
+      if (name.includes('(C)') || name.includes('(c)')) {
+        isCaptain = true;
+        playerName = playerName.replace(/\(C\)/gi, '').trim();
+      }
+      if (name.includes('(VC)') || name.includes('(vc)')) {
+        isViceCaptain = true;
+        playerName = playerName.replace(/\(VC\)/gi, '').trim();
+      }
+      if (name.includes('(WK)') || name.includes('(wk)')) {
+        isWicketKeeper = true;
+        playerName = playerName.replace(/\(WK\)/gi, '').trim();
+      }
+
+      return {
+        match_id: matchId,
+        team_id: activeTeam,
+        player_name: playerName,
+        player_role: null,
+        is_captain: isCaptain,
+        is_vice_captain: isViceCaptain,
+        is_wicket_keeper: isWicketKeeper,
+        batting_order: currentTeamPlayers.length + index + 1,
+      };
+    });
+
+    try {
+      await bulkCreatePlayers.mutateAsync(playersToAdd);
+      toast({ title: `${playersToAdd.length} players added successfully` });
+      setBulkDialogOpen(false);
+      setBulkText('');
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -272,7 +367,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
 
   const renderTeamSection = (team: Team, teamPlayers: Player[]) => (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           {team.logo_url && (
             <img src={team.logo_url} alt={team.name} className="w-6 h-6 object-contain" />
@@ -283,17 +378,27 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
           </Badge>
         </div>
         {teamPlayers.length < 11 && (
-          <Button 
-            size="sm" 
-            variant="outline" 
-            onClick={() => {
-              setActiveTeam(team.id);
-              handleOpenDialog();
-            }}
-          >
-            <Plus className="w-3 h-3 mr-1" />
-            Add
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              size="sm" 
+              variant="outline" 
+              onClick={() => {
+                setActiveTeam(team.id);
+                handleOpenDialog();
+              }}
+            >
+              <Plus className="w-3 h-3 mr-1" />
+              Add
+            </Button>
+            <Button 
+              size="sm" 
+              variant="secondary" 
+              onClick={() => handleOpenBulkDialog(team.id)}
+            >
+              <Upload className="w-3 h-3 mr-1" />
+              Bulk Add
+            </Button>
+          </div>
         )}
       </div>
       {teamPlayers.length > 0 ? (
@@ -439,6 +544,46 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               )}
               {editingPlayer ? 'Update' : 'Add'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk Add Dialog */}
+      <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              Bulk Add Players - {activeTeam === teamA.id ? teamA.name : teamB.name}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Player Names (one per line)</Label>
+              <Textarea
+                placeholder={`Virat Kohli (C)\nRohit Sharma (VC)\nRishabh Pant (WK)\nJasprit Bumrah\n...`}
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                rows={11}
+                className="font-mono text-sm"
+              />
+              <p className="text-xs text-muted-foreground">
+                Add (C) for captain, (VC) for vice-captain, (WK) for wicket-keeper
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBulkDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleBulkAdd} 
+              disabled={bulkCreatePlayers.isPending}
+            >
+              {bulkCreatePlayers.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Add Players
             </Button>
           </DialogFooter>
         </DialogContent>
