@@ -9,13 +9,35 @@ interface ManualScoreCardProps {
   teamAId: string;
   teamBId: string;
   matchStatus: string;
+  isPrimary?: boolean;
 }
 
-const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus }: ManualScoreCardProps) => {
+const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus, isPrimary = false }: ManualScoreCardProps) => {
   const { data: innings, isLoading } = useMatchInnings(matchId);
 
+  // Show loading state
+  if (isLoading) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15 }}
+        className="mb-6"
+      >
+        <Card className="border-border/50 bg-card/80 backdrop-blur overflow-hidden">
+          <CardContent className="p-6 flex items-center justify-center">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              <span className="text-sm">Loading scores...</span>
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  }
+
   // Don't render if no innings data
-  if (isLoading || !innings || innings.length === 0) {
+  if (!innings || innings.length === 0) {
     return null;
   }
 
@@ -42,12 +64,14 @@ const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus }: ManualScore
       transition={{ delay: 0.15 }}
       className="mb-6"
     >
-      <Card className="border-border/50 bg-card/80 backdrop-blur overflow-hidden">
+      <Card className={`border-border/50 backdrop-blur overflow-hidden ${isPrimary ? 'bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20' : 'bg-card/80'}`}>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Trophy className="w-5 h-5 text-primary" />
-              <CardTitle className="text-lg">Live Score</CardTitle>
+              <CardTitle className="text-lg">
+                {isPrimary ? 'Live Score' : 'Match Score'}
+              </CardTitle>
             </div>
             <div className="flex items-center gap-2">
               {isLive && (

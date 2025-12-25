@@ -217,16 +217,18 @@ const MatchPage = () => {
             <CricbuzzScoreCard
               cricbuzzMatchId={match.cricbuzz_match_id}
               enabled={match.status === 'live'}
+              onFallbackToManual={() => {}}
             />
           )}
 
-          {/* Manual Score Card - Shows innings data entered by admin */}
+          {/* Manual Score Card - Shows innings data entered by admin (always shown for cricket) */}
           {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && (
             <ManualScoreCard 
               matchId={match.id}
               teamAId={teamA.id}
               teamBId={teamB.id}
               matchStatus={match.status}
+              isPrimary={!match.api_score_enabled || !match.cricbuzz_match_id}
             />
           )}
 
