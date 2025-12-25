@@ -64,7 +64,6 @@ export interface Match {
   next_day_start: string | null;
   match_result: MatchResult;
   api_score_enabled: boolean;
-  cricbuzz_match_id: string | null;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;
