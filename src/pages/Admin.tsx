@@ -22,7 +22,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, Download } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
@@ -92,7 +92,7 @@ const Admin = () => {
   // Match search state
   const [matchSearchQuery, setMatchSearchQuery] = useState('');
   const [streamingSearchQuery, setStreamingSearchQuery] = useState('');
-  const [fetchingResultFor, setFetchingResultFor] = useState<string | null>(null);
+  
 
   // Form states
   const [matchForm, setMatchForm] = useState({
@@ -272,50 +272,6 @@ const Admin = () => {
       description: "You've been successfully signed out.",
     });
   };
-
-  // Fetch match result from CricAPI (auto-finds by team names)
-  const handleFetchMatchResult = async (match: Match) => {
-    setFetchingResultFor(match.id);
-    try {
-      const { data, error } = await supabase.functions.invoke('fetch-match-result', {
-        body: { matchId: match.id },
-      });
-
-      if (error) throw error;
-
-      if (data?.success) {
-        toast({ 
-          title: "Match result fetched", 
-          description: `Result: ${data.matchResult}. Points table updated automatically.` 
-        });
-      } else {
-        // Check if it's a connection error
-        const isConnectionError = data?.details?.includes('Connection reset') || 
-                                   data?.details?.includes('client error') ||
-                                   data?.error?.includes('Failed to connect');
-        toast({ 
-          title: isConnectionError ? "API Connection Failed" : "Could not fetch result", 
-          description: isConnectionError 
-            ? "CricAPI blocks cloud server requests. Please set match result manually by editing the match."
-            : (data?.message || data?.error || "Match may not have ended yet"),
-          variant: "destructive"
-        });
-      }
-    } catch (error: any) {
-      const errorMsg = error.message || '';
-      const isConnectionError = errorMsg.includes('503') || errorMsg.includes('Connection');
-      toast({ 
-        title: isConnectionError ? "API Connection Failed" : "Error", 
-        description: isConnectionError 
-          ? "CricAPI blocks cloud server requests. Please set match result manually."
-          : errorMsg, 
-        variant: "destructive" 
-      });
-    } finally {
-      setFetchingResultFor(null);
-    }
-  };
-
   // Match handlers
   const handleSaveMatch = async () => {
     try {
@@ -1215,25 +1171,6 @@ const Admin = () => {
                         </div>
                       )}
 
-                      {/* CricAPI Auto-Fetch */}
-                      <div className="space-y-3 p-3 rounded-lg bg-muted/50 border border-border/50">
-                        <div className="flex items-center justify-between">
-                          <div className="space-y-0.5">
-                            <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable CricAPI Auto-Fetch</Label>
-                            <p className="text-xs text-muted-foreground">Auto-find match by team names and fetch result when match ends</p>
-                          </div>
-                          <Switch
-                            id="api_score_enabled"
-                            checked={matchForm.api_score_enabled}
-                            onCheckedChange={(checked) => setMatchForm({ ...matchForm, api_score_enabled: checked })}
-                          />
-                        </div>
-                        {matchForm.api_score_enabled && (
-                          <p className="text-xs text-amber-600 dark:text-amber-400">
-                            ⚠️ CricAPI may block cloud servers. If fetch fails, set result manually above.
-                          </p>
-                        )}
-                      </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setMatchDialogOpen(false)}>Cancel</Button>
@@ -1334,22 +1271,6 @@ const Admin = () => {
                                 >
                                   <Play className="w-3 h-3 mr-1" />
                                   Innings
-                                </Button>
-                              )}
-                              {match.sport?.name?.toLowerCase() === 'cricket' && match.api_score_enabled && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => handleFetchMatchResult(match)}
-                                  disabled={fetchingResultFor === match.id}
-                                  title="Auto-fetch result by team names from CricAPI"
-                                >
-                                  {fetchingResultFor === match.id ? (
-                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
-                                  ) : (
-                                    <Download className="w-3 h-3 mr-1" />
-                                  )}
-                                  Result
                                 </Button>
                               )}
                               <Button 
