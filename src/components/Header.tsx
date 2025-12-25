@@ -4,12 +4,12 @@ import { Menu, X, Tv } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "@/components/ThemeToggle";
-import { useSiteSettings } from "@/hooks/useSiteSettings";
+import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const location = useLocation();
-  const { data: settings } = useSiteSettings();
+  const { data: settings } = usePublicSiteSettings();
 
   // Only show Home and Matches - no Admin link
   const navItems = [
