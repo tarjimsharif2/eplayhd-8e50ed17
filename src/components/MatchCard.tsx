@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { MapPin, Clock, Star } from "lucide-react";
 import InningsDisplay from "@/components/InningsDisplay";
+import FlipClock from "@/components/FlipClock";
 
 interface MatchCardProps {
   match: Match;
@@ -319,27 +320,13 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
             </div>
 
             {/* VS / Countdown / Match Minute */}
-            <div className="flex flex-col items-center gap-1 px-1">
+            <div className="flex flex-col items-center gap-1.5 px-1">
               {countdown ? (
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-[8px] text-muted-foreground uppercase tracking-wider font-medium">Starts in</span>
-                  <div className="relative">
-                    {/* Animated glow ring */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-emerald-500 via-cyan-400 to-emerald-500 rounded-lg blur-sm opacity-75 animate-pulse" />
-                    {/* Main countdown container */}
-                    <div className="relative bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 px-2.5 py-1.5 rounded-lg border border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                      <div className="flex items-center gap-0.5 font-mono text-sm font-bold">
-                        {countdown.split(':').map((segment, i) => (
-                          <div key={i} className="flex items-center">
-                            <span className="bg-gradient-to-b from-emerald-300 to-cyan-400 bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(52,211,153,0.8)]">
-                              {segment}
-                            </span>
-                            {i < 2 && <span className="text-emerald-400 mx-0.5 animate-pulse">:</span>}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
+                <div className="flex flex-col items-center gap-1.5">
+                  <span className="text-[10px] md:text-xs text-emerald-400 uppercase tracking-widest font-semibold drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]">
+                    Starts in
+                  </span>
+                  <FlipClock time={countdown} />
                 </div>
               ) : match.status === 'live' && match.match_minute != null && (sportName.toLowerCase() === 'football' || sportName.toLowerCase() === 'soccer') ? (
                 <div className="flex flex-col items-center">

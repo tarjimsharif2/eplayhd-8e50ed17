@@ -376,4 +376,13 @@
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+
+  /* 3D transforms for flip clock */
+  .perspective-500 {
+    perspective: 500px;
+  }
+
+  .backface-hidden {
+    backface-visibility: hidden;
+  }
 }
