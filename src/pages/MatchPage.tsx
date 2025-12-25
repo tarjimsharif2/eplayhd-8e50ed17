@@ -8,6 +8,7 @@ import AdSlot from '@/components/AdSlot';
 import PlayingXI from '@/components/PlayingXI';
 import PointsTable from '@/components/PointsTable';
 import ManualScoreCard from '@/components/ManualScoreCard';
+import LiveScoreCard from '@/components/LiveScoreCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -209,6 +210,17 @@ const MatchPage = () => {
                 ))}
               </div>
             </motion.div>
+          )}
+
+          {/* Live Score Card - CricAPI (if enabled for this match) */}
+          {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && match.api_score_enabled && (
+            <LiveScoreCard
+              teamAName={teamA.name}
+              teamBName={teamB.name}
+              teamALogo={teamA.logo_url}
+              teamBLogo={teamB.logo_url}
+              enabled={match.status === 'live'}
+            />
           )}
 
           {/* Manual Score Card - Shows innings data entered by admin */}
