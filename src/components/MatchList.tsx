@@ -10,14 +10,60 @@ const MatchList = () => {
   const { data: matches, isLoading, error } = useMatches();
   const [activeFilter, setActiveFilter] = useState<MatchFilter>('all');
 
-  // Filter matches and hide completed matches older than 2 days
+  // Filter and sort matches: Live first, then upcoming, then completed - sorted by match start time
   const filteredMatches = useMemo(() => {
     if (!matches) return [];
 
     const now = new Date();
     const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
-    return matches.filter((match) => {
+    // Helper function to get sort priority based on status
+    const getStatusPriority = (status: string) => {
+      if (status === 'live') return 0;
+      if (status === 'upcoming') return 1;
+      if (status === 'completed') return 2;
+      return 3;
+    };
+
+    // Helper function to parse match date/time into a Date object
+    const parseMatchDateTime = (matchDate: string, matchTime: string, matchStartTime: string | null): Date => {
+      // Use match_start_time if available (it's already a timestamp)
+      if (matchStartTime) {
+        return new Date(matchStartTime);
+      }
+      
+      // Otherwise, try to parse from match_date and match_time
+      try {
+        const dateMatch = matchDate.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
+        if (dateMatch) {
+          const [, day, month, year] = dateMatch;
+          const monthMap: Record<string, number> = {
+            january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+            july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+          };
+          const monthNum = monthMap[month.toLowerCase()];
+          
+          // Parse time like "7:30 PM IST" or "19:30"
+          let hours = 0;
+          let minutes = 0;
+          const timeMatch = matchTime.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+          if (timeMatch) {
+            hours = parseInt(timeMatch[1]);
+            minutes = parseInt(timeMatch[2]);
+            const period = timeMatch[3]?.toUpperCase();
+            if (period === 'PM' && hours < 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+          }
+          
+          return new Date(parseInt(year), monthNum, parseInt(day), hours, minutes);
+        }
+      } catch {
+        // Fall back to current time if parsing fails
+      }
+      return new Date();
+    };
+
+    const filtered = matches.filter((match) => {
       // Hide completed matches older than 2 days
       if (match.status === 'completed') {
         try {
@@ -39,6 +85,24 @@ const MatchList = () => {
       // Apply status filter
       if (activeFilter === 'all') return true;
       return match.status === activeFilter;
+    });
+
+    // Sort: Live first, then upcoming, then completed - all sorted by start time
+    return filtered.sort((a, b) => {
+      // First sort by status priority
+      const priorityDiff = getStatusPriority(a.status) - getStatusPriority(b.status);
+      if (priorityDiff !== 0) return priorityDiff;
+
+      // Within same status, sort by match start time
+      const dateA = parseMatchDateTime(a.match_date, a.match_time, a.match_start_time);
+      const dateB = parseMatchDateTime(b.match_date, b.match_time, b.match_start_time);
+      
+      // For upcoming matches, show soonest first
+      // For live and completed, show most recent first
+      if (a.status === 'upcoming') {
+        return dateA.getTime() - dateB.getTime();
+      }
+      return dateB.getTime() - dateA.getTime();
     });
   }, [matches, activeFilter]);
 
