@@ -7,7 +7,7 @@ import SEOHead from '@/components/SEOHead';
 import AdSlot from '@/components/AdSlot';
 import PlayingXI from '@/components/PlayingXI';
 import PointsTable from '@/components/PointsTable';
-import LiveScoreCard from '@/components/LiveScoreCard';
+import ManualScoreCard from '@/components/ManualScoreCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -211,12 +211,13 @@ const MatchPage = () => {
             </motion.div>
           )}
 
-          {/* Live Score Card - Only for Cricket when API is enabled */}
-          {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && match.api_score_enabled && (
-            <LiveScoreCard 
-              teamAName={teamA.name} 
-              teamBName={teamB.name}
-              apiScoreEnabled={match.api_score_enabled}
+          {/* Manual Score Card - Shows innings data entered by admin */}
+          {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && (
+            <ManualScoreCard 
+              matchId={match.id}
+              teamAId={teamA.id}
+              teamBId={teamB.id}
+              matchStatus={match.status}
             />
           )}
 

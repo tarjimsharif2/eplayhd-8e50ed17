@@ -937,22 +937,8 @@ const Admin = () => {
                         />
                       </div>
 
-                      {/* API Score Toggle - only for cricket */}
-                      <div className="flex items-center justify-between p-3 rounded-lg border bg-card/50">
-                        <div>
-                          <Label className="flex items-center gap-2">
-                            <Trophy className="w-4 h-4 text-primary" />
-                            Live Score API (CricAPI)
-                          </Label>
-                          <p className="text-xs text-muted-foreground">Fetch live scores from CricketData API (uses credits)</p>
-                        </div>
-                        <Switch
-                          checked={matchForm.api_score_enabled}
-                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, api_score_enabled: checked })}
-                        />
-                      </div>
 
-                      
+
                       <div className="space-y-2">
                         <Label>Match Date & Time *</Label>
                         <DateTimePicker
