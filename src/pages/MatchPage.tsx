@@ -8,7 +8,7 @@ import AdSlot from '@/components/AdSlot';
 import PlayingXI from '@/components/PlayingXI';
 import PointsTable from '@/components/PointsTable';
 import ManualScoreCard from '@/components/ManualScoreCard';
-import { CricbuzzScoreCard } from '@/components/CricbuzzScoreCard';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -212,23 +212,15 @@ const MatchPage = () => {
             </motion.div>
           )}
 
-          {/* Live Score Card - Cricbuzz scraping (if enabled and match ID configured) */}
-          {sport?.name?.toLowerCase() === 'cricket' && match.api_score_enabled && match.cricbuzz_match_id && (
-            <CricbuzzScoreCard
-              cricbuzzMatchId={match.cricbuzz_match_id}
-              enabled={match.status === 'live'}
-              onFallbackToManual={() => {}}
-            />
-          )}
 
-          {/* Manual Score Card - Shows innings data entered by admin (always shown for cricket) */}
+          {/* Score Card - Shows innings data (always shown for cricket) */}
           {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && (
             <ManualScoreCard 
               matchId={match.id}
               teamAId={teamA.id}
               teamBId={teamB.id}
               matchStatus={match.status}
-              isPrimary={!match.api_score_enabled || !match.cricbuzz_match_id}
+              isPrimary={true}
             />
           )}
 

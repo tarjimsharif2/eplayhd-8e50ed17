@@ -22,7 +22,8 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, Download } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
@@ -261,6 +262,9 @@ const Admin = () => {
     return null;
   }
 
+  // Fetch result state
+  const [fetchingResultFor, setFetchingResultFor] = useState<string | null>(null);
+
   const handleSignOut = async () => {
     await signOut();
     navigate('/');
@@ -268,6 +272,40 @@ const Admin = () => {
       title: "Signed out",
       description: "You've been successfully signed out.",
     });
+  };
+
+  // Fetch match result from CricAPI
+  const handleFetchMatchResult = async (match: Match) => {
+    if (!match.cricbuzz_match_id) {
+      toast({ title: "Error", description: "CricAPI Match ID not configured", variant: "destructive" });
+      return;
+    }
+
+    setFetchingResultFor(match.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-match-result', {
+        body: { matchId: match.id, cricbuzzMatchId: match.cricbuzz_match_id },
+      });
+
+      if (error) throw error;
+
+      if (data?.success) {
+        toast({ 
+          title: "Match result fetched", 
+          description: `Result: ${data.matchResult}. Points table updated automatically.` 
+        });
+      } else {
+        toast({ 
+          title: "Could not fetch result", 
+          description: data?.message || "Match may not have ended yet",
+          variant: "destructive"
+        });
+      }
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setFetchingResultFor(null);
+    }
   };
 
   // Match handlers
@@ -1169,12 +1207,12 @@ const Admin = () => {
                         </div>
                       )}
 
-                      {/* Live Score Scraping */}
+                      {/* CricAPI Match Result */}
                       <div className="space-y-3 p-3 rounded-lg bg-muted/50 border border-border/50">
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable Live Score Scraping</Label>
-                            <p className="text-xs text-muted-foreground">Fetch live scores from Cricbuzz automatically</p>
+                            <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable CricAPI Match Result</Label>
+                            <p className="text-xs text-muted-foreground">Fetch match result from CricAPI when match completes (updates points table automatically)</p>
                           </div>
                           <Switch
                             id="api_score_enabled"
@@ -1184,15 +1222,15 @@ const Admin = () => {
                         </div>
                         {matchForm.api_score_enabled && (
                           <div className="space-y-2">
-                            <Label htmlFor="cricbuzz_match_id" className="text-sm">Cricbuzz Match ID</Label>
+                            <Label htmlFor="cricbuzz_match_id" className="text-sm">CricAPI Match ID</Label>
                             <Input
                               id="cricbuzz_match_id"
-                              placeholder="e.g., 12345 (from Cricbuzz URL)"
+                              placeholder="e.g., abc123-def456 (from CricAPI)"
                               value={matchForm.cricbuzz_match_id || ''}
                               onChange={(e) => setMatchForm({ ...matchForm, cricbuzz_match_id: e.target.value })}
                             />
                             <p className="text-xs text-muted-foreground">
-                              Find this in the Cricbuzz match URL: cricbuzz.com/live-cricket-scores/<strong>12345</strong>/match-title
+                              Get this ID from CricAPI match list endpoint
                             </p>
                           </div>
                         )}
@@ -1297,6 +1335,22 @@ const Admin = () => {
                                 >
                                   <Play className="w-3 h-3 mr-1" />
                                   Innings
+                                </Button>
+                              )}
+                              {match.sport?.name?.toLowerCase() === 'cricket' && match.api_score_enabled && match.cricbuzz_match_id && (
+                                <Button 
+                                  variant="outline" 
+                                  size="sm"
+                                  onClick={() => handleFetchMatchResult(match)}
+                                  disabled={fetchingResultFor === match.id}
+                                  title="Fetch match result from CricAPI"
+                                >
+                                  {fetchingResultFor === match.id ? (
+                                    <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                  ) : (
+                                    <Download className="w-3 h-3 mr-1" />
+                                  )}
+                                  Result
                                 </Button>
                               )}
                               <Button 
