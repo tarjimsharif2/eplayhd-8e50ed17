@@ -320,10 +320,10 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
             </div>
 
             {/* VS / Countdown / Match Minute */}
-            <div className="flex flex-col items-center gap-1.5 px-1">
+            <div className="flex flex-col items-center gap-1 px-1">
               {countdown ? (
-                <div className="flex flex-col items-center gap-1.5">
-                  <span className="text-[10px] md:text-xs text-emerald-400 uppercase tracking-widest font-semibold drop-shadow-[0_0_8px_rgba(52,211,153,0.6)]">
+                <div className="flex flex-col items-center gap-1">
+                  <span className="text-[9px] text-orange-400 uppercase tracking-widest font-bold">
                     Starts in
                   </span>
                   <FlipClock time={countdown} />
