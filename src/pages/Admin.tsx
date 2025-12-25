@@ -85,6 +85,9 @@ const Admin = () => {
   const [editingTournament, setEditingTournament] = useState<Tournament | null>(null);
   const [editingBanner, setEditingBanner] = useState<Banner | null>(null);
   const [editingSport, setEditingSport] = useState<Sport | null>(null);
+  
+  // Match search state
+  const [matchSearchQuery, setMatchSearchQuery] = useState('');
 
   // Form states
   const [matchForm, setMatchForm] = useState({
@@ -1111,6 +1114,16 @@ const Admin = () => {
                 </Dialog>
               </div>
 
+              {/* Match Search */}
+              <div className="relative">
+                <Input
+                  placeholder="Search matches by team name, tournament, or venue..."
+                  value={matchSearchQuery}
+                  onChange={(e) => setMatchSearchQuery(e.target.value)}
+                  className="max-w-md"
+                />
+              </div>
+
               {matchesLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
               ) : (
@@ -1118,7 +1131,21 @@ const Admin = () => {
                   {matches?.length === 0 && (
                     <p className="text-center text-muted-foreground py-8">No matches yet. Add your first match!</p>
                   )}
-                  {matches?.map((match, index) => (
+                  {matches
+                    ?.filter((match) => {
+                      if (!matchSearchQuery.trim()) return true;
+                      const query = matchSearchQuery.toLowerCase();
+                      return (
+                        match.team_a?.name?.toLowerCase().includes(query) ||
+                        match.team_b?.name?.toLowerCase().includes(query) ||
+                        match.team_a?.short_name?.toLowerCase().includes(query) ||
+                        match.team_b?.short_name?.toLowerCase().includes(query) ||
+                        match.tournament?.name?.toLowerCase().includes(query) ||
+                        match.venue?.toLowerCase().includes(query) ||
+                        match.match_label?.toLowerCase().includes(query)
+                      );
+                    })
+                    .map((match, index) => (
                     <motion.div
                       key={match.id}
                       initial={{ opacity: 0, x: -20 }}
