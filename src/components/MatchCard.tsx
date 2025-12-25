@@ -323,7 +323,7 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
             <div className="flex flex-col items-center gap-1 px-1">
               {countdown ? (
                 <div className="flex flex-col items-center gap-1">
-                  <span className="text-[11px] text-orange-400 uppercase tracking-widest font-bold">
+                  <span className="text-[11px] text-primary uppercase tracking-widest font-bold">
                     Starts in
                   </span>
                   <FlipClock time={countdown} />
