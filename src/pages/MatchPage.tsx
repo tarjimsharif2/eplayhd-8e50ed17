@@ -7,6 +7,7 @@ import SEOHead from '@/components/SEOHead';
 import AdSlot from '@/components/AdSlot';
 import PlayingXI from '@/components/PlayingXI';
 import PointsTable from '@/components/PointsTable';
+import LiveScoreCard from '@/components/LiveScoreCard';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -210,8 +211,17 @@ const MatchPage = () => {
             </motion.div>
           )}
 
+          {/* Live Score Card - Only for Cricket */}
+          {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && (
+            <LiveScoreCard 
+              teamAName={teamA.name} 
+              teamBName={teamB.name}
+              isLive={match.status === 'live'}
+            />
+          )}
+
           {/* In-Article Ad */}
-          <AdSlot position="in_article" className="mb-6" />
+          <AdSlot position="in_article" className="mb-6 mt-6" />
 
           {/* Match Header - AFTER video */}
           <motion.div
