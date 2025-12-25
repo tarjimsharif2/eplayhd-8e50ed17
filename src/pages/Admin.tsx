@@ -123,7 +123,6 @@ const Admin = () => {
     next_day_start: null as string | null,
     match_result: null as 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null,
     api_score_enabled: false,
-    cricbuzz_match_id: '' as string | null,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -313,7 +312,7 @@ const Admin = () => {
         next_day_start: matchForm.next_day_start || null,
         match_result: matchForm.match_result,
         api_score_enabled: matchForm.api_score_enabled,
-        cricbuzz_match_id: matchForm.cricbuzz_match_id || null,
+        cricbuzz_match_id: null,
       };
       
       if (editingMatch) {
@@ -362,7 +361,6 @@ const Admin = () => {
       next_day_start: match.next_day_start || null,
       match_result: match.match_result,
       api_score_enabled: match.api_score_enabled !== false,
-      cricbuzz_match_id: match.cricbuzz_match_id || '',
     });
     setMatchDialogOpen(true);
   };
@@ -415,7 +413,6 @@ const Admin = () => {
       next_day_start: null,
       match_result: null,
       api_score_enabled: false,
-      cricbuzz_match_id: '',
     });
     setMatchDialogOpen(true);
     toast({ title: "Match copied", description: "Edit the details and save to create a new match." });
@@ -453,7 +450,6 @@ const Admin = () => {
       next_day_start: null,
       match_result: null,
       api_score_enabled: false,
-      cricbuzz_match_id: '',
     });
   };
 
@@ -956,20 +952,6 @@ const Admin = () => {
                         />
                       </div>
 
-                      <div className="space-y-2">
-                        <Label className="flex items-center gap-2">
-                          <Trophy className="w-4 h-4 text-green-500" />
-                          Cricbuzz Match ID (Alternative)
-                        </Label>
-                        <Input
-                          value={matchForm.cricbuzz_match_id || ''}
-                          onChange={(e) => setMatchForm({ ...matchForm, cricbuzz_match_id: e.target.value || null })}
-                          placeholder="e.g., 86529"
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Enter Cricbuzz match ID as an alternative score source. Find it in the Cricbuzz match URL.
-                        </p>
-                      </div>
                       
                       <div className="space-y-2">
                         <Label>Match Date & Time *</Label>

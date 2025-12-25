@@ -1,5 +1,4 @@
-import { useLiveCricketScore, CricketMatch } from '@/hooks/useLiveCricketScore';
-import { useCricbuzzScore, CricbuzzScore } from '@/hooks/useCricbuzzScore';
+import { useLiveCricketScore } from '@/hooks/useLiveCricketScore';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,7 +10,6 @@ interface LiveScoreCardProps {
   teamAName: string;
   teamBName: string;
   apiScoreEnabled?: boolean;
-  cricbuzzMatchId?: string | null;
 }
 
 interface ScoreItem {
@@ -47,46 +45,23 @@ const ScoreDisplay = ({ scores }: { scores: ScoreItem[] }) => {
   );
 };
 
-const LiveScoreCard = ({ teamAName, teamBName, apiScoreEnabled = false, cricbuzzMatchId }: LiveScoreCardProps) => {
+const LiveScoreCard = ({ teamAName, teamBName, apiScoreEnabled = false }: LiveScoreCardProps) => {
   const { data: siteSettings } = useSiteSettings();
   
-  // CricAPI hook
-  const cricApiEnabled = !!siteSettings?.cricket_api_key && siteSettings?.cricket_api_enabled && apiScoreEnabled;
-  const { 
-    data: cricApiMatch, 
-    isLoading: cricApiLoading, 
-    isError: cricApiError, 
-    refetch: refetchCricApi, 
-    isFetching: cricApiFetching 
-  } = useLiveCricketScore(teamAName, teamBName, cricApiEnabled);
-
-  // Cricbuzz hook
-  const { 
-    data: cricbuzzData, 
-    isLoading: cricbuzzLoading, 
-    isError: cricbuzzError, 
-    refetch: refetchCricbuzz, 
-    isFetching: cricbuzzFetching 
-  } = useCricbuzzScore(cricbuzzMatchId);
-
-  // Determine which source to use (prefer Cricbuzz if available, then CricAPI)
-  const useCricbuzz = !!cricbuzzMatchId && cricbuzzData;
-  const useCricApi = cricApiEnabled && cricApiMatch;
+  const isEnabled = !!siteSettings?.cricket_api_key && siteSettings?.cricket_api_enabled && apiScoreEnabled;
   
-  const isLoading = (cricbuzzMatchId ? cricbuzzLoading : false) || (cricApiEnabled ? cricApiLoading : false);
-  const isFetching = cricApiFetching || cricbuzzFetching;
-  const hasData = useCricbuzz || useCricApi;
-  const isError = (cricbuzzMatchId && cricbuzzError && !useCricApi) || (cricApiEnabled && cricApiError && !useCricbuzz);
+  const { 
+    data: match, 
+    isLoading, 
+    isError, 
+    refetch, 
+    isFetching 
+  } = useLiveCricketScore(teamAName, teamBName, isEnabled);
 
-  // Don't render if neither source is configured
-  if (!cricbuzzMatchId && !cricApiEnabled) {
+  // Don't render if not enabled
+  if (!isEnabled) {
     return null;
   }
-
-  const handleRefresh = () => {
-    if (cricbuzzMatchId) refetchCricbuzz();
-    if (cricApiEnabled) refetchCricApi();
-  };
 
   if (isLoading) {
     return (
@@ -99,14 +74,14 @@ const LiveScoreCard = ({ teamAName, teamBName, apiScoreEnabled = false, cricbuzz
     );
   }
 
-  if (isError || !hasData) {
+  if (isError || !match) {
     return (
       <Card className="border-border/50 bg-card/80 backdrop-blur">
         <CardContent className="py-6 text-center">
           <p className="text-muted-foreground text-sm mb-3">
             Live score not available for this match
           </p>
-          <Button variant="outline" size="sm" onClick={handleRefresh}>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
             <RefreshCw className="w-4 h-4 mr-2" />
             Retry
           </Button>
@@ -115,26 +90,7 @@ const LiveScoreCard = ({ teamAName, teamBName, apiScoreEnabled = false, cricbuzz
     );
   }
 
-  // Normalize the data for display
-  let scores: ScoreItem[] = [];
-  let status = '';
-  let matchStarted = false;
-  let matchEnded = false;
-  let sourceName = '';
-
-  if (useCricbuzz && cricbuzzData) {
-    scores = cricbuzzData.score;
-    status = cricbuzzData.status;
-    matchStarted = cricbuzzData.matchStarted;
-    matchEnded = cricbuzzData.matchEnded;
-    sourceName = 'Cricbuzz';
-  } else if (useCricApi && cricApiMatch) {
-    scores = cricApiMatch.score || [];
-    status = cricApiMatch.status;
-    matchStarted = cricApiMatch.matchStarted;
-    matchEnded = cricApiMatch.matchEnded;
-    sourceName = 'CricAPI';
-  }
+  const scores: ScoreItem[] = match.score || [];
 
   return (
     <motion.div
@@ -150,19 +106,19 @@ const LiveScoreCard = ({ teamAName, teamBName, apiScoreEnabled = false, cricbuzz
               <CardTitle className="text-lg">Live Score</CardTitle>
             </div>
             <div className="flex items-center gap-2">
-              {matchStarted && !matchEnded && (
+              {match.matchStarted && !match.matchEnded && (
                 <Badge variant="live" className="animate-pulse">
                   <span className="w-2 h-2 bg-current rounded-full mr-1.5" />
                   LIVE
                 </Badge>
               )}
-              {matchEnded && (
+              {match.matchEnded && (
                 <Badge variant="completed">Completed</Badge>
               )}
               <Button 
                 variant="ghost" 
                 size="icon" 
-                onClick={handleRefresh}
+                onClick={() => refetch()}
                 disabled={isFetching}
                 className="h-8 w-8"
               >
@@ -175,18 +131,13 @@ const LiveScoreCard = ({ teamAName, teamBName, apiScoreEnabled = false, cricbuzz
           <ScoreDisplay scores={scores} />
           
           {/* Match Status/Result */}
-          {status && (
+          {match.status && (
             <div className="pt-3 border-t border-border/30">
               <p className="text-sm font-medium text-center text-primary">
-                {status}
+                {match.status}
               </p>
             </div>
           )}
-
-          {/* Source indicator */}
-          <p className="text-xs text-muted-foreground text-center">
-            via {sourceName}
-          </p>
         </CardContent>
       </Card>
     </motion.div>
