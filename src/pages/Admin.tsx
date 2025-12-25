@@ -381,6 +381,8 @@ const Admin = () => {
       // Delete existing innings and insert new ones
       await supabase.from('match_innings').delete().eq('match_id', match.id);
 
+      const hasDetailedScores = (teamARuns > 0 || teamAOvers > 0) || (teamBRuns > 0 || teamBOvers > 0);
+
       if (teamARuns > 0 || teamAOvers > 0) {
         await supabase.from('match_innings').insert({
           match_id: match.id,
@@ -405,17 +407,42 @@ const Admin = () => {
         });
       }
 
-      // Update match result
+      // Build score strings - use detailed scores if available, otherwise use API status
+      let scoreA: string | null = null;
+      let scoreB: string | null = null;
+
+      if (hasDetailedScores) {
+        if (teamARuns > 0 || teamAOvers > 0) {
+          scoreA = `${teamARuns}/${teamAWickets} (${teamAOvers} ov)`;
+        }
+        if (teamBRuns > 0 || teamBOvers > 0) {
+          scoreB = `${teamBRuns}/${teamBWickets} (${teamBOvers} ov)`;
+        }
+      } else {
+        // Fallback: use API status text as score display
+        scoreA = matchingMatch.status || null;
+      }
+
+      // Update match result with scores
       const { error: updateError } = await supabase
         .from('matches')
-        .update({ match_result: matchResult, status: 'completed' })
+        .update({ 
+          match_result: matchResult, 
+          status: 'completed',
+          score_a: scoreA,
+          score_b: scoreB
+        })
         .eq('id', match.id);
 
       if (updateError) throw updateError;
 
+      const toastDescription = hasDetailedScores 
+        ? `${matchResult.replace('_', ' ')} - ${teamAShort}: ${teamARuns}/${teamAWickets}, ${teamBShort}: ${teamBRuns}/${teamBWickets}`
+        : `${matchResult.replace('_', ' ')} (No detailed scores available)`;
+
       toast({ 
         title: "Result fetched!", 
-        description: `${matchResult.replace('_', ' ')} - ${teamAShort}: ${teamARuns}/${teamAWickets}, ${teamBShort}: ${teamBRuns}/${teamBWickets}` 
+        description: toastDescription
       });
 
     } catch (err: any) {
