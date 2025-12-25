@@ -294,14 +294,28 @@ const Admin = () => {
           description: `Result: ${data.matchResult}. Points table updated automatically.` 
         });
       } else {
+        // Check if it's a connection error
+        const isConnectionError = data?.details?.includes('Connection reset') || 
+                                   data?.details?.includes('client error') ||
+                                   data?.error?.includes('Failed to connect');
         toast({ 
-          title: "Could not fetch result", 
-          description: data?.message || "Match may not have ended yet",
+          title: isConnectionError ? "API Connection Failed" : "Could not fetch result", 
+          description: isConnectionError 
+            ? "CricAPI blocks cloud server requests. Please set match result manually by editing the match."
+            : (data?.message || data?.error || "Match may not have ended yet"),
           variant: "destructive"
         });
       }
     } catch (error: any) {
-      toast({ title: "Error", description: error.message, variant: "destructive" });
+      const errorMsg = error.message || '';
+      const isConnectionError = errorMsg.includes('503') || errorMsg.includes('Connection');
+      toast({ 
+        title: isConnectionError ? "API Connection Failed" : "Error", 
+        description: isConnectionError 
+          ? "CricAPI blocks cloud server requests. Please set match result manually."
+          : errorMsg, 
+        variant: "destructive" 
+      });
     } finally {
       setFetchingResultFor(null);
     }
@@ -939,7 +953,7 @@ const Admin = () => {
                             </SelectContent>
                           </Select>
                           <p className="text-xs text-muted-foreground">
-                            This will automatically update points table if tournament is set
+                            ✅ Recommended: Set this manually. Points table updates automatically on save.
                           </p>
                         </div>
                       )}
@@ -1207,11 +1221,11 @@ const Admin = () => {
                       )}
 
                       {/* CricAPI Match Result */}
-                      <div className="space-y-3 p-3 rounded-lg bg-muted/50 border border-border/50">
+                      <div className="space-y-3 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
                         <div className="flex items-center justify-between">
                           <div className="space-y-0.5">
-                            <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable CricAPI Match Result</Label>
-                            <p className="text-xs text-muted-foreground">Fetch match result from CricAPI when match completes (updates points table automatically)</p>
+                            <Label htmlFor="api_score_enabled" className="text-sm font-medium">Enable CricAPI (Experimental)</Label>
+                            <p className="text-xs text-amber-600 dark:text-amber-400">⚠️ CricAPI often blocks cloud servers. Set result manually (above) for reliability.</p>
                           </div>
                           <Switch
                             id="api_score_enabled"
