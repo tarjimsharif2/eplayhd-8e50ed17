@@ -689,7 +689,96 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      site_settings_public: {
+        Row: {
+          ads_enabled: boolean | null
+          canonical_url: string | null
+          created_at: string | null
+          cricket_api_enabled: boolean | null
+          facebook_app_id: string | null
+          favicon_url: string | null
+          footer_ad_code: string | null
+          footer_text: string | null
+          google_adsense_id: string | null
+          google_analytics_id: string | null
+          header_ad_code: string | null
+          id: string | null
+          in_article_ad_code: string | null
+          logo_url: string | null
+          og_image_url: string | null
+          popup_ad_code: string | null
+          robots_txt: string | null
+          schema_org_enabled: boolean | null
+          sidebar_ad_code: string | null
+          site_description: string | null
+          site_keywords: string | null
+          site_name: string | null
+          site_title: string | null
+          social_links: Json | null
+          telegram_link: string | null
+          twitter_handle: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          ads_enabled?: boolean | null
+          canonical_url?: string | null
+          created_at?: string | null
+          cricket_api_enabled?: boolean | null
+          facebook_app_id?: string | null
+          favicon_url?: string | null
+          footer_ad_code?: string | null
+          footer_text?: string | null
+          google_adsense_id?: string | null
+          google_analytics_id?: string | null
+          header_ad_code?: string | null
+          id?: string | null
+          in_article_ad_code?: string | null
+          logo_url?: string | null
+          og_image_url?: string | null
+          popup_ad_code?: string | null
+          robots_txt?: string | null
+          schema_org_enabled?: boolean | null
+          sidebar_ad_code?: string | null
+          site_description?: string | null
+          site_keywords?: string | null
+          site_name?: string | null
+          site_title?: string | null
+          social_links?: Json | null
+          telegram_link?: string | null
+          twitter_handle?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          ads_enabled?: boolean | null
+          canonical_url?: string | null
+          created_at?: string | null
+          cricket_api_enabled?: boolean | null
+          facebook_app_id?: string | null
+          favicon_url?: string | null
+          footer_ad_code?: string | null
+          footer_text?: string | null
+          google_adsense_id?: string | null
+          google_analytics_id?: string | null
+          header_ad_code?: string | null
+          id?: string | null
+          in_article_ad_code?: string | null
+          logo_url?: string | null
+          og_image_url?: string | null
+          popup_ad_code?: string | null
+          robots_txt?: string | null
+          schema_org_enabled?: boolean | null
+          sidebar_ad_code?: string | null
+          site_description?: string | null
+          site_keywords?: string | null
+          site_name?: string | null
+          site_title?: string | null
+          social_links?: Json | null
+          telegram_link?: string | null
+          twitter_handle?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
