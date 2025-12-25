@@ -46,22 +46,80 @@ async function fetchWithRetry(url: string, maxRetries = 3): Promise<Response> {
   throw lastError || new Error('All retry attempts failed');
 }
 
-// Normalize team name for comparison
+// Normalize team name for comparison - more aggressive normalization
 function normalizeTeamName(name: string): string {
   return name.toLowerCase()
-    .replace(/[^a-z0-9]/g, '')
-    .replace(/cricket|club|team|xi|eleven/g, '');
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/cricket|club|team|xi|eleven/gi, '')
+    .trim();
 }
 
-// Check if two team names match
+// Check if two team names match - improved matching
 function teamsMatch(apiTeam: string, dbTeamName: string, dbTeamShort: string): boolean {
   const apiNorm = normalizeTeamName(apiTeam);
   const nameNorm = normalizeTeamName(dbTeamName);
   const shortNorm = normalizeTeamName(dbTeamShort);
   
-  return apiNorm.includes(nameNorm) || nameNorm.includes(apiNorm) ||
-         apiNorm.includes(shortNorm) || shortNorm === apiNorm ||
-         apiNorm === nameNorm;
+  // Direct match
+  if (apiNorm === nameNorm || apiNorm === shortNorm) return true;
+  
+  // Contains match
+  if (apiNorm.includes(nameNorm) || nameNorm.includes(apiNorm)) return true;
+  if (apiNorm.includes(shortNorm) || shortNorm.includes(apiNorm)) return true;
+  
+  // Word-based matching - check if all words from shorter name are in longer name
+  const apiWords = apiNorm.split(' ').filter(w => w.length > 2);
+  const nameWords = nameNorm.split(' ').filter(w => w.length > 2);
+  
+  if (nameWords.length > 0 && nameWords.every(word => apiNorm.includes(word))) return true;
+  if (apiWords.length > 0 && apiWords.every(word => nameNorm.includes(word))) return true;
+  
+  return false;
+}
+
+// Parse winner from status text - improved
+function parseWinnerFromStatus(status: string, teamAName: string, teamAShort: string, teamBName: string, teamBShort: string): 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null {
+  const statusLower = status.toLowerCase();
+  
+  // Check for special results first
+  if (statusLower.includes('tied') || statusLower.includes('tie')) return 'tied';
+  if (statusLower.includes('no result') || statusLower.includes('abandoned') || statusLower.includes('no-result')) return 'no_result';
+  if (statusLower.includes('draw') || statusLower.includes('drawn')) return 'draw';
+  
+  // Check for "won" keyword
+  if (!statusLower.includes('won')) return null;
+  
+  // Try to find team name before "won"
+  const wonIndex = statusLower.indexOf('won');
+  const beforeWon = statusLower.substring(0, wonIndex).trim();
+  
+  // Check team A
+  const teamALower = teamAName.toLowerCase();
+  const teamAShortLower = teamAShort.toLowerCase();
+  if (beforeWon.includes(teamALower) || beforeWon.includes(teamAShortLower) || 
+      teamsMatch(beforeWon, teamAName, teamAShort)) {
+    return 'team_a_won';
+  }
+  
+  // Check team B
+  const teamBLower = teamBName.toLowerCase();
+  const teamBShortLower = teamBShort.toLowerCase();
+  if (beforeWon.includes(teamBLower) || beforeWon.includes(teamBShortLower) ||
+      teamsMatch(beforeWon, teamBName, teamBShort)) {
+    return 'team_b_won';
+  }
+  
+  // Fallback: check if team name appears anywhere in status
+  if (statusLower.includes(teamALower) || statusLower.includes(teamAShortLower)) {
+    return 'team_a_won';
+  }
+  if (statusLower.includes(teamBLower) || statusLower.includes(teamBShortLower)) {
+    return 'team_b_won';
+  }
+  
+  return null;
 }
 
 serve(async (req) => {
@@ -210,42 +268,29 @@ serve(async (req) => {
 
     // Determine winner
     let matchResult: 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null = null;
-    const statusLower = foundMatch.status.toLowerCase();
 
-    console.log(`Match status: "${foundMatch.status}", Winner: ${foundMatch.matchWinner || 'N/A'}`);
+    console.log(`Match status: "${foundMatch.status}", Winner field: ${foundMatch.matchWinner || 'N/A'}`);
 
     // Check matchWinner first
     if (foundMatch.matchWinner) {
       if (teamsMatch(foundMatch.matchWinner, teamAName, teamAShort)) {
         matchResult = 'team_a_won';
+        console.log('Determined winner from matchWinner field: team_a_won');
       } else if (teamsMatch(foundMatch.matchWinner, teamBName, teamBShort)) {
         matchResult = 'team_b_won';
+        console.log('Determined winner from matchWinner field: team_b_won');
       }
     }
 
-    // Fallback: check status text
+    // Fallback: parse status text using improved function
     if (!matchResult) {
-      const teamALower = teamAName.toLowerCase();
-      const teamBLower = teamBName.toLowerCase();
-      const teamAShortLower = teamAShort.toLowerCase();
-      const teamBShortLower = teamBShort.toLowerCase();
-
-      if ((statusLower.includes(teamALower) || statusLower.includes(teamAShortLower)) && 
-          statusLower.includes('won')) {
-        matchResult = 'team_a_won';
-      } else if ((statusLower.includes(teamBLower) || statusLower.includes(teamBShortLower)) && 
-                 statusLower.includes('won')) {
-        matchResult = 'team_b_won';
-      } else if (statusLower.includes('tied') || statusLower.includes('tie')) {
-        matchResult = 'tied';
-      } else if (statusLower.includes('no result') || statusLower.includes('abandoned')) {
-        matchResult = 'no_result';
-      } else if (statusLower.includes('draw')) {
-        matchResult = 'draw';
+      matchResult = parseWinnerFromStatus(foundMatch.status, teamAName, teamAShort, teamBName, teamBShort);
+      if (matchResult) {
+        console.log(`Determined winner from status text: ${matchResult}`);
       }
     }
 
-    console.log(`Determined match result: ${matchResult}`);
+    console.log(`Final match result: ${matchResult}`);
 
     if (!matchResult) {
       return new Response(
@@ -259,55 +304,93 @@ serve(async (req) => {
       );
     }
 
-    // Parse score data for innings
+    // Parse score data for innings - improved matching
     const scores = foundMatch.score || [];
-    let teamARuns = 0, teamAOvers = 0;
-    let teamBRuns = 0, teamBOvers = 0;
+    console.log(`Found ${scores.length} score entries:`, JSON.stringify(scores));
+    
+    const inningsData: { teamId: string; runs: number; overs: number; wickets: number; inningsNumber: number }[] = [];
 
     for (const score of scores) {
-      const inningLower = score.inning.toLowerCase();
-      if (teamsMatch(score.inning, teamAName, teamAShort)) {
-        teamARuns += score.r || 0;
-        teamAOvers += score.o || 0;
-      } else if (teamsMatch(score.inning, teamBName, teamBShort)) {
-        teamBRuns += score.r || 0;
-        teamBOvers += score.o || 0;
+      const inningText = score.inning;
+      console.log(`Processing inning: "${inningText}" - R:${score.r} W:${score.w} O:${score.o}`);
+      
+      // Check which team this inning belongs to
+      if (teamsMatch(inningText, teamAName, teamAShort)) {
+        inningsData.push({
+          teamId: matchData.team_a.id,
+          runs: score.r || 0,
+          overs: score.o || 0,
+          wickets: score.w || 0,
+          inningsNumber: inningsData.filter(i => i.teamId === matchData.team_a.id).length + 1
+        });
+        console.log(`Matched to Team A: ${teamAName}`);
+      } else if (teamsMatch(inningText, teamBName, teamBShort)) {
+        inningsData.push({
+          teamId: matchData.team_b.id,
+          runs: score.r || 0,
+          overs: score.o || 0,
+          wickets: score.w || 0,
+          inningsNumber: inningsData.filter(i => i.teamId === matchData.team_b.id).length + 1
+        });
+        console.log(`Matched to Team B: ${teamBName}`);
+      } else {
+        console.log(`Could not match inning to any team`);
+      }
+    }
+
+    // Calculate totals for NRR
+    let teamARuns = 0, teamAOvers = 0;
+    let teamBRuns = 0, teamBOvers = 0;
+    
+    for (const innings of inningsData) {
+      if (innings.teamId === matchData.team_a.id) {
+        teamARuns += innings.runs;
+        teamAOvers += innings.overs;
+      } else {
+        teamBRuns += innings.runs;
+        teamBOvers += innings.overs;
       }
     }
 
     console.log(`Scores - ${teamAShort}: ${teamARuns}/${teamAOvers}ov, ${teamBShort}: ${teamBRuns}/${teamBOvers}ov`);
 
     // Delete existing innings and insert new ones
-    await supabase.from('match_innings').delete().eq('match_id', matchId);
-
-    if (teamARuns > 0 || teamAOvers > 0) {
-      await supabase.from('match_innings').insert({
-        match_id: matchId,
-        batting_team_id: matchData.team_a.id,
-        innings_number: 1,
-        runs: teamARuns,
-        overs: teamAOvers,
-        wickets: 0,
-        is_current: false,
-      });
+    const { error: deleteError } = await supabase.from('match_innings').delete().eq('match_id', matchId);
+    if (deleteError) {
+      console.error('Error deleting existing innings:', deleteError);
     }
 
-    if (teamBRuns > 0 || teamBOvers > 0) {
-      await supabase.from('match_innings').insert({
+    // Insert innings if we have data
+    let inningsCount = 0;
+    for (let i = 0; i < inningsData.length; i++) {
+      const innings = inningsData[i];
+      const { error: insertError } = await supabase.from('match_innings').insert({
         match_id: matchId,
-        batting_team_id: matchData.team_b.id,
-        innings_number: 2,
-        runs: teamBRuns,
-        overs: teamBOvers,
-        wickets: 0,
+        batting_team_id: innings.teamId,
+        innings_number: i + 1,
+        runs: innings.runs,
+        overs: innings.overs,
+        wickets: innings.wickets,
         is_current: false,
       });
+      if (insertError) {
+        console.error(`Error inserting innings ${i + 1}:`, insertError);
+      } else {
+        inningsCount++;
+      }
     }
+    
+    console.log(`Inserted ${inningsCount} innings records`);
 
-    // Update match result - triggers points table update
+    // Update match result - this triggers the points table update
     const { error: updateError } = await supabase
       .from('matches')
-      .update({ match_result: matchResult, status: 'completed' })
+      .update({ 
+        match_result: matchResult, 
+        status: 'completed',
+        score_a: teamARuns > 0 ? `${teamARuns}` : null,
+        score_b: teamBRuns > 0 ? `${teamBRuns}` : null
+      })
       .eq('id', matchId);
 
     if (updateError) {
@@ -326,6 +409,7 @@ serve(async (req) => {
         matchResult,
         cricApiMatchId: foundMatch.id,
         status: foundMatch.status,
+        inningsCount,
         teamA: { runs: teamARuns, overs: teamAOvers },
         teamB: { runs: teamBRuns, overs: teamBOvers },
       }),
