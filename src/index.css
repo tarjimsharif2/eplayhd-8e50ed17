@@ -10,6 +10,9 @@
 @import url("https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
 @import url("https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Libre+Caslon+Text&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -106,13 +109,13 @@
     --primary: 27 95% 60%;
     --primary-foreground: 12 81% 14%;
 
-    --secondary: 0 0% 45%;
+    --secondary: 210 40% 98.0392%;
     --secondary-foreground: 0 0% 98%;
 
     --muted: 0 0% 45%;
     --muted-foreground: 0 0% 98%;
 
-    --accent: 20 91% 14%;
+    --accent: 210 20% 98.0392%;
     --accent-foreground: 43 96% 56%;
 
     --destructive: 0 84% 60%;
