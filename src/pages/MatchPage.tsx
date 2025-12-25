@@ -221,6 +221,9 @@ const MatchPage = () => {
               teamBId={teamB.id}
               matchStatus={match.status}
               isPrimary={true}
+              matchResult={match.match_result}
+              teamAName={teamA.name}
+              teamBName={teamB.name}
             />
           )}
 

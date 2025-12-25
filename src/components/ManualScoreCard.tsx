@@ -10,9 +10,12 @@ interface ManualScoreCardProps {
   teamBId: string;
   matchStatus: string;
   isPrimary?: boolean;
+  matchResult?: string | null;
+  teamAName?: string;
+  teamBName?: string;
 }
 
-const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus, isPrimary = false }: ManualScoreCardProps) => {
+const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus, isPrimary = false, matchResult, teamAName, teamBName }: ManualScoreCardProps) => {
   const { data: innings, isLoading } = useMatchInnings(matchId);
 
   // Show loading state
@@ -36,8 +39,39 @@ const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus, isPrimary = f
     );
   }
 
-  // Don't render if no innings data
+  // If no innings but match is completed with result, show result card
   if (!innings || innings.length === 0) {
+    if (matchStatus === 'completed' && matchResult) {
+      const getResultText = () => {
+        switch (matchResult) {
+          case 'team_a_won': return `${teamAName || 'Team A'} won`;
+          case 'team_b_won': return `${teamBName || 'Team B'} won`;
+          case 'tied': return 'Match Tied';
+          case 'draw': return 'Match Drawn';
+          case 'no_result': return 'No Result';
+          default: return 'Completed';
+        }
+      };
+
+      return (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="mb-6"
+        >
+          <Card className={`border-border/50 backdrop-blur overflow-hidden ${isPrimary ? 'bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20' : 'bg-card/80'}`}>
+            <CardContent className="p-6">
+              <div className="flex items-center justify-center gap-3">
+                <Trophy className="w-6 h-6 text-primary" />
+                <span className="font-semibold text-lg">{getResultText()}</span>
+                <Badge variant="completed">Completed</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </motion.div>
+      );
+    }
     return null;
   }
 
