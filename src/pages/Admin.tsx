@@ -1224,12 +1224,21 @@ const Admin = () => {
                             <Label htmlFor="cricbuzz_match_id" className="text-sm">CricAPI Match ID</Label>
                             <Input
                               id="cricbuzz_match_id"
-                              placeholder="e.g., abc123-def456 (from CricAPI)"
+                              placeholder="e.g., d5a80164-cd97-4b95-b49b-c6b1e35e56e1"
                               value={matchForm.cricbuzz_match_id || ''}
                               onChange={(e) => setMatchForm({ ...matchForm, cricbuzz_match_id: e.target.value })}
                             />
                             <p className="text-xs text-muted-foreground">
-                              Get this ID from CricAPI match list endpoint
+                              <strong>⚠️ NOT a Cricbuzz ID!</strong> Get this from{' '}
+                              <a 
+                                href="https://www.cricapi.com/matches" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-primary underline"
+                              >
+                                CricAPI Matches
+                              </a>
+                              {' '}(alphanumeric ID like "d5a80164-cd97...")
                             </p>
                           </div>
                         )}

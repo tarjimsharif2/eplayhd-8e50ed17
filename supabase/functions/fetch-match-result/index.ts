@@ -28,6 +28,34 @@ interface CricAPIMatchInfo {
   matchEnded?: boolean;
 }
 
+// Retry fetch with exponential backoff
+async function fetchWithRetry(url: string, options: RequestInit = {}, maxRetries = 3): Promise<Response> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt < maxRetries; attempt++) {
+    try {
+      const response = await fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(15000), // 15 second timeout
+      });
+      return response;
+    } catch (err) {
+      lastError = err as Error;
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.log(`Attempt ${attempt + 1} failed: ${errorMessage}`);
+      
+      if (attempt < maxRetries - 1) {
+        // Wait with exponential backoff
+        const delay = Math.pow(2, attempt) * 1000;
+        console.log(`Retrying in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+  
+  throw lastError || new Error('All retry attempts failed');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -84,11 +112,27 @@ serve(async (req) => {
       );
     }
 
-    // Fetch match info from CricAPI
+    // Fetch match info from CricAPI with retry
     const apiUrl = `https://api.cricapi.com/v1/match_info?apikey=${settings.cricket_api_key}&id=${cricbuzzMatchId}`;
     
     console.log('Fetching from CricAPI...');
-    const apiResponse = await fetch(apiUrl);
+    
+    let apiResponse: Response;
+    try {
+      apiResponse = await fetchWithRetry(apiUrl);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      console.error('CricAPI fetch failed after retries:', errorMessage);
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'Failed to connect to CricAPI. Please check your API key and match ID.',
+          details: errorMessage
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const apiData = await apiResponse.json();
 
     console.log('CricAPI response:', JSON.stringify(apiData, null, 2));
@@ -96,7 +140,11 @@ serve(async (req) => {
     if (apiData.status !== 'success' || !apiData.data) {
       console.error('CricAPI error:', apiData);
       return new Response(
-        JSON.stringify({ error: apiData.info || 'Failed to fetch from CricAPI' }),
+        JSON.stringify({ 
+          success: false,
+          error: apiData.info || apiData.message || 'Failed to fetch from CricAPI',
+          details: 'Make sure the CricAPI Match ID is correct (not Cricbuzz ID)'
+        }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -164,7 +212,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          message: 'Could not determine match result',
+          message: 'Could not determine match result from API response',
           status: matchInfo.status,
           winner: matchInfo.matchWinner
         }),
