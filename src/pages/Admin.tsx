@@ -117,6 +117,8 @@ const Admin = () => {
     score_b: '',
     match_link: '',
     match_duration_minutes: 180,
+    match_end_time: null as string | null,
+    duration_type: 'duration' as 'duration' | 'end_time',
     match_start_time: null as string | null,
     is_priority: false,
     match_label: '',
@@ -355,7 +357,8 @@ const Admin = () => {
         score_a: matchForm.score_a || null,
         score_b: matchForm.score_b || null,
         match_link: matchForm.page_type === 'redirect' ? (matchForm.match_link || null) : null,
-        match_duration_minutes: matchForm.match_duration_minutes || 180,
+        match_duration_minutes: matchForm.duration_type === 'duration' ? (matchForm.match_duration_minutes || 180) : null,
+        match_end_time: matchForm.duration_type === 'end_time' ? (matchForm.match_end_time || null) : null,
         match_start_time: matchForm.match_start_time || null,
         is_priority: matchForm.is_priority,
         match_label: matchForm.match_label || null,
@@ -413,6 +416,8 @@ const Admin = () => {
       score_b: match.score_b || '',
       match_link: match.match_link || '',
       match_duration_minutes: match.match_duration_minutes || 180,
+      match_end_time: (match as any).match_end_time || null,
+      duration_type: (match as any).match_end_time ? 'end_time' : 'duration',
       match_start_time: match.match_start_time || null,
       is_priority: match.is_priority || false,
       match_label: match.match_label || '',
@@ -467,6 +472,8 @@ const Admin = () => {
       score_b: '',
       match_link: match.match_link || '',
       match_duration_minutes: match.match_duration_minutes || 180,
+      match_end_time: null,
+      duration_type: 'duration',
       match_start_time: match.match_start_time || null,
       is_priority: match.is_priority || false,
       match_label: match.match_label || '',
@@ -506,6 +513,8 @@ const Admin = () => {
       score_b: '',
       match_link: '',
       match_duration_minutes: 180,
+      match_end_time: null,
+      duration_type: 'duration',
       match_start_time: null,
       is_priority: false,
       match_label: '',
@@ -1060,15 +1069,60 @@ const Admin = () => {
                         )}
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="space-y-2">
-                          <Label>Duration (minutes)</Label>
-                          <Input type="number" placeholder="180" value={matchForm.match_duration_minutes} onChange={(e) => setMatchForm({ ...matchForm, match_duration_minutes: parseInt(e.target.value) || 180 })} />
+                      {/* Match Duration/End Time Selection */}
+                      <div className="space-y-3 p-3 rounded-lg border border-border/50 bg-muted/10">
+                        <div className="flex items-center gap-4">
+                          <Label className="text-sm font-medium">Match Length:</Label>
+                          <div className="flex gap-2">
+                            <Button
+                              type="button"
+                              variant={matchForm.duration_type === 'duration' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setMatchForm({ ...matchForm, duration_type: 'duration', match_end_time: null })}
+                            >
+                              Duration
+                            </Button>
+                            <Button
+                              type="button"
+                              variant={matchForm.duration_type === 'end_time' ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => setMatchForm({ ...matchForm, duration_type: 'end_time', match_duration_minutes: 0 })}
+                            >
+                              End Time
+                            </Button>
+                          </div>
                         </div>
-                        <div className="space-y-2">
-                          <Label>Venue (optional)</Label>
-                          <Input placeholder="Stadium name" value={matchForm.venue} onChange={(e) => setMatchForm({ ...matchForm, venue: e.target.value })} />
-                        </div>
+                        
+                        {matchForm.duration_type === 'duration' ? (
+                          <div className="space-y-2">
+                            <Label>Duration (minutes)</Label>
+                            <Input 
+                              type="number" 
+                              placeholder="180" 
+                              value={matchForm.match_duration_minutes || ''} 
+                              onChange={(e) => setMatchForm({ ...matchForm, match_duration_minutes: parseInt(e.target.value) || 0 })} 
+                            />
+                            <p className="text-xs text-muted-foreground">How long the match will run</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Label>Match End Date & Time</Label>
+                            <DateTimePicker
+                              value={matchForm.match_end_time ? new Date(matchForm.match_end_time) : null}
+                              onChange={(date) => setMatchForm({ 
+                                ...matchForm, 
+                                match_end_time: date ? date.toISOString() : null 
+                              })}
+                              placeholder="Select end date & time"
+                            />
+                            <p className="text-xs text-muted-foreground">When the match will end</p>
+                          </div>
+                        )}
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <Label>Venue (optional)</Label>
+                        <Input placeholder="Stadium name" value={matchForm.venue} onChange={(e) => setMatchForm({ ...matchForm, venue: e.target.value })} />
                       </div>
                       
                       {/* Page Type Selection */}

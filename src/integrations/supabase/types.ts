@@ -202,6 +202,7 @@ export type Database = {
           is_stumps: boolean | null
           match_date: string
           match_duration_minutes: number | null
+          match_end_time: string | null
           match_format: string | null
           match_label: string | null
           match_link: string | null
@@ -238,6 +239,7 @@ export type Database = {
           is_stumps?: boolean | null
           match_date: string
           match_duration_minutes?: number | null
+          match_end_time?: string | null
           match_format?: string | null
           match_label?: string | null
           match_link?: string | null
@@ -274,6 +276,7 @@ export type Database = {
           is_stumps?: boolean | null
           match_date?: string
           match_duration_minutes?: number | null
+          match_end_time?: string | null
           match_format?: string | null
           match_label?: string | null
           match_link?: string | null
