@@ -114,7 +114,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           width: '100%',
           height: '100%',
           autoPlay: true,
-          mute: true, // Start muted for autoplay on mobile
+          mute: false,
           hideMediaControl: false,
           mediacontrol: { seekbar: '#E91E63', buttons: '#E91E63' },
           playback: {
@@ -126,21 +126,6 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
             },
           },
           disableVideoTagContextMenu: true,
-        });
-
-        // Unmute after play starts
-        player.on('play', () => {
-          setTimeout(() => {
-            try {
-              const videoElement = containerRef.current?.querySelector('video') as HTMLVideoElement;
-              if (videoElement) {
-                videoElement.muted = false;
-                setIsMuted(false);
-              }
-            } catch (e) {
-              console.warn('Could not unmute:', e);
-            }
-          }, 500);
         });
 
         player.on('ready', () => {
@@ -248,7 +233,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
       <div 
         ref={containerRef} 
         id={playerIdRef.current}
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-fill"
         style={{ zIndex: 1 }}
       />
       
@@ -448,18 +433,11 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
             setQualityLevels(levels);
           }
           
-          // Attempt to auto-play (muted for mobile compatibility)
+          // Attempt to auto-play unmuted
           try {
             if (videoRef.current) {
-              videoRef.current.muted = true;
               await videoRef.current.play();
               setIsPlaying(true);
-              // Unmute after short delay
-              setTimeout(() => {
-                if (videoRef.current) {
-                  videoRef.current.muted = false;
-                }
-              }, 500);
             }
           } catch (playErr) {
             console.log('Auto-play blocked, user interaction required');
@@ -548,11 +526,10 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
     <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden group">
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full object-contain"
+        className="absolute inset-0 w-full h-full object-fill"
         controls
         playsInline
         autoPlay
-        muted
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
       />
