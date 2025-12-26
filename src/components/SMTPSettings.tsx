@@ -48,11 +48,8 @@ const SMTPSettings = ({ settings, onSettingsChange }: SMTPSettingsProps) => {
 
     setIsTesting(true);
     try {
-      const { error } = await supabase.functions.invoke("send-otp", {
-        body: { 
-          email: testEmail, 
-          userId: "test-" + Date.now() 
-        },
+      const { error } = await supabase.functions.invoke("test-smtp", {
+        body: { email: testEmail },
       });
 
       if (error) throw error;
