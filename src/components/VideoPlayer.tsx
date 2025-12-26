@@ -55,9 +55,11 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   const [currentQuality, setCurrentQuality] = useState<number>(-1);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [isPiPActive, setIsPiPActive] = useState(false);
+  const [needsUserInteraction, setNeedsUserInteraction] = useState(false);
   const playerIdRef = useRef(`clappr-${Math.random().toString(36).substr(2, 9)}`);
 
   const isPiPSupported = 'pictureInPictureEnabled' in document;
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const togglePiP = async () => {
     try {
@@ -77,6 +79,22 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
     } catch (err) {
       console.error('PiP error:', err);
       toast.error('Picture-in-Picture not available');
+    }
+  };
+
+  const handleManualPlay = () => {
+    try {
+      const videoElement = containerRef.current?.querySelector('video') as HTMLVideoElement;
+      if (videoElement) {
+        videoElement.play().then(() => {
+          setNeedsUserInteraction(false);
+        }).catch(console.warn);
+      } else if (playerRef.current) {
+        playerRef.current.play();
+        setNeedsUserInteraction(false);
+      }
+    } catch (e) {
+      console.warn('Manual play failed:', e);
     }
   };
 
@@ -112,13 +130,13 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           parent: containerRef.current,
           width: '100%',
           height: '100%',
-          autoPlay: true,
+          autoPlay: !isMobile, // Don't autoplay on mobile
           mute: false,
           hideMediaControl: false,
           mediacontrol: { seekbar: '#E91E63', buttons: '#E91E63' },
           playback: {
             playInline: true,
-            controls: false, // Use Clappr controls only
+            controls: isMobile, // Show native controls on mobile for better touch support
             hlsjsConfig: {
               enableWorker: true,
               lowLatencyMode: false,
@@ -130,6 +148,11 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
         player.on('ready', () => {
           if (mounted) {
             setIsLoading(false);
+            
+            // On mobile, show play button if autoplay didn't work
+            if (isMobile) {
+              setNeedsUserInteraction(true);
+            }
             
             try {
               const playback = player.core?.activePlayback;
@@ -150,6 +173,12 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
             } catch (e) {
               console.warn('Could not extract quality levels:', e);
             }
+          }
+        });
+
+        player.on('play', () => {
+          if (mounted) {
+            setNeedsUserInteraction(false);
           }
         });
 
@@ -191,7 +220,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
         playerRef.current = null;
       }
     };
-  }, [url]);
+  }, [url, isMobile]);
 
   const handleQualityChange = (levelIndex: number) => {
     try {
@@ -231,62 +260,76 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
       <div 
         ref={containerRef} 
         id={playerIdRef.current}
-        className="absolute inset-0 w-full h-full [&_.play-wrapper]:!hidden [&_.player-poster]:!hidden [&_.play-button]:!hidden [&_.poster-icon]:!hidden [&_.media-control-center-panel]:!opacity-0"
+        className="absolute inset-0 w-full h-full"
         style={{ zIndex: 1 }}
       />
       
-      {/* Controls - PiP and Quality */}
-      <div className="absolute bottom-16 right-4 z-20 flex gap-2">
-        {/* PiP Button */}
-        {isPiPSupported && (
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            className={`bg-black/70 hover:bg-black/90 text-white border-0 ${isPiPActive ? 'ring-2 ring-primary' : ''}`}
-            onClick={togglePiP}
-            title="Picture-in-Picture"
-          >
-            <PictureInPicture2 className="w-4 h-4" />
-          </Button>
-        )}
+      {/* Mobile Play Button Overlay */}
+      {needsUserInteraction && !isLoading && (
+        <button
+          onClick={handleManualPlay}
+          className="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/40 transition-colors cursor-pointer z-20"
+        >
+          <div className="w-20 h-20 rounded-full bg-primary/90 flex items-center justify-center hover:scale-110 transition-transform">
+            <Play className="w-8 h-8 text-primary-foreground ml-1" />
+          </div>
+        </button>
+      )}
+      
+      {/* Controls - PiP and Quality (only show when not needing interaction) */}
+      {!needsUserInteraction && (
+        <div className="absolute bottom-16 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+          {/* PiP Button */}
+          {isPiPSupported && (
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className={`bg-black/70 hover:bg-black/90 text-white border-0 ${isPiPActive ? 'ring-2 ring-primary' : ''}`}
+              onClick={togglePiP}
+              title="Picture-in-Picture"
+            >
+              <PictureInPicture2 className="w-4 h-4" />
+            </Button>
+          )}
 
-        {/* Quality Selector */}
-        {qualityLevels.length > 1 && (
-          <DropdownMenu open={showQualityMenu} onOpenChange={setShowQualityMenu}>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="text-xs">{getCurrentQualityLabel()}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
-              <DropdownMenuItem 
-                onClick={() => handleQualityChange(-1)}
-                className="text-white hover:bg-white/20 gap-2"
-              >
-                {currentQuality === -1 && <Check className="w-4 h-4" />}
-                <span className={currentQuality !== -1 ? 'ml-6' : ''}>Auto</span>
-              </DropdownMenuItem>
-              {qualityLevels.map((level) => (
-                <DropdownMenuItem
-                  key={level.index}
-                  onClick={() => handleQualityChange(level.index)}
+          {/* Quality Selector */}
+          {qualityLevels.length > 1 && (
+            <DropdownMenu open={showQualityMenu} onOpenChange={setShowQualityMenu}>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
+                >
+                  <Settings className="w-4 h-4" />
+                  <span className="text-xs">{getCurrentQualityLabel()}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
+                <DropdownMenuItem 
+                  onClick={() => handleQualityChange(-1)}
                   className="text-white hover:bg-white/20 gap-2"
                 >
-                  {currentQuality === level.index && <Check className="w-4 h-4" />}
-                  <span className={currentQuality !== level.index ? 'ml-6' : ''}>
-                    {level.label}
-                  </span>
+                  {currentQuality === -1 && <Check className="w-4 h-4" />}
+                  <span className={currentQuality !== -1 ? 'ml-6' : ''}>Auto</span>
                 </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
+                {qualityLevels.map((level) => (
+                  <DropdownMenuItem
+                    key={level.index}
+                    onClick={() => handleQualityChange(level.index)}
+                    className="text-white hover:bg-white/20 gap-2"
+                  >
+                    {currentQuality === level.index && <Check className="w-4 h-4" />}
+                    <span className={currentQuality !== level.index ? 'ml-6' : ''}>
+                      {level.label}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
+      )}
     </div>
   );
 };
@@ -339,24 +382,24 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
 
   useEffect(() => {
     let mounted = true;
-    let player: any = null;
 
     const initPlayer = async () => {
       if (!videoRef.current) return;
 
       try {
-        // Import shaka-player - use any to bypass type issues with dynamic import
-        const shakaModule = await import('shaka-player') as any;
-        const shaka = shakaModule.default || shakaModule;
+        setIsLoading(true);
+        console.log('Initializing Shaka Player for URL:', url);
         
-        console.log('Shaka Player loaded:', shaka);
+        // Import shaka-player using the compiled distribution
+        const shaka = await import('shaka-player/dist/shaka-player.compiled.js') as any;
+        
+        console.log('Shaka module loaded:', Object.keys(shaka));
         
         // Install polyfills
-        if (shaka.polyfill && shaka.polyfill.installAll) {
-          shaka.polyfill.installAll();
-        }
+        shaka.polyfill.installAll();
 
-        if (shaka.Player && !shaka.Player.isBrowserSupported()) {
+        if (!shaka.Player.isBrowserSupported()) {
+          console.error('Browser not supported for DASH');
           setError('Browser not supported for DASH playback');
           setIsLoading(false);
           return;
@@ -374,12 +417,13 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
           playerRef.current = null;
         }
 
-        // Create new player instance attached to video element
-        player = new shaka.Player(videoRef.current);
+        // Create new player instance
+        const player = new shaka.Player();
+        await player.attach(videoRef.current);
 
         // Configure ClearKey DRM if provided
         if (clearKey?.keyId && clearKey?.key) {
-          console.log('Configuring ClearKey DRM with keyId:', clearKey.keyId);
+          console.log('Configuring ClearKey DRM');
           player.configure({
             drm: {
               clearKeys: {
@@ -391,24 +435,25 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
 
         // Add error listener
         player.addEventListener('error', (event: any) => {
-          console.error('Shaka Player error:', event.detail);
+          console.error('Shaka Player error:', event);
           if (mounted) {
-            setError(`Failed to play DASH stream: ${event.detail?.message || 'Unknown error'}`);
+            const errorDetail = event.detail || event;
+            setError(`Playback error: ${errorDetail?.message || errorDetail?.code || 'Unknown error'}`);
             setIsLoading(false);
           }
         });
 
-        console.log('Loading MPD URL:', url);
+        // Load the manifest
         await player.load(url);
-        console.log('MPD loaded successfully');
+        console.log('MPD manifest loaded successfully');
         
         if (mounted) {
           playerRef.current = player;
           setIsLoading(false);
           
-          // Extract quality levels from video tracks
+          // Extract quality levels
           const tracks = player.getVariantTracks();
-          console.log('Available tracks:', tracks);
+          console.log('Available variant tracks:', tracks?.length);
           
           if (tracks && tracks.length > 0) {
             const uniqueHeights = new Map<number, any>();
@@ -428,18 +473,18 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
             setQualityLevels(levels);
           }
           
-          // Auto-play
+          // Attempt to auto-play
           try {
             await videoRef.current?.play();
             setIsPlaying(true);
           } catch (playErr) {
-            console.log('Auto-play prevented, waiting for user interaction');
+            console.log('Auto-play blocked, user interaction required');
           }
         }
       } catch (err: any) {
         console.error('Failed to initialize Shaka Player:', err);
         if (mounted) {
-          setError(`Failed to load stream: ${err?.message || 'Unknown error'}`);
+          setError(`Failed to load stream: ${err?.message || 'Check console for details'}`);
           setIsLoading(false);
         }
       }
