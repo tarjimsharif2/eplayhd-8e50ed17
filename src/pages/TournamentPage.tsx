@@ -24,6 +24,11 @@ const TournamentPage = () => {
   
   const { data: siteSettings } = useSiteSettings();
 
+  // Scroll to top when tournament page loads
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [slug]);
+
   useEffect(() => {
     const fetchTournament = async () => {
       if (!slug) return;
