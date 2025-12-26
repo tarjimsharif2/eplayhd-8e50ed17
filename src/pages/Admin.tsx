@@ -131,6 +131,7 @@ const Admin = () => {
     is_stumps: false,
     stumps_time: null as string | null,
     day_start_time: '' as string | null,
+    daily_stumps_time: '' as string | null,
     next_day_start: null as string | null,
     match_result: null as 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null,
     api_score_enabled: false,
@@ -368,7 +369,14 @@ const Admin = () => {
         match_format: matchForm.match_format || null,
         test_day: matchForm.test_day,
         is_stumps: matchForm.is_stumps,
-        stumps_time: matchForm.stumps_time || null,
+        stumps_time: matchForm.daily_stumps_time 
+          ? (() => {
+              const [hours, minutes] = matchForm.daily_stumps_time.split(':').map(Number);
+              const today = new Date();
+              today.setHours(hours, minutes, 0, 0);
+              return today.toISOString();
+            })()
+          : matchForm.stumps_time || null,
         day_start_time: matchForm.day_start_time || null,
         next_day_start: matchForm.next_day_start || null,
         match_result: matchForm.match_result,
@@ -419,6 +427,7 @@ const Admin = () => {
       is_stumps: match.is_stumps || false,
       stumps_time: match.stumps_time || null,
       day_start_time: match.day_start_time || '',
+      daily_stumps_time: match.stumps_time ? new Date(match.stumps_time).toTimeString().slice(0, 5) : '',
       next_day_start: match.next_day_start || null,
       match_result: match.match_result,
       api_score_enabled: match.api_score_enabled !== false,
@@ -472,6 +481,7 @@ const Admin = () => {
       is_stumps: false,
       stumps_time: null,
       day_start_time: match.day_start_time || '',
+      daily_stumps_time: '',
       next_day_start: null,
       match_result: null,
       api_score_enabled: false,
@@ -510,6 +520,7 @@ const Admin = () => {
       is_stumps: false,
       stumps_time: null,
       day_start_time: '',
+      daily_stumps_time: '',
       next_day_start: null,
       match_result: null,
       api_score_enabled: false,
@@ -1232,6 +1243,22 @@ const Admin = () => {
                               />
                               <p className="text-xs text-muted-foreground">
                                 At this time daily, Day auto-increments & STUMPS is removed.
+                              </p>
+                            </div>
+
+                            <div className="space-y-2">
+                              <Label className="flex items-center gap-1.5">
+                                <Moon className="w-3 h-3 text-slate-400" />
+                                Daily STUMPS Time (Auto-Call)
+                              </Label>
+                              <Input
+                                type="time"
+                                value={matchForm.daily_stumps_time || ''}
+                                onChange={(e) => setMatchForm({ ...matchForm, daily_stumps_time: e.target.value || null })}
+                                placeholder="17:00"
+                              />
+                              <p className="text-xs text-muted-foreground">
+                                At this time daily, STUMPS is called automatically.
                               </p>
                             </div>
                           </div>
