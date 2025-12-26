@@ -38,8 +38,10 @@ import { Textarea } from "@/components/ui/textarea";
 import SearchableSelect from "@/components/SearchableSelect";
 
 import PasswordChangeDialog from "@/components/PasswordChangeDialog";
-import { Table, FileText } from "lucide-react";
+import { Table, FileText, Megaphone } from "lucide-react";
 import { useGoogleIndexing } from "@/hooks/useGoogleIndexing";
+import DynamicPagesManager from "@/components/DynamicPagesManager";
+import AdsSettingsManager from "@/components/AdsSettingsManager";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -867,6 +869,14 @@ const Admin = () => {
               <TabsTrigger value="banners" className="gap-2">
                 <Image className="w-4 h-4" />
                 Banners
+              </TabsTrigger>
+              <TabsTrigger value="pages" className="gap-2">
+                <FileText className="w-4 h-4" />
+                Pages
+              </TabsTrigger>
+              <TabsTrigger value="ads" className="gap-2">
+                <Megaphone className="w-4 h-4" />
+                Ads
               </TabsTrigger>
               <TabsTrigger value="settings" className="gap-2">
                 <Settings className="w-4 h-4" />
@@ -2280,6 +2290,16 @@ const Admin = () => {
                   ))}
                 </div>
               )}
+            </TabsContent>
+
+            {/* Pages Tab */}
+            <TabsContent value="pages" className="space-y-6">
+              <DynamicPagesManager />
+            </TabsContent>
+
+            {/* Ads Tab */}
+            <TabsContent value="ads" className="space-y-6">
+              <AdsSettingsManager />
             </TabsContent>
 
             {/* Settings Tab */}

@@ -74,6 +74,60 @@ export type Database = {
         }
         Relationships: []
       }
+      dynamic_pages: {
+        Row: {
+          content: string | null
+          content_type: string
+          created_at: string
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          og_image_url: string | null
+          seo_description: string | null
+          seo_keywords: string | null
+          seo_title: string | null
+          show_in_footer: boolean | null
+          show_in_header: boolean | null
+          slug: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          content_type?: string
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          og_image_url?: string | null
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
+          show_in_footer?: boolean | null
+          show_in_header?: boolean | null
+          slug: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          content_type?: string
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          og_image_url?: string | null
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
+          show_in_footer?: boolean | null
+          show_in_header?: boolean | null
+          slug?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       match_innings: {
         Row: {
           batting_team_id: string
@@ -372,6 +426,8 @@ export type Database = {
           created_at: string
           cricket_api_enabled: boolean | null
           cricket_api_key: string | null
+          custom_footer_code: string | null
+          custom_header_code: string | null
           facebook_app_id: string | null
           favicon_url: string | null
           footer_ad_code: string | null
@@ -382,6 +438,7 @@ export type Database = {
           id: string
           in_article_ad_code: string | null
           logo_url: string | null
+          match_page_ad_positions: Json | null
           og_image_url: string | null
           popup_ad_code: string | null
           robots_txt: string | null
@@ -410,6 +467,8 @@ export type Database = {
           created_at?: string
           cricket_api_enabled?: boolean | null
           cricket_api_key?: string | null
+          custom_footer_code?: string | null
+          custom_header_code?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
           footer_ad_code?: string | null
@@ -420,6 +479,7 @@ export type Database = {
           id?: string
           in_article_ad_code?: string | null
           logo_url?: string | null
+          match_page_ad_positions?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null
           robots_txt?: string | null
@@ -448,6 +508,8 @@ export type Database = {
           created_at?: string
           cricket_api_enabled?: boolean | null
           cricket_api_key?: string | null
+          custom_footer_code?: string | null
+          custom_header_code?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
           footer_ad_code?: string | null
@@ -458,6 +520,7 @@ export type Database = {
           id?: string
           in_article_ad_code?: string | null
           logo_url?: string | null
+          match_page_ad_positions?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null
           robots_txt?: string | null
@@ -488,6 +551,8 @@ export type Database = {
           canonical_url: string | null
           created_at: string | null
           cricket_api_enabled: boolean | null
+          custom_footer_code: string | null
+          custom_header_code: string | null
           facebook_app_id: string | null
           favicon_url: string | null
           footer_ad_code: string | null
@@ -498,6 +563,7 @@ export type Database = {
           id: string
           in_article_ad_code: string | null
           logo_url: string | null
+          match_page_ad_positions: Json | null
           og_image_url: string | null
           popup_ad_code: string | null
           robots_txt: string | null
@@ -518,6 +584,8 @@ export type Database = {
           canonical_url?: string | null
           created_at?: string | null
           cricket_api_enabled?: boolean | null
+          custom_footer_code?: string | null
+          custom_header_code?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
           footer_ad_code?: string | null
@@ -528,6 +596,7 @@ export type Database = {
           id: string
           in_article_ad_code?: string | null
           logo_url?: string | null
+          match_page_ad_positions?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null
           robots_txt?: string | null
@@ -548,6 +617,8 @@ export type Database = {
           canonical_url?: string | null
           created_at?: string | null
           cricket_api_enabled?: boolean | null
+          custom_footer_code?: string | null
+          custom_header_code?: string | null
           facebook_app_id?: string | null
           favicon_url?: string | null
           footer_ad_code?: string | null
@@ -558,6 +629,7 @@ export type Database = {
           id?: string
           in_article_ad_code?: string | null
           logo_url?: string | null
+          match_page_ad_positions?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null
           robots_txt?: string | null

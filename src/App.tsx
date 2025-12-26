@@ -10,6 +10,7 @@ import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import MatchPage from "./pages/MatchPage";
 import TournamentPage from "./pages/TournamentPage";
+import DynamicPage from "./pages/DynamicPage";
 import AdsTxt from "./pages/AdsTxt";
 import NotFound from "./pages/NotFound";
 
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/match/:slug" element={<MatchPage />} />
               <Route path="/tournament/:slug" element={<TournamentPage />} />
+              <Route path="/page/:slug" element={<DynamicPage />} />
               {/* Handle both /ads.txt and /ads.txt/ */}
               <Route path="/ads.txt/*" element={<AdsTxt />} />
               <Route path="*" element={<NotFound />} />
