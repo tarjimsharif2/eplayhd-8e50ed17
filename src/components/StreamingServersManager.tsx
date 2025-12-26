@@ -45,6 +45,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
     drm_license_url: '',
     drm_scheme: 'none' as 'none' | 'widevine' | 'playready' | 'clearkey',
     player_type: 'hls' as 'hls' | 'clappr',
+    ad_block_enabled: false,
   });
 
   const resetForm = () => {
@@ -62,6 +63,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       drm_license_url: '',
       drm_scheme: 'none',
       player_type: 'hls',
+      ad_block_enabled: false,
     });
   };
 
@@ -80,6 +82,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       drm_license_url: server.drm_license_url || '',
       drm_scheme: server.drm_scheme || 'none',
       player_type: server.player_type || 'hls',
+      ad_block_enabled: server.ad_block_enabled || false,
     });
     setDialogOpen(true);
   };
@@ -110,6 +113,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       drm_license_url: serverForm.drm_license_url || null,
       drm_scheme: serverForm.drm_scheme === 'none' ? null : serverForm.drm_scheme,
       player_type: serverForm.server_type === 'm3u8' ? serverForm.player_type : null,
+      ad_block_enabled: serverForm.ad_block_enabled,
     };
 
     try {
@@ -307,6 +311,17 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
               <Switch
                 checked={serverForm.is_active}
                 onCheckedChange={(checked) => setServerForm({ ...serverForm, is_active: checked })}
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+              <div className="space-y-0.5">
+                <Label>Ad Blocker</Label>
+                <p className="text-xs text-muted-foreground">Block pop-up ads and overlays in this player</p>
+              </div>
+              <Switch
+                checked={serverForm.ad_block_enabled}
+                onCheckedChange={(checked) => setServerForm({ ...serverForm, ad_block_enabled: checked })}
               />
             </div>
 

@@ -172,6 +172,7 @@ const MatchPage = () => {
                       scheme: activeServer.drm_scheme,
                     }}
                     playerType={activeServer.player_type || 'hls'}
+                    adBlockEnabled={activeServer.ad_block_enabled || false}
                   />
                 ) : (
                   <div className="aspect-video bg-muted flex items-center justify-center">

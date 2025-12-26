@@ -29,6 +29,7 @@ interface VideoPlayerProps {
   headers?: StreamHeaders;
   drm?: DrmConfig;
   playerType?: 'hls' | 'clappr';
+  adBlockEnabled?: boolean;
 }
 
 // Validate that URL uses safe protocols (http:// or https://)
@@ -631,7 +632,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   );
 };
 
-const VideoPlayer = ({ url, type, headers, drm, playerType = 'hls' }: VideoPlayerProps) => {
+const VideoPlayer = ({ url, type, headers, drm, playerType = 'hls', adBlockEnabled = false }: VideoPlayerProps) => {
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
     return (
@@ -652,8 +653,39 @@ const VideoPlayer = ({ url, type, headers, drm, playerType = 'hls' }: VideoPlaye
   // For iframe and embed types - handle referrer if specified
   const referrerPolicy = headers?.referer ? 'origin' : 'no-referrer-when-downgrade';
   
+  // Ad blocking styles to inject when ad blocker is enabled
+  const adBlockStyles = adBlockEnabled ? `
+    /* Hide common ad elements */
+    .ad, .ads, .advertisement, .ad-container, .ad-wrapper, .ad-overlay,
+    [class*="ad-"], [class*="ads-"], [id*="ad-"], [id*="ads-"],
+    .popup, .popunder, .overlay-ad, .video-ad, .preroll,
+    [class*="popup"], [class*="overlay"], [class*="banner"],
+    .close-ad, .skip-ad, iframe[src*="doubleclick"],
+    iframe[src*="googlesyndication"], iframe[src*="adservice"],
+    div[class*="sticky"], div[class*="float"]:not([class*="player"]) {
+      display: none !important;
+      visibility: hidden !important;
+      opacity: 0 !important;
+      pointer-events: none !important;
+      height: 0 !important;
+      width: 0 !important;
+      position: absolute !important;
+      left: -9999px !important;
+    }
+    /* Prevent popups */
+    body { pointer-events: auto !important; }
+  ` : '';
+
+  // Sandbox attributes for ad blocking
+  const sandboxAttrs = adBlockEnabled 
+    ? "allow-scripts allow-same-origin allow-forms allow-presentation allow-orientation-lock"
+    : undefined;
+  
   return (
     <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden">
+      {adBlockEnabled && (
+        <style dangerouslySetInnerHTML={{ __html: adBlockStyles }} />
+      )}
       <iframe
         src={url}
         className="absolute inset-0 w-full h-full"
@@ -661,6 +693,7 @@ const VideoPlayer = ({ url, type, headers, drm, playerType = 'hls' }: VideoPlaye
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         frameBorder="0"
         referrerPolicy={referrerPolicy}
+        sandbox={sandboxAttrs}
       />
     </div>
   );
