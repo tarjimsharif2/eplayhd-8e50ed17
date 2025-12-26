@@ -1,4 +1,5 @@
 import { useParams } from "react-router-dom";
+import { useEffect, useMemo } from "react";
 import Header from "@/components/Header";
 import Footer from "@/components/Footer";
 import SEOHead from "@/components/SEOHead";
@@ -6,12 +7,16 @@ import { useDynamicPage } from "@/hooks/useDynamicPages";
 import { Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import DOMPurify from "dompurify";
-import { useMemo } from "react";
 import NotFound from "./NotFound";
 
 const DynamicPage = () => {
   const { slug } = useParams<{ slug: string }>();
   const { data: page, isLoading, error } = useDynamicPage(slug || '');
+
+  // Scroll to top when page loads
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [slug]);
 
   // Sanitize HTML content
   const sanitizedContent = useMemo(() => {
