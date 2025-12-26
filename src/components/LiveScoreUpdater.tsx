@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Play, Clock, RefreshCw, Pause, RotateCcw, Coffee } from "lucide-react";
+import TestMatchManager from "@/components/TestMatchManager";
 
 interface LiveScoreUpdaterProps {
   match: Match;
@@ -28,6 +29,7 @@ const LiveScoreUpdater = ({ match }: LiveScoreUpdaterProps) => {
   const sportName = match.sport?.name?.toLowerCase() || "";
   const isFootball = sportName === "football" || sportName === "soccer";
   const isCricket = sportName === "cricket";
+  const isTestMatch = isCricket && match.match_format?.toLowerCase() === "test";
 
   // Sync match minute from props when match data changes
   useEffect(() => {
@@ -337,10 +339,15 @@ const LiveScoreUpdater = ({ match }: LiveScoreUpdaterProps) => {
         )}
 
         {/* Cricket specific - Over display helper */}
-        {isCricket && (
+        {isCricket && !isTestMatch && (
           <p className="text-xs text-muted-foreground">
             Format: runs/wickets (e.g., 180/5, 45/2 in 8 overs)
           </p>
+        )}
+
+        {/* Test Match Controls */}
+        {isTestMatch && (
+          <TestMatchManager match={match} />
         )}
 
         {/* Save Button */}
