@@ -29,7 +29,8 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/match/:slug" element={<MatchPage />} />
               <Route path="/tournament/:slug" element={<TournamentPage />} />
-              <Route path="/ads.txt" element={<AdsTxt />} />
+              {/* Handle both /ads.txt and /ads.txt/ */}
+              <Route path="/ads.txt/*" element={<AdsTxt />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
