@@ -132,6 +132,14 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           if (mounted) {
             setIsLoading(false);
             
+            // Force video element to stretch
+            const videoEl = containerRef.current?.querySelector('video') as HTMLVideoElement;
+            if (videoEl) {
+              videoEl.style.objectFit = 'fill';
+              videoEl.style.width = '100%';
+              videoEl.style.height = '100%';
+            }
+            
             try {
               const playback = player.core?.activePlayback;
               if (playback && playback._hls) {
