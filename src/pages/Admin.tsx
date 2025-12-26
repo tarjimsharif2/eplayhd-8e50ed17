@@ -22,7 +22,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
@@ -1160,8 +1160,62 @@ const Admin = () => {
                         </div>
                         {matchForm.match_format === 'test' && (
                           <div className="space-y-4 pt-2 border-t border-border/30">
+                            {/* Manual STUMPS/Resume Controls */}
+                            <div className="flex gap-2">
+                              {!matchForm.is_stumps ? (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="flex-1 gap-2 border-slate-500/50 hover:bg-slate-500/20"
+                                  onClick={() => {
+                                    const now = new Date();
+                                    let nextStart: string | null = null;
+                                    if (matchForm.day_start_time) {
+                                      const tomorrow = new Date(now);
+                                      tomorrow.setDate(tomorrow.getDate() + 1);
+                                      const [hours, minutes] = matchForm.day_start_time.split(':').map(Number);
+                                      tomorrow.setHours(hours, minutes, 0, 0);
+                                      nextStart = tomorrow.toISOString();
+                                    }
+                                    setMatchForm({
+                                      ...matchForm,
+                                      is_stumps: true,
+                                      stumps_time: now.toISOString(),
+                                      next_day_start: nextStart,
+                                    });
+                                    toast({ title: "STUMPS set", description: "Don't forget to save the match!" });
+                                  }}
+                                >
+                                  <Moon className="w-4 h-4" />
+                                  Call STUMPS Now
+                                </Button>
+                              ) : (
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="flex-1 gap-2 border-green-500/50 hover:bg-green-500/20 text-green-500"
+                                  onClick={() => {
+                                    setMatchForm({
+                                      ...matchForm,
+                                      is_stumps: false,
+                                      test_day: (matchForm.test_day || 1) + 1,
+                                      next_day_start: null,
+                                      stumps_time: null,
+                                    });
+                                    toast({ title: "Play resumed", description: `Day ${(matchForm.test_day || 1) + 1} set. Don't forget to save!` });
+                                  }}
+                                >
+                                  <Play className="w-4 h-4" />
+                                  Resume Play (Start Day {(matchForm.test_day || 1) + 1})
+                                </Button>
+                              )}
+                            </div>
+
                             <div className="space-y-2">
-                              <Label>Daily Start Time (for auto-resume)</Label>
+                              <Label className="flex items-center gap-1.5">
+                                <Sun className="w-3 h-3 text-yellow-500" />
+                                Daily Start Time (Auto-Resume)
+                              </Label>
                               <Input
                                 type="time"
                                 value={matchForm.day_start_time || ''}
@@ -1169,7 +1223,7 @@ const Admin = () => {
                                 placeholder="10:00"
                               />
                               <p className="text-xs text-muted-foreground">
-                                Set when play typically starts each day. STUMPS will auto-clear at this time.
+                                At this time daily, Day auto-increments & STUMPS is removed.
                               </p>
                             </div>
                             
@@ -1199,7 +1253,8 @@ const Admin = () => {
                                     });
                                   }}
                                 />
-                                <Label htmlFor="is_stumps" className="text-sm font-medium">
+                                <Label htmlFor="is_stumps" className="text-sm font-medium flex items-center gap-1.5">
+                                  <Moon className="w-3 h-3" />
                                   STUMPS (Day's play ended)
                                 </Label>
                               </div>
