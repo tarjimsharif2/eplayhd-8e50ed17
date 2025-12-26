@@ -108,6 +108,8 @@ const TournamentPage = () => {
   const liveMatches = matches.filter(m => m.status === 'live');
   const upcomingMatches = matches.filter(m => m.status === 'upcoming');
   const completedMatches = matches.filter(m => m.status === 'completed');
+  // STUMPS matches are included in live matches
+  const stumpsMatches = liveMatches.filter(m => m.is_stumps);
 
   // SEO - use tournament's custom SEO if available
   const seoTitle = tournament.seo_title || `${tournament.name} - ${tournament.season} | ${siteSettings?.site_name || 'Live Sports'}`;
@@ -187,8 +189,12 @@ const TournamentPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
           >
-            <Tabs defaultValue={liveMatches.length > 0 ? "live" : upcomingMatches.length > 0 ? "upcoming" : "completed"} className="w-full">
+            <Tabs defaultValue="all" className="w-full">
               <TabsList className="w-full justify-start mb-6 bg-muted/50">
+                <TabsTrigger value="all" className="gap-2">
+                  All
+                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{matches.length}</Badge>
+                </TabsTrigger>
                 <TabsTrigger value="live" className="gap-2">
                   Live
                   {liveMatches.length > 0 && (
@@ -208,6 +214,20 @@ const TournamentPage = () => {
                   )}
                 </TabsTrigger>
               </TabsList>
+
+              <TabsContent value="all">
+                {matches.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    No matches scheduled
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {matches.map((match, index) => (
+                      <MatchCard key={match.id} match={match} index={index} />
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
 
               <TabsContent value="live">
                 {liveMatches.length === 0 ? (

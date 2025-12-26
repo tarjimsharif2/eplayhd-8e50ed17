@@ -19,12 +19,13 @@ const MatchList = () => {
     const now = new Date();
     const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
 
-    // Helper function to get sort priority based on status
-    const getStatusPriority = (status: string) => {
-      if (status === 'live') return 0;
-      if (status === 'upcoming') return 1;
-      if (status === 'completed') return 2;
-      return 3;
+    // Helper function to get sort priority based on status and stumps
+    const getStatusPriority = (status: string, isStumps?: boolean | null) => {
+      if (status === 'live' && !isStumps) return 0; // Live matches first
+      if (status === 'live' && isStumps) return 1;   // STUMPS matches after live
+      if (status === 'upcoming') return 2;
+      if (status === 'completed') return 3;
+      return 4;
     };
 
     // Helper function to parse match date/time into a Date object
@@ -92,6 +93,10 @@ const MatchList = () => {
 
       // Apply status filter
       if (activeFilter === 'all') return true;
+      // STUMPS matches should show in live filter
+      if (activeFilter === 'live') {
+        return match.status === 'live';
+      }
       return match.status === activeFilter;
     });
 
@@ -101,8 +106,8 @@ const MatchList = () => {
       if (a.is_priority && !b.is_priority) return -1;
       if (!a.is_priority && b.is_priority) return 1;
 
-      // Then sort by status priority
-      const priorityDiff = getStatusPriority(a.status) - getStatusPriority(b.status);
+      // Then sort by status priority (considering stumps)
+      const priorityDiff = getStatusPriority(a.status, a.is_stumps) - getStatusPriority(b.status, b.is_stumps);
       if (priorityDiff !== 0) return priorityDiff;
 
       // Within same status, sort by match start time

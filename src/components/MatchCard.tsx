@@ -163,7 +163,8 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
     }
   }, [match.match_start_time, match.match_time, match.status]);
 
-  const getStatusVariant = (status: string) => {
+  const getStatusVariant = (status: string, isStumps?: boolean) => {
+    if (isStumps) return 'secondary';
     switch (status) {
       case 'live': return 'live';
       case 'completed': return 'completed';
@@ -171,7 +172,8 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, isStumps?: boolean) => {
+    if (isStumps) return 'STUMPS';
     switch (status) {
       case 'live': return 'Live';
       case 'completed': return 'Completed';
@@ -254,16 +256,10 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                   {cricketFormat.label}
                 </Badge>
               )}
-              {match.match_format?.toLowerCase() === 'test' && (
+              {match.match_format?.toLowerCase() === 'test' && match.test_day && (
                 <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 font-bold text-sm uppercase tracking-wider px-4 py-2 shadow-lg">
                   <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                  Day {match.test_day || 1} of 5
-                </Badge>
-              )}
-              {match.is_stumps && match.match_format?.toLowerCase() === 'test' && (
-                <Badge className="bg-gradient-to-r from-slate-700 to-slate-800 text-white border border-slate-500/30 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg">
-                  <span className="w-2 h-2 bg-slate-400 rounded-full mr-1.5 animate-pulse" />
-                  STUMPS
+                  Day {match.test_day}
                 </Badge>
               )}
             </div>
@@ -381,11 +377,14 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
               <span>• {localTime || match.match_time}</span>
               <span className="text-primary font-medium">({timezone})</span>
             </div>
-            <Badge variant={getStatusVariant(match.status)} className="px-4 py-1.5 text-sm">
-              {match.status === 'live' && (
+            <Badge variant={getStatusVariant(match.status, match.is_stumps)} className="px-4 py-1.5 text-sm">
+              {match.status === 'live' && !match.is_stumps && (
                 <span className="w-2 h-2 bg-current rounded-full mr-1.5 animate-pulse" />
               )}
-              {getStatusText(match.status)}
+              {match.is_stumps && (
+                <span className="w-2 h-2 bg-slate-400 rounded-full mr-1.5" />
+              )}
+              {getStatusText(match.status, match.is_stumps)}
             </Badge>
           </div>
           
