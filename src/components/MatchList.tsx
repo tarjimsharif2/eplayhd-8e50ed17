@@ -95,9 +95,13 @@ const MatchList = () => {
       return match.status === activeFilter;
     });
 
-    // Sort: Live first, then upcoming, then completed - all sorted by start time
+    // Sort: Priority first, then Live, then upcoming, then completed - all sorted by start time
     return filtered.sort((a, b) => {
-      // First sort by status priority
+      // First, priority matches always come first
+      if (a.is_priority && !b.is_priority) return -1;
+      if (!a.is_priority && b.is_priority) return 1;
+
+      // Then sort by status priority
       const priorityDiff = getStatusPriority(a.status) - getStatusPriority(b.status);
       if (priorityDiff !== 0) return priorityDiff;
 
