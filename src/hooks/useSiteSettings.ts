@@ -34,6 +34,14 @@ export interface SiteSettings {
   // Cricket API settings (sensitive - admin only)
   cricket_api_key: string | null;
   cricket_api_enabled: boolean;
+  // SMTP settings
+  smtp_host: string | null;
+  smtp_port: number | null;
+  smtp_user: string | null;
+  smtp_password: string | null;
+  smtp_from_email: string | null;
+  smtp_from_name: string | null;
+  smtp_enabled: boolean;
 }
 
 // Admin-only hook for full site settings (requires admin role)
@@ -77,6 +85,7 @@ export const useUpdateSiteSettings = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['site_settings'] });
+      queryClient.invalidateQueries({ queryKey: ['site_settings_admin'] });
     },
   });
 };
