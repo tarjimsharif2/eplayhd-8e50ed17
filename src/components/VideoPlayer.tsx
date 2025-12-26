@@ -55,7 +55,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   const [currentQuality, setCurrentQuality] = useState<number>(-1);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [isPiPActive, setIsPiPActive] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
+  const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const playerIdRef = useRef(`clappr-${Math.random().toString(36).substr(2, 9)}`);
 
@@ -115,7 +115,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           width: '100%',
           height: '100%',
           autoPlay: true,
-          mute: true, // Start muted for mobile autoplay to work
+          mute: false,
           hideMediaControl: false,
           mediacontrol: { seekbar: '#E91E63', buttons: '#E91E63' },
           playback: {
@@ -290,16 +290,6 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
         </button>
       )}
 
-      {/* Unmute Button */}
-      {isMuted && !isLoading && (
-        <button
-          onClick={handleUnmute}
-          className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-black/70 hover:bg-black/90 text-white px-3 py-2 rounded-lg transition-colors"
-        >
-          <VolumeX className="w-5 h-5" />
-          <span className="text-sm font-medium">Tap to Unmute</span>
-        </button>
-      )}
       
       
       {/* Controls - PiP and Quality */}
