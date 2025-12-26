@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Clock, Star } from "lucide-react";
+import { MapPin, Clock, Star, Calendar } from "lucide-react";
 import InningsDisplay from "@/components/InningsDisplay";
 import FlipClock from "@/components/FlipClock";
 
@@ -254,13 +254,15 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                   {cricketFormat.label}
                 </Badge>
               )}
-              {match.test_day && match.match_format?.toLowerCase() === 'test' && (
-                <Badge className="bg-gradient-to-r from-amber-600 to-amber-700 text-white border-0 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg">
-                  Day-{match.test_day}
+              {match.match_format?.toLowerCase() === 'test' && (
+                <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 font-bold text-sm uppercase tracking-wider px-4 py-2 shadow-lg">
+                  <Calendar className="w-3.5 h-3.5 mr-1.5" />
+                  Day {match.test_day || 1} of 5
                 </Badge>
               )}
               {match.is_stumps && match.match_format?.toLowerCase() === 'test' && (
-                <Badge className="bg-gradient-to-r from-slate-600 to-slate-700 text-white border-0 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg animate-pulse">
+                <Badge className="bg-gradient-to-r from-slate-700 to-slate-800 text-white border border-slate-500/30 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg">
+                  <span className="w-2 h-2 bg-slate-400 rounded-full mr-1.5 animate-pulse" />
                   STUMPS
                 </Badge>
               )}
