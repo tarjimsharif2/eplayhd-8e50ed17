@@ -1,21 +1,17 @@
 import { Link, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Menu, X, Tv, Trophy } from "lucide-react";
+import { Menu, X, Tv, Trophy, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import ThemeToggle from "@/components/ThemeToggle";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 import { useHeaderPages } from "@/hooks/useDynamicPages";
 import { useTournaments } from "@/hooks/useSportsData";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isTournamentOpen, setIsTournamentOpen] = useState(false);
+  const [isMobileTournamentOpen, setIsMobileTournamentOpen] = useState(false);
   const location = useLocation();
   const { data: settings } = usePublicSiteSettings();
   const { data: headerPages } = useHeaderPages();
@@ -66,28 +62,52 @@ const Header = () => {
               </Link>
             ))}
             
-            {/* Tournaments Dropdown */}
+            {/* Tournaments Dropdown - Click to toggle */}
             {menuTournaments.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="gap-1">
-                    <Trophy className="w-4 h-4" />
-                    Tournaments
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-popover border border-border shadow-lg z-50">
-                  {menuTournaments.map((tournament) => (
-                    <DropdownMenuItem key={tournament.id} asChild>
-                      <Link to={`/tournament/${tournament.slug}`} className="flex items-center gap-2">
-                        {tournament.logo_url && (
-                          <img src={tournament.logo_url} alt="" className="w-4 h-4 object-contain" />
-                        )}
-                        {tournament.name}
-                      </Link>
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              <div className="relative">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="gap-1"
+                  onClick={() => setIsTournamentOpen(!isTournamentOpen)}
+                >
+                  <Trophy className="w-4 h-4" />
+                  Tournaments
+                  <ChevronDown className={`w-3 h-3 transition-transform ${isTournamentOpen ? 'rotate-180' : ''}`} />
+                </Button>
+                <AnimatePresence>
+                  {isTournamentOpen && (
+                    <>
+                      {/* Backdrop to close dropdown */}
+                      <div 
+                        className="fixed inset-0 z-40" 
+                        onClick={() => setIsTournamentOpen(false)}
+                      />
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.15 }}
+                        className="absolute top-full right-0 mt-1 min-w-[200px] bg-popover border border-border rounded-md shadow-lg z-50 py-1"
+                      >
+                        {menuTournaments.map((tournament) => (
+                          <Link 
+                            key={tournament.id} 
+                            to={`/tournament/${tournament.slug}`}
+                            onClick={() => setIsTournamentOpen(false)}
+                            className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                          >
+                            {tournament.logo_url && (
+                              <img src={tournament.logo_url} alt="" className="w-5 h-5 object-contain" />
+                            )}
+                            {tournament.name}
+                          </Link>
+                        ))}
+                      </motion.div>
+                    </>
+                  )}
+                </AnimatePresence>
+              </div>
             )}
 
             {/* Dynamic Header Pages */}
@@ -142,25 +162,46 @@ const Header = () => {
                 </Link>
               ))}
               
-              {/* Mobile Tournaments */}
+              {/* Mobile Tournaments - Click to toggle */}
               {menuTournaments.length > 0 && (
-                <>
-                  <div className="text-sm font-medium text-muted-foreground px-4 pt-2">Tournaments</div>
-                  {menuTournaments.map((tournament) => (
-                    <Link
-                      key={tournament.id}
-                      to={`/tournament/${tournament.slug}`}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
-                      <Button variant="ghost" className="w-full justify-start pl-8 gap-2">
-                        {tournament.logo_url && (
-                          <img src={tournament.logo_url} alt="" className="w-4 h-4 object-contain" />
-                        )}
-                        {tournament.name}
-                      </Button>
-                    </Link>
-                  ))}
-                </>
+                <div>
+                  <Button 
+                    variant="ghost" 
+                    className="w-full justify-between"
+                    onClick={() => setIsMobileTournamentOpen(!isMobileTournamentOpen)}
+                  >
+                    <span className="flex items-center gap-2">
+                      <Trophy className="w-4 h-4" />
+                      Tournaments
+                    </span>
+                    <ChevronDown className={`w-4 h-4 transition-transform ${isMobileTournamentOpen ? 'rotate-180' : ''}`} />
+                  </Button>
+                  <AnimatePresence>
+                    {isMobileTournamentOpen && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        className="overflow-hidden"
+                      >
+                        {menuTournaments.map((tournament) => (
+                          <Link
+                            key={tournament.id}
+                            to={`/tournament/${tournament.slug}`}
+                            onClick={() => setIsMenuOpen(false)}
+                          >
+                            <Button variant="ghost" className="w-full justify-start pl-8 gap-2">
+                              {tournament.logo_url && (
+                                <img src={tournament.logo_url} alt="" className="w-4 h-4 object-contain" />
+                              )}
+                              {tournament.name}
+                            </Button>
+                          </Link>
+                        ))}
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               )}
               
               {/* Mobile Dynamic Pages */}
