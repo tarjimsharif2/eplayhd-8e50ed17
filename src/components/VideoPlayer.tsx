@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from 'react';
-import Hls from 'hls.js';
 import { AlertCircle, Play, Settings, Check, Loader2, PictureInPicture2 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -8,7 +7,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
-import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface StreamHeaders {
@@ -18,17 +16,16 @@ interface StreamHeaders {
   userAgent?: string | null;
 }
 
-interface DrmConfig {
-  licenseUrl?: string | null;
-  scheme?: 'widevine' | 'playready' | 'clearkey' | null;
+interface ClearKeyConfig {
+  keyId?: string | null;
+  key?: string | null;
 }
 
 interface VideoPlayerProps {
   url: string;
-  type: 'iframe' | 'm3u8' | 'embed';
+  type: 'iframe' | 'm3u8' | 'embed' | 'mpd';
   headers?: StreamHeaders;
-  drm?: DrmConfig;
-  playerType?: 'hls' | 'clappr';
+  clearKey?: ClearKeyConfig;
   adBlockEnabled?: boolean;
 }
 
@@ -42,352 +39,12 @@ const isValidUrl = (url: string): boolean => {
   }
 };
 
-// Check if headers are specified or if HTTP URL on HTTPS site
-const needsProxy = (url: string, headers?: StreamHeaders): boolean => {
-  // Always proxy HTTP streams when on HTTPS site (mixed content issue)
-  const isHttpStream = url.startsWith('http://');
-  const isHttpsSite = typeof window !== 'undefined' && window.location.protocol === 'https:';
-  
-  if (isHttpStream && isHttpsSite) return true;
-  
-  // Also proxy if custom headers are needed
-  if (!headers) return false;
-  return !!(headers.referer || headers.origin || headers.cookie || headers.userAgent);
-};
-
 interface QualityLevel {
   index: number;
   height: number;
   bitrate: number;
   label: string;
 }
-
-const HlsPlayer = ({ url, headers, drm }: { url: string; headers?: StreamHeaders; drm?: DrmConfig }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
-  const [currentQuality, setCurrentQuality] = useState<number>(-1);
-  const [showControls, setShowControls] = useState(true);
-  const [proxyPlaylistUrl, setProxyPlaylistUrl] = useState<string | null>(null);
-  const [isPiPActive, setIsPiPActive] = useState(false);
-
-  // Check if PiP is supported
-  const isPiPSupported = 'pictureInPictureEnabled' in document;
-
-  const togglePiP = async () => {
-    if (!videoRef.current) return;
-    
-    try {
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-        setIsPiPActive(false);
-      } else if (document.pictureInPictureEnabled) {
-        await videoRef.current.requestPictureInPicture();
-        setIsPiPActive(true);
-      }
-    } catch (err) {
-      console.error('PiP error:', err);
-      toast.error('Picture-in-Picture not available');
-    }
-  };
-
-  // Listen for PiP events
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const handleEnterPiP = () => setIsPiPActive(true);
-    const handleLeavePiP = () => setIsPiPActive(false);
-
-    video.addEventListener('enterpictureinpicture', handleEnterPiP);
-    video.addEventListener('leavepictureinpicture', handleLeavePiP);
-
-    return () => {
-      video.removeEventListener('enterpictureinpicture', handleEnterPiP);
-      video.removeEventListener('leavepictureinpicture', handleLeavePiP);
-    };
-  }, []);
-
-  useEffect(() => {
-    const fetchPlaylistViaProxy = async () => {
-      if (!needsProxy(url, headers)) {
-        setProxyPlaylistUrl(null);
-        return;
-      }
-
-      setIsLoading(true);
-      setError(null);
-
-      try {
-        const { data, error: fnError } = await supabase.functions.invoke('stream-proxy', {
-          body: {
-            url,
-            headers: {
-              referer: headers?.referer || null,
-              origin: headers?.origin || null,
-              cookie: headers?.cookie || null,
-              userAgent: headers?.userAgent || null,
-            },
-          },
-        });
-
-        if (fnError) {
-          console.error('Proxy error:', fnError);
-          setError('Failed to load stream via proxy');
-          setIsLoading(false);
-          return;
-        }
-
-        const blob = new Blob([data], { type: 'application/vnd.apple.mpegurl' });
-        const blobUrl = URL.createObjectURL(blob);
-        setProxyPlaylistUrl(blobUrl);
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Proxy fetch error:', err);
-        setError('Failed to connect to stream proxy');
-        setIsLoading(false);
-      }
-    };
-
-    fetchPlaylistViaProxy();
-
-    return () => {
-      if (proxyPlaylistUrl) {
-        URL.revokeObjectURL(proxyPlaylistUrl);
-      }
-    };
-  }, [url, headers]);
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (needsProxy(url, headers) && !proxyPlaylistUrl) return;
-
-    if (hlsRef.current) {
-      hlsRef.current.destroy();
-      hlsRef.current = null;
-    }
-
-    setError(null);
-    setQualityLevels([]);
-    setCurrentQuality(-1);
-
-    const streamUrl = proxyPlaylistUrl || url;
-
-    if (Hls.isSupported()) {
-      const hlsConfig: Partial<Hls['config']> = {
-        enableWorker: true,
-        lowLatencyMode: true,
-        startLevel: -1,
-      };
-
-      if (drm?.licenseUrl && drm?.scheme) {
-        const drmSystemId = drm.scheme === 'widevine' 
-          ? 'com.widevine.alpha' 
-          : drm.scheme === 'playready' 
-          ? 'com.microsoft.playready' 
-          : 'org.w3.clearkey';
-
-        (hlsConfig as any).drmSystems = {
-          [drmSystemId]: {
-            licenseUrl: drm.licenseUrl,
-          },
-        };
-
-        (hlsConfig as any).emeEnabled = true;
-        console.log('DRM enabled:', drm.scheme, 'License URL:', drm.licenseUrl);
-      }
-
-      const hls = new Hls(hlsConfig as any);
-
-      hls.loadSource(streamUrl);
-      hls.attachMedia(video);
-
-      hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-        const levels: QualityLevel[] = data.levels.map((level, index) => ({
-          index,
-          height: level.height,
-          bitrate: level.bitrate,
-          label: level.height ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}kbps`,
-        }));
-        
-        levels.sort((a, b) => b.height - a.height);
-        setQualityLevels(levels);
-      });
-
-      hls.on(Hls.Events.LEVEL_SWITCHED, (_, data) => {
-        if (hls.autoLevelEnabled) {
-          setCurrentQuality(-1);
-        }
-      });
-
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) {
-          switch (data.type) {
-            case Hls.ErrorTypes.NETWORK_ERROR:
-              setError('Network error - stream may be unavailable');
-              break;
-            case Hls.ErrorTypes.MEDIA_ERROR:
-              hls.recoverMediaError();
-              break;
-            default:
-              setError('Stream playback error');
-              hls.destroy();
-              break;
-          }
-        }
-      });
-
-      hlsRef.current = hls;
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = streamUrl;
-    } else {
-      setError('HLS playback not supported in this browser');
-    }
-
-    return () => {
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
-  }, [url, headers, drm, proxyPlaylistUrl]);
-
-  const handlePlay = async () => {
-    try {
-      await videoRef.current?.play();
-      setIsPlaying(true);
-    } catch (err) {
-      console.error('Playback failed:', err);
-    }
-  };
-
-  const handleQualityChange = (levelIndex: number) => {
-    if (hlsRef.current) {
-      if (levelIndex === -1) {
-        hlsRef.current.currentLevel = -1;
-        hlsRef.current.nextLevel = -1;
-      } else {
-        hlsRef.current.currentLevel = levelIndex;
-      }
-      setCurrentQuality(levelIndex);
-    }
-  };
-
-  const getCurrentQualityLabel = () => {
-    if (currentQuality === -1) {
-      return 'Auto';
-    }
-    const level = qualityLevels.find(l => l.index === currentQuality);
-    return level?.label || 'Unknown';
-  };
-
-  if (error) {
-    return (
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
-        <AlertCircle className="w-10 h-10 text-destructive" />
-        <p className="text-destructive text-center px-4">{error}</p>
-      </div>
-    );
-  }
-
-  if (isLoading) {
-    return (
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
-        <Loader2 className="w-10 h-10 text-primary animate-spin" />
-        <p className="text-muted-foreground text-center px-4">Loading stream...</p>
-      </div>
-    );
-  }
-
-  return (
-    <div 
-      className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group"
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => isPlaying && setShowControls(false)}
-    >
-      <video
-        ref={videoRef}
-        className="absolute inset-0 w-full h-full"
-        controls
-        playsInline
-        poster=""
-        onPlay={() => setIsPlaying(true)}
-        onPause={() => setIsPlaying(false)}
-      />
-      
-      {/* Controls overlay */}
-      {showControls && (
-        <div className="absolute bottom-14 right-4 z-10 transition-opacity duration-300 flex gap-2">
-          {/* PiP Button */}
-          {isPiPSupported && (
-            <Button 
-              variant="secondary" 
-              size="sm" 
-              className={`bg-black/70 hover:bg-black/90 text-white border-0 ${isPiPActive ? 'ring-2 ring-primary' : ''}`}
-              onClick={togglePiP}
-              title="Picture-in-Picture"
-            >
-              <PictureInPicture2 className="w-4 h-4" />
-            </Button>
-          )}
-          
-          {/* Quality Selector */}
-          {qualityLevels.length > 1 && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="text-xs">{getCurrentQualityLabel()}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
-                <DropdownMenuItem 
-                  onClick={() => handleQualityChange(-1)}
-                  className="text-white hover:bg-white/20 gap-2"
-                >
-                  {currentQuality === -1 && <Check className="w-4 h-4" />}
-                  <span className={currentQuality !== -1 ? 'ml-6' : ''}>Auto</span>
-                </DropdownMenuItem>
-                {qualityLevels.map((level) => (
-                  <DropdownMenuItem
-                    key={level.index}
-                    onClick={() => handleQualityChange(level.index)}
-                    className="text-white hover:bg-white/20 gap-2"
-                  >
-                    {currentQuality === level.index && <Check className="w-4 h-4" />}
-                    <span className={currentQuality !== level.index ? 'ml-6' : ''}>
-                      {level.label}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
-      )}
-
-      {!isPlaying && (
-        <button
-          onClick={handlePlay}
-          className="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/40 transition-colors cursor-pointer group/play"
-        >
-          <div className="w-20 h-20 rounded-full bg-primary/90 flex items-center justify-center group-hover/play:scale-110 transition-transform">
-            <Play className="w-8 h-8 text-primary-foreground ml-1" />
-          </div>
-        </button>
-      )}
-    </div>
-  );
-};
 
 const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -404,7 +61,6 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
 
   const togglePiP = async () => {
     try {
-      // Get the video element from Clappr
       const videoElement = containerRef.current?.querySelector('video');
       if (!videoElement) {
         toast.error('Video element not found');
@@ -471,7 +127,6 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           if (mounted) {
             setIsLoading(false);
             
-            // Extract quality levels from HLS playback
             try {
               const playback = player.core?.activePlayback;
               if (playback && playback._hls) {
@@ -632,7 +287,194 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   );
 };
 
-const VideoPlayer = ({ url, type, headers, drm, playerType = 'hls', adBlockEnabled = false }: VideoPlayerProps) => {
+const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const playerRef = useRef<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPiPActive, setIsPiPActive] = useState(false);
+
+  const isPiPSupported = 'pictureInPictureEnabled' in document;
+
+  const togglePiP = async () => {
+    if (!videoRef.current) return;
+    
+    try {
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        setIsPiPActive(false);
+      } else if (document.pictureInPictureEnabled) {
+        await videoRef.current.requestPictureInPicture();
+        setIsPiPActive(true);
+      }
+    } catch (err) {
+      console.error('PiP error:', err);
+      toast.error('Picture-in-Picture not available');
+    }
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handleEnterPiP = () => setIsPiPActive(true);
+    const handleLeavePiP = () => setIsPiPActive(false);
+
+    video.addEventListener('enterpictureinpicture', handleEnterPiP);
+    video.addEventListener('leavepictureinpicture', handleLeavePiP);
+
+    return () => {
+      video.removeEventListener('enterpictureinpicture', handleEnterPiP);
+      video.removeEventListener('leavepictureinpicture', handleLeavePiP);
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    let player: any = null;
+
+    const initPlayer = async () => {
+      if (!videoRef.current) return;
+
+      try {
+        // Use require-style dynamic import for shaka-player
+        const shaka = (await import('shaka-player')).default;
+        
+        // Install polyfills
+        shaka.polyfill.installAll();
+
+        if (!shaka.Player.isBrowserSupported()) {
+          setError('Browser not supported for DASH playback');
+          setIsLoading(false);
+          return;
+        }
+
+        if (!mounted) return;
+
+        // Destroy previous player if exists
+        if (playerRef.current) {
+          await playerRef.current.destroy();
+          playerRef.current = null;
+        }
+
+        player = new shaka.Player();
+        await player.attach(videoRef.current);
+
+        // Configure ClearKey DRM if provided
+        if (clearKey?.keyId && clearKey?.key) {
+          player.configure({
+            drm: {
+              clearKeys: {
+                [clearKey.keyId]: clearKey.key
+              }
+            }
+          });
+          console.log('ClearKey DRM configured');
+        }
+
+        player.addEventListener('error', (event: any) => {
+          console.error('Shaka Player error:', event.detail);
+          if (mounted) {
+            setError('Failed to play DASH stream');
+            setIsLoading(false);
+          }
+        });
+
+        await player.load(url);
+        
+        if (mounted) {
+          playerRef.current = player;
+          setIsLoading(false);
+        }
+      } catch (err) {
+        console.error('Failed to initialize Shaka Player:', err);
+        if (mounted) {
+          setError('Failed to load stream');
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initPlayer();
+
+    return () => {
+      mounted = false;
+      if (playerRef.current) {
+        playerRef.current.destroy().catch(console.warn);
+        playerRef.current = null;
+      }
+    };
+  }, [url, clearKey?.keyId, clearKey?.key]);
+
+  const handlePlay = async () => {
+    try {
+      await videoRef.current?.play();
+      setIsPlaying(true);
+    } catch (err) {
+      console.error('Playback failed:', err);
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+        <AlertCircle className="w-10 h-10 text-destructive" />
+        <p className="text-destructive text-center px-4">{error}</p>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        <p className="text-muted-foreground text-center px-4">Loading stream...</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full"
+        controls
+        playsInline
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+      />
+      
+      {/* PiP Button */}
+      <div className="absolute bottom-14 right-4 z-10 transition-opacity duration-300">
+        {isPiPSupported && (
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            className={`bg-black/70 hover:bg-black/90 text-white border-0 ${isPiPActive ? 'ring-2 ring-primary' : ''}`}
+            onClick={togglePiP}
+            title="Picture-in-Picture"
+          >
+            <PictureInPicture2 className="w-4 h-4" />
+          </Button>
+        )}
+      </div>
+
+      {!isPlaying && (
+        <button
+          onClick={handlePlay}
+          className="absolute inset-0 flex items-center justify-center bg-black/50 hover:bg-black/40 transition-colors cursor-pointer group/play"
+        >
+          <div className="w-20 h-20 rounded-full bg-primary/90 flex items-center justify-center group-hover/play:scale-110 transition-transform">
+            <Play className="w-8 h-8 text-primary-foreground ml-1" />
+          </div>
+        </button>
+      )}
+    </div>
+  );
+};
+
+const VideoPlayer = ({ url, type, headers, clearKey, adBlockEnabled = false }: VideoPlayerProps) => {
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
     return (
@@ -642,12 +484,14 @@ const VideoPlayer = ({ url, type, headers, drm, playerType = 'hls', adBlockEnabl
     );
   }
 
-  // For M3U8 streams, select player based on playerType
+  // For M3U8 streams, use Clappr player only
   if (type === 'm3u8') {
-    if (playerType === 'clappr') {
-      return <ClapprPlayer url={url} headers={headers} />;
-    }
-    return <HlsPlayer url={url} headers={headers} drm={drm} />;
+    return <ClapprPlayer url={url} headers={headers} />;
+  }
+
+  // For MPD/DASH streams, use Shaka Player
+  if (type === 'mpd') {
+    return <ShakaPlayer url={url} clearKey={clearKey} />;
   }
 
   // For iframe and embed types - handle referrer if specified

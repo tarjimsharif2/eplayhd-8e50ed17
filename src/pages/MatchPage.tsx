@@ -163,20 +163,19 @@ const MatchPage = () => {
               <CardContent className="p-0">
                 {activeServer ? (
                   <VideoPlayer 
-                    key={`${activeServer.id}-${activeServer.player_type}`}
+                    key={`${activeServer.id}-${activeServer.server_type}`}
                     url={activeServer.server_url} 
-                    type={activeServer.server_type}
+                    type={activeServer.server_type as 'iframe' | 'm3u8' | 'embed' | 'mpd'}
                     headers={{
                       referer: activeServer.referer_value,
                       origin: activeServer.origin_value,
                       cookie: activeServer.cookie_value,
                       userAgent: activeServer.user_agent,
                     }}
-                    drm={{
-                      licenseUrl: activeServer.drm_license_url,
-                      scheme: activeServer.drm_scheme,
+                    clearKey={{
+                      keyId: activeServer.clearkey_key_id,
+                      key: activeServer.clearkey_key,
                     }}
-                    playerType={activeServer.player_type || 'hls'}
                     adBlockEnabled={activeServer.ad_block_enabled || false}
                   />
                 ) : (

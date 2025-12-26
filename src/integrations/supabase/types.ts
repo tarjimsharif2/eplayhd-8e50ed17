@@ -673,6 +673,8 @@ export type Database = {
       streaming_servers: {
         Row: {
           ad_block_enabled: boolean | null
+          clearkey_key: string | null
+          clearkey_key_id: string | null
           cookie_value: string | null
           created_at: string
           display_order: number | null
@@ -692,6 +694,8 @@ export type Database = {
         }
         Insert: {
           ad_block_enabled?: boolean | null
+          clearkey_key?: string | null
+          clearkey_key_id?: string | null
           cookie_value?: string | null
           created_at?: string
           display_order?: number | null
@@ -711,6 +715,8 @@ export type Database = {
         }
         Update: {
           ad_block_enabled?: boolean | null
+          clearkey_key?: string | null
+          clearkey_key_id?: string | null
           cookie_value?: string | null
           created_at?: string
           display_order?: number | null
