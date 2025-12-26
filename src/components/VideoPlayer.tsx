@@ -55,6 +55,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   const [currentQuality, setCurrentQuality] = useState<number>(-1);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [isPiPActive, setIsPiPActive] = useState(false);
+  const [isMuted, setIsMuted] = useState(true); // Start muted for autoplay
   const playerIdRef = useRef(`clappr-${Math.random().toString(36).substr(2, 9)}`);
 
   const isPiPSupported = 'pictureInPictureEnabled' in document;
@@ -113,7 +114,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           width: '100%',
           height: '100%',
           autoPlay: true,
-          mute: false,
+          mute: true, // Start muted for autoplay on mobile
           hideMediaControl: false,
           mediacontrol: { seekbar: '#E91E63', buttons: '#E91E63' },
           playback: {
@@ -125,6 +126,21 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
             },
           },
           disableVideoTagContextMenu: true,
+        });
+
+        // Unmute after play starts
+        player.on('play', () => {
+          setTimeout(() => {
+            try {
+              const videoElement = containerRef.current?.querySelector('video') as HTMLVideoElement;
+              if (videoElement) {
+                videoElement.muted = false;
+                setIsMuted(false);
+              }
+            } catch (e) {
+              console.warn('Could not unmute:', e);
+            }
+          }, 500);
         });
 
         player.on('ready', () => {
@@ -215,7 +231,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
 
   if (error) {
     return (
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
         <AlertCircle className="w-10 h-10 text-destructive" />
         <p className="text-destructive text-center px-4">{error}</p>
       </div>
@@ -223,7 +239,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   }
 
   return (
-    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
+    <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden group">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-black">
           <Loader2 className="w-10 h-10 text-primary animate-spin" />
@@ -432,10 +448,19 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
             setQualityLevels(levels);
           }
           
-          // Attempt to auto-play
+          // Attempt to auto-play (muted for mobile compatibility)
           try {
-            await videoRef.current?.play();
-            setIsPlaying(true);
+            if (videoRef.current) {
+              videoRef.current.muted = true;
+              await videoRef.current.play();
+              setIsPlaying(true);
+              // Unmute after short delay
+              setTimeout(() => {
+                if (videoRef.current) {
+                  videoRef.current.muted = false;
+                }
+              }, 500);
+            }
           } catch (playErr) {
             console.log('Auto-play blocked, user interaction required');
           }
@@ -503,7 +528,7 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
 
   if (error) {
     return (
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
         <AlertCircle className="w-10 h-10 text-destructive" />
         <p className="text-destructive text-center px-4">{error}</p>
       </div>
@@ -512,7 +537,7 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
 
   if (isLoading) {
     return (
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
         <p className="text-muted-foreground text-center px-4">Loading stream...</p>
       </div>
@@ -520,12 +545,14 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
   }
 
   return (
-    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
+    <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden group">
       <video
         ref={videoRef}
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 w-full h-full object-contain"
         controls
         playsInline
+        autoPlay
+        muted
         onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
       />
@@ -601,7 +628,7 @@ const VideoPlayer = ({ url, type, headers, clearKey, adBlockEnabled = false }: V
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
     return (
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center">
+      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex items-center justify-center">
         <p className="text-destructive">Invalid streaming URL</p>
       </div>
     );
@@ -649,7 +676,7 @@ const VideoPlayer = ({ url, type, headers, clearKey, adBlockEnabled = false }: V
     : undefined;
   
   return (
-    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden">
+    <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden">
       {adBlockEnabled && (
         <style dangerouslySetInnerHTML={{ __html: adBlockStyles }} />
       )}
