@@ -44,6 +44,9 @@ export interface SiteSettings {
   smtp_enabled: boolean;
   // Ads.txt
   ads_txt_content: string | null;
+  // Custom code injection
+  custom_header_code: string | null;
+  custom_footer_code: string | null;
 }
 
 // Admin-only hook for full site settings (requires admin role)
