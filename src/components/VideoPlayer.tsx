@@ -294,6 +294,9 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
   const [isLoading, setIsLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPiPActive, setIsPiPActive] = useState(false);
+  const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
+  const [currentQuality, setCurrentQuality] = useState<number>(-1);
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
 
   const isPiPSupported = 'pictureInPictureEnabled' in document;
 
@@ -386,6 +389,26 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
         if (mounted) {
           playerRef.current = player;
           setIsLoading(false);
+          
+          // Extract quality levels from video tracks
+          const tracks = player.getVariantTracks();
+          if (tracks && tracks.length > 0) {
+            const uniqueHeights = new Map<number, any>();
+            tracks.forEach((track: any) => {
+              if (track.height && !uniqueHeights.has(track.height)) {
+                uniqueHeights.set(track.height, track);
+              }
+            });
+            
+            const levels: QualityLevel[] = Array.from(uniqueHeights.values()).map((track: any, index: number) => ({
+              index,
+              height: track.height,
+              bitrate: track.videoBandwidth || track.bandwidth || 0,
+              label: `${track.height}p`,
+            }));
+            levels.sort((a, b) => b.height - a.height);
+            setQualityLevels(levels);
+          }
         }
       } catch (err) {
         console.error('Failed to initialize Shaka Player:', err);
@@ -414,6 +437,38 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
     } catch (err) {
       console.error('Playback failed:', err);
     }
+  };
+
+  const handleQualityChange = (levelIndex: number) => {
+    if (!playerRef.current) return;
+    
+    try {
+      if (levelIndex === -1) {
+        // Auto quality
+        playerRef.current.configure({ abr: { enabled: true } });
+      } else {
+        // Manual quality selection
+        const level = qualityLevels[levelIndex];
+        if (level) {
+          playerRef.current.configure({ abr: { enabled: false } });
+          const tracks = playerRef.current.getVariantTracks();
+          const targetTrack = tracks.find((t: any) => t.height === level.height);
+          if (targetTrack) {
+            playerRef.current.selectVariantTrack(targetTrack, true);
+          }
+        }
+      }
+      setCurrentQuality(levelIndex);
+    } catch (e) {
+      console.warn('Could not change quality:', e);
+    }
+    setShowQualityMenu(false);
+  };
+
+  const getCurrentQualityLabel = () => {
+    if (currentQuality === -1) return 'Auto';
+    const level = qualityLevels[currentQuality];
+    return level?.label || 'Auto';
   };
 
   if (error) {
@@ -445,8 +500,9 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
         onPause={() => setIsPlaying(false)}
       />
       
-      {/* PiP Button */}
-      <div className="absolute bottom-14 right-4 z-10 transition-opacity duration-300">
+      {/* Controls - PiP and Quality */}
+      <div className="absolute bottom-14 right-4 z-10 transition-opacity duration-300 flex gap-2">
+        {/* PiP Button */}
         {isPiPSupported && (
           <Button 
             variant="secondary" 
@@ -457,6 +513,43 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
           >
             <PictureInPicture2 className="w-4 h-4" />
           </Button>
+        )}
+
+        {/* Quality Selector */}
+        {qualityLevels.length > 1 && (
+          <DropdownMenu open={showQualityMenu} onOpenChange={setShowQualityMenu}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="text-xs">{getCurrentQualityLabel()}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
+              <DropdownMenuItem 
+                onClick={() => handleQualityChange(-1)}
+                className="text-white hover:bg-white/20 gap-2"
+              >
+                {currentQuality === -1 && <Check className="w-4 h-4" />}
+                <span className={currentQuality !== -1 ? 'ml-6' : ''}>Auto</span>
+              </DropdownMenuItem>
+              {qualityLevels.map((level, idx) => (
+                <DropdownMenuItem
+                  key={level.height}
+                  onClick={() => handleQualityChange(idx)}
+                  className="text-white hover:bg-white/20 gap-2"
+                >
+                  {currentQuality === idx && <Check className="w-4 h-4" />}
+                  <span className={currentQuality !== idx ? 'ml-6' : ''}>
+                    {level.label}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
