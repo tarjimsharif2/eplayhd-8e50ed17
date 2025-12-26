@@ -158,6 +158,7 @@ const Admin = () => {
     logo_url: '',
     slug: '',
     is_active: true,
+    show_in_menu: true,
     seo_title: '',
     seo_description: '',
     seo_keywords: '',
@@ -204,6 +205,9 @@ const Admin = () => {
     cricket_api_enabled: true,
     // Ads.txt
     ads_txt_content: '',
+    // Custom code injection
+    custom_header_code: '',
+    custom_footer_code: '',
   });
   
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -235,6 +239,8 @@ const Admin = () => {
         cricket_api_key: siteSettings.cricket_api_key || '',
         cricket_api_enabled: siteSettings.cricket_api_enabled !== false,
         ads_txt_content: (siteSettings as any).ads_txt_content || '',
+        custom_header_code: siteSettings.custom_header_code || '',
+        custom_footer_code: siteSettings.custom_footer_code || '',
       });
     }
   }, [siteSettings]);
@@ -612,6 +618,7 @@ const Admin = () => {
         logo_url: tournamentForm.logo_url || null,
         slug: tournamentForm.slug || generateSlug(tournamentForm.name),
         is_active: tournamentForm.is_active,
+        show_in_menu: tournamentForm.show_in_menu,
         seo_title: tournamentForm.seo_title || null,
         seo_description: tournamentForm.seo_description || null,
         seo_keywords: tournamentForm.seo_keywords || null,
@@ -647,6 +654,7 @@ const Admin = () => {
       logo_url: tournament.logo_url || '',
       slug: tournament.slug || '',
       is_active: tournament.is_active ?? true,
+      show_in_menu: tournament.show_in_menu ?? true,
       seo_title: tournament.seo_title || '',
       seo_description: tournament.seo_description || '',
       seo_keywords: tournament.seo_keywords || '',
@@ -665,7 +673,7 @@ const Admin = () => {
 
   const resetTournamentForm = () => {
     setEditingTournament(null);
-    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, seo_title: '', seo_description: '', seo_keywords: '' });
+    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, seo_title: '', seo_description: '', seo_keywords: '' });
   };
 
   // Banner handlers
@@ -798,6 +806,9 @@ const Admin = () => {
         cricket_api_enabled: siteSettingsForm.cricket_api_enabled,
         // Ads.txt
         ads_txt_content: siteSettingsForm.ads_txt_content || null,
+        // Custom code injection
+        custom_header_code: siteSettingsForm.custom_header_code || null,
+        custom_footer_code: siteSettingsForm.custom_footer_code || null,
       } as any);
       toast({ title: "Site settings updated successfully" });
     } catch (error: any) {
@@ -1946,6 +1957,21 @@ const Admin = () => {
                           <Input placeholder="https://..." value={tournamentForm.logo_url} onChange={(e) => setTournamentForm({ ...tournamentForm, logo_url: e.target.value })} />
                         </div>
                       </div>
+
+                      {/* Display Settings */}
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="font-medium mb-3 text-sm text-muted-foreground">Display Settings</h4>
+                        <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                          <div className="space-y-0.5">
+                            <Label className="text-base font-medium">Show in Menu</Label>
+                            <p className="text-sm text-muted-foreground">Display this tournament in the navigation menu dropdown</p>
+                          </div>
+                          <Switch
+                            checked={tournamentForm.show_in_menu}
+                            onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, show_in_menu: checked })}
+                          />
+                        </div>
+                      </div>
                       
                       {/* SEO Section */}
                       <div className="border-t pt-4 mt-4">
@@ -2518,6 +2544,39 @@ const Admin = () => {
                           value={siteSettingsForm.google_analytics_id} 
                           onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, google_analytics_id: e.target.value })} 
                         />
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Custom Code Injection */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Custom Code Injection</CardTitle>
+                      <CardDescription>Add custom scripts to header and footer sections of your site</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="space-y-2">
+                        <Label>Custom Header Code</Label>
+                        <Textarea 
+                          placeholder={"<!-- Custom scripts for <head> section -->\n<script>\n  // Your custom JavaScript here\n</script>"}
+                          value={siteSettingsForm.custom_header_code} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, custom_header_code: e.target.value })} 
+                          rows={6}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">Code will be injected into the &lt;head&gt; section. Use for analytics, tracking pixels, or custom stylesheets.</p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>Custom Footer Code</Label>
+                        <Textarea 
+                          placeholder={"<!-- Custom scripts for footer section -->\n<script>\n  // Your custom JavaScript here\n</script>"}
+                          value={siteSettingsForm.custom_footer_code} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, custom_footer_code: e.target.value })} 
+                          rows={6}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">Code will be injected before the closing &lt;/body&gt; tag. Use for chat widgets, tracking scripts, etc.</p>
                       </div>
                     </CardContent>
                   </Card>

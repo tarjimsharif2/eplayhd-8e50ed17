@@ -27,7 +27,7 @@ const Header = () => {
     { name: "Matches", path: "/#matches" },
   ];
 
-  const activeTournaments = tournaments?.filter(t => t.is_active) || [];
+  const menuTournaments = tournaments?.filter(t => t.is_active && t.show_in_menu) || [];
   const siteName = settings?.site_name || "LIVE SPORTS";
 
   return (
@@ -67,7 +67,7 @@ const Header = () => {
             ))}
             
             {/* Tournaments Dropdown */}
-            {activeTournaments.length > 0 && (
+            {menuTournaments.length > 0 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" size="sm" className="gap-1">
@@ -75,10 +75,13 @@ const Header = () => {
                     Tournaments
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {activeTournaments.map((tournament) => (
+                <DropdownMenuContent align="end" className="bg-popover border border-border shadow-lg z-50">
+                  {menuTournaments.map((tournament) => (
                     <DropdownMenuItem key={tournament.id} asChild>
-                      <Link to={`/tournament/${tournament.slug}`}>
+                      <Link to={`/tournament/${tournament.slug}`} className="flex items-center gap-2">
+                        {tournament.logo_url && (
+                          <img src={tournament.logo_url} alt="" className="w-4 h-4 object-contain" />
+                        )}
                         {tournament.name}
                       </Link>
                     </DropdownMenuItem>
@@ -140,16 +143,19 @@ const Header = () => {
               ))}
               
               {/* Mobile Tournaments */}
-              {activeTournaments.length > 0 && (
+              {menuTournaments.length > 0 && (
                 <>
                   <div className="text-sm font-medium text-muted-foreground px-4 pt-2">Tournaments</div>
-                  {activeTournaments.map((tournament) => (
+                  {menuTournaments.map((tournament) => (
                     <Link
                       key={tournament.id}
                       to={`/tournament/${tournament.slug}`}
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <Button variant="ghost" className="w-full justify-start pl-8">
+                      <Button variant="ghost" className="w-full justify-start pl-8 gap-2">
+                        {tournament.logo_url && (
+                          <img src={tournament.logo_url} alt="" className="w-4 h-4 object-contain" />
+                        )}
                         {tournament.name}
                       </Button>
                     </Link>
