@@ -269,7 +269,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
       <div 
         ref={containerRef} 
         id={playerIdRef.current}
-        className="absolute inset-0 w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-fill"
+        className="absolute inset-0 w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-fill [&_.play-wrapper]:!absolute [&_.play-wrapper]:!left-1/2 [&_.play-wrapper]:!top-1/2 [&_.play-wrapper]:!-translate-x-1/2 [&_.play-wrapper]:!-translate-y-1/2 [&_.play-wrapper]:!right-auto [&_.play-wrapper]:!bottom-auto [&_.media-control-icon]:!text-6xl"
         style={{ zIndex: 1 }}
       />
 
