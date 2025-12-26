@@ -36,6 +36,8 @@ import FootballPlayingXIManager from "@/components/FootballPlayingXIManager";
 import PointsTableManager from "@/components/PointsTableManager";
 import { Textarea } from "@/components/ui/textarea";
 import SearchableSelect from "@/components/SearchableSelect";
+import SMTPSettings from "@/components/SMTPSettings";
+import PasswordChangeDialog from "@/components/PasswordChangeDialog";
 import { Table, FileText } from "lucide-react";
 
 const Admin = () => {
@@ -192,7 +194,17 @@ const Admin = () => {
     // Cricket API settings
     cricket_api_key: '',
     cricket_api_enabled: true,
+    // SMTP settings
+    smtp_host: '',
+    smtp_port: 587,
+    smtp_user: '',
+    smtp_password: '',
+    smtp_from_email: '',
+    smtp_from_name: '',
+    smtp_enabled: false,
   });
+  
+  const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
 
   // Initialize site settings form when data is loaded
   useEffect(() => {
@@ -207,7 +219,6 @@ const Admin = () => {
         og_image_url: siteSettings.og_image_url || '',
         footer_text: siteSettings.footer_text || '',
         google_analytics_id: siteSettings.google_analytics_id || '',
-        // Ad settings
         ads_enabled: siteSettings.ads_enabled || false,
         google_adsense_id: siteSettings.google_adsense_id || '',
         header_ad_code: siteSettings.header_ad_code || '',
@@ -215,14 +226,19 @@ const Admin = () => {
         footer_ad_code: siteSettings.footer_ad_code || '',
         in_article_ad_code: siteSettings.in_article_ad_code || '',
         popup_ad_code: siteSettings.popup_ad_code || '',
-        // Additional SEO
         canonical_url: siteSettings.canonical_url || '',
         twitter_handle: siteSettings.twitter_handle || '',
         facebook_app_id: siteSettings.facebook_app_id || '',
         telegram_link: siteSettings.telegram_link || '',
-        // Cricket API settings
         cricket_api_key: siteSettings.cricket_api_key || '',
         cricket_api_enabled: siteSettings.cricket_api_enabled !== false,
+        smtp_host: siteSettings.smtp_host || '',
+        smtp_port: siteSettings.smtp_port || 587,
+        smtp_user: siteSettings.smtp_user || '',
+        smtp_password: siteSettings.smtp_password || '',
+        smtp_from_email: siteSettings.smtp_from_email || '',
+        smtp_from_name: siteSettings.smtp_from_name || '',
+        smtp_enabled: siteSettings.smtp_enabled || false,
       });
     }
   }, [siteSettings]);
@@ -751,6 +767,14 @@ const Admin = () => {
         // Cricket API settings
         cricket_api_key: siteSettingsForm.cricket_api_key || null,
         cricket_api_enabled: siteSettingsForm.cricket_api_enabled,
+        // SMTP settings
+        smtp_host: siteSettingsForm.smtp_host || null,
+        smtp_port: siteSettingsForm.smtp_port || 587,
+        smtp_user: siteSettingsForm.smtp_user || null,
+        smtp_password: siteSettingsForm.smtp_password || null,
+        smtp_from_email: siteSettingsForm.smtp_from_email || null,
+        smtp_from_name: siteSettingsForm.smtp_from_name || null,
+        smtp_enabled: siteSettingsForm.smtp_enabled,
       });
       toast({ title: "Site settings updated successfully" });
     } catch (error: any) {
@@ -2494,6 +2518,33 @@ const Admin = () => {
                     </CardContent>
                   </Card>
 
+                  {/* SMTP Settings */}
+                  <SMTPSettings
+                    settings={{
+                      smtp_host: siteSettingsForm.smtp_host,
+                      smtp_port: siteSettingsForm.smtp_port,
+                      smtp_user: siteSettingsForm.smtp_user,
+                      smtp_password: siteSettingsForm.smtp_password,
+                      smtp_from_email: siteSettingsForm.smtp_from_email,
+                      smtp_from_name: siteSettingsForm.smtp_from_name,
+                      smtp_enabled: siteSettingsForm.smtp_enabled,
+                    }}
+                    onSettingsChange={(smtpSettings) => setSiteSettingsForm({ ...siteSettingsForm, ...smtpSettings })}
+                  />
+
+                  {/* Security Settings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Security</CardTitle>
+                      <CardDescription>Manage your account security settings</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <Button variant="outline" onClick={() => setPasswordDialogOpen(true)}>
+                        Change Password
+                      </Button>
+                    </CardContent>
+                  </Card>
+
                   <div className="flex justify-end pt-4">
                     <Button variant="gradient" onClick={handleSaveSiteSettings} disabled={updateSiteSettings.isPending}>
                       {updateSiteSettings.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
@@ -2501,6 +2552,8 @@ const Admin = () => {
                       Save All Settings
                     </Button>
                   </div>
+
+                  <PasswordChangeDialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen} />
                 </div>
               )}
             </TabsContent>
