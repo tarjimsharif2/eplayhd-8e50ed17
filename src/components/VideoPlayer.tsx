@@ -87,11 +87,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
       if (!containerRef.current) return;
 
       try {
-        const ClapprModule = await import('@clappr/player');
-        const Clappr = ClapprModule.default || ClapprModule;
-
-        if (!mounted) return;
-        
+        // Destroy previous player first
         if (playerRef.current) {
           try {
             playerRef.current.destroy();
@@ -101,9 +97,15 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           playerRef.current = null;
         }
 
+        // Clear the container
         if (containerRef.current) {
           containerRef.current.innerHTML = '';
         }
+
+        const ClapprModule = await import('@clappr/player');
+        const Clappr = ClapprModule.default || ClapprModule;
+
+        if (!mounted) return;
 
         const player = new Clappr.Player({
           source: url,
@@ -116,11 +118,13 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           mediacontrol: { seekbar: '#E91E63', buttons: '#E91E63' },
           playback: {
             playInline: true,
-            controls: true,
+            controls: false, // Use Clappr controls only
+            hlsjsConfig: {
+              enableWorker: true,
+              lowLatencyMode: false,
+            },
           },
-          hlsPlayback: {
-            preload: true,
-          },
+          disableVideoTagContextMenu: true,
         });
 
         player.on('ready', () => {
@@ -163,7 +167,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           if (mounted && isLoading) {
             setIsLoading(false);
           }
-        }, 2000);
+        }, 3000);
 
       } catch (err) {
         console.error('Failed to load Clappr:', err);
@@ -341,13 +345,18 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
       if (!videoRef.current) return;
 
       try {
-        // Use require-style dynamic import for shaka-player
-        const shaka = (await import('shaka-player')).default;
+        // Import shaka-player - use any to bypass type issues with dynamic import
+        const shakaModule = await import('shaka-player') as any;
+        const shaka = shakaModule.default || shakaModule;
+        
+        console.log('Shaka Player loaded:', shaka);
         
         // Install polyfills
-        shaka.polyfill.installAll();
+        if (shaka.polyfill && shaka.polyfill.installAll) {
+          shaka.polyfill.installAll();
+        }
 
-        if (!shaka.Player.isBrowserSupported()) {
+        if (shaka.Player && !shaka.Player.isBrowserSupported()) {
           setError('Browser not supported for DASH playback');
           setIsLoading(false);
           return;
@@ -357,15 +366,20 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
 
         // Destroy previous player if exists
         if (playerRef.current) {
-          await playerRef.current.destroy();
+          try {
+            await playerRef.current.destroy();
+          } catch (e) {
+            console.warn('Error destroying previous player:', e);
+          }
           playerRef.current = null;
         }
 
-        player = new shaka.Player();
-        await player.attach(videoRef.current);
+        // Create new player instance attached to video element
+        player = new shaka.Player(videoRef.current);
 
         // Configure ClearKey DRM if provided
         if (clearKey?.keyId && clearKey?.key) {
+          console.log('Configuring ClearKey DRM with keyId:', clearKey.keyId);
           player.configure({
             drm: {
               clearKeys: {
@@ -373,18 +387,20 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
               }
             }
           });
-          console.log('ClearKey DRM configured');
         }
 
+        // Add error listener
         player.addEventListener('error', (event: any) => {
           console.error('Shaka Player error:', event.detail);
           if (mounted) {
-            setError('Failed to play DASH stream');
+            setError(`Failed to play DASH stream: ${event.detail?.message || 'Unknown error'}`);
             setIsLoading(false);
           }
         });
 
+        console.log('Loading MPD URL:', url);
         await player.load(url);
+        console.log('MPD loaded successfully');
         
         if (mounted) {
           playerRef.current = player;
@@ -392,6 +408,8 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
           
           // Extract quality levels from video tracks
           const tracks = player.getVariantTracks();
+          console.log('Available tracks:', tracks);
+          
           if (tracks && tracks.length > 0) {
             const uniqueHeights = new Map<number, any>();
             tracks.forEach((track: any) => {
@@ -409,11 +427,19 @@ const ShakaPlayer = ({ url, clearKey }: { url: string; clearKey?: ClearKeyConfig
             levels.sort((a, b) => b.height - a.height);
             setQualityLevels(levels);
           }
+          
+          // Auto-play
+          try {
+            await videoRef.current?.play();
+            setIsPlaying(true);
+          } catch (playErr) {
+            console.log('Auto-play prevented, waiting for user interaction');
+          }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Failed to initialize Shaka Player:', err);
         if (mounted) {
-          setError('Failed to load stream');
+          setError(`Failed to load stream: ${err?.message || 'Unknown error'}`);
           setIsLoading(false);
         }
       }
