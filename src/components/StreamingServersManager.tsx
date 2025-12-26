@@ -35,7 +35,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
   const [serverForm, setServerForm] = useState({
     server_name: '',
     server_url: '',
-    server_type: 'iframe' as 'iframe' | 'm3u8' | 'embed',
+    server_type: 'iframe' as 'iframe' | 'm3u8' | 'embed' | 'mpd',
     display_order: 0,
     is_active: true,
     referer_value: '',
@@ -44,8 +44,10 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
     user_agent: '',
     drm_license_url: '',
     drm_scheme: 'none' as 'none' | 'widevine' | 'playready' | 'clearkey',
-    player_type: 'hls' as 'hls' | 'clappr',
+    player_type: 'clappr' as 'hls' | 'clappr',
     ad_block_enabled: false,
+    clearkey_key_id: '',
+    clearkey_key: '',
   });
 
   const resetForm = () => {
@@ -62,8 +64,10 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       user_agent: '',
       drm_license_url: '',
       drm_scheme: 'none',
-      player_type: 'hls',
+      player_type: 'clappr',
       ad_block_enabled: false,
+      clearkey_key_id: '',
+      clearkey_key: '',
     });
   };
 
@@ -81,8 +85,10 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       user_agent: server.user_agent || '',
       drm_license_url: server.drm_license_url || '',
       drm_scheme: server.drm_scheme || 'none',
-      player_type: server.player_type || 'hls',
+      player_type: server.player_type || 'clappr',
       ad_block_enabled: server.ad_block_enabled || false,
+      clearkey_key_id: server.clearkey_key_id || '',
+      clearkey_key: server.clearkey_key || '',
     });
     setDialogOpen(true);
   };
@@ -114,6 +120,8 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       drm_scheme: serverForm.drm_scheme === 'none' ? null : serverForm.drm_scheme,
       player_type: serverForm.server_type === 'm3u8' ? serverForm.player_type : null,
       ad_block_enabled: serverForm.ad_block_enabled,
+      clearkey_key_id: serverForm.server_type === 'mpd' ? (serverForm.clearkey_key_id || null) : null,
+      clearkey_key: serverForm.server_type === 'mpd' ? (serverForm.clearkey_key || null) : null,
     };
 
     try {
@@ -146,6 +154,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'm3u8': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      case 'mpd': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
       case 'iframe': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
       case 'embed': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
       default: return 'bg-muted text-muted-foreground';
@@ -261,20 +270,23 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
               <Label>Server Type *</Label>
               <Select 
                 value={serverForm.server_type} 
-                onValueChange={(v: 'iframe' | 'm3u8' | 'embed') => setServerForm({ ...serverForm, server_type: v })}
+                onValueChange={(v: 'iframe' | 'm3u8' | 'embed' | 'mpd') => setServerForm({ ...serverForm, server_type: v })}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="m3u8">M3U8 (HLS Stream)</SelectItem>
+                  <SelectItem value="mpd">MPD (DASH Stream)</SelectItem>
                   <SelectItem value="iframe">iFrame Embed</SelectItem>
                   <SelectItem value="embed">Custom Embed</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 {serverForm.server_type === 'm3u8' 
-                  ? 'Direct .m3u8 stream URL for HLS player' 
+                  ? 'Direct .m3u8 stream URL for HLS player (Clappr)' 
+                  : serverForm.server_type === 'mpd'
+                  ? 'Direct .mpd stream URL for DASH player (Shaka)'
                   : serverForm.server_type === 'iframe'
                   ? 'Full iframe URL to embed'
                   : 'Custom embed code URL'}
@@ -328,25 +340,6 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
             {/* M3U8 Stream Settings - Only show for m3u8 type */}
             {serverForm.server_type === 'm3u8' && (
               <div className="space-y-4 pt-4 border-t">
-                <div className="space-y-2">
-                  <Label>Player Type</Label>
-                  <Select 
-                    value={serverForm.player_type} 
-                    onValueChange={(v: 'hls' | 'clappr') => setServerForm({ ...serverForm, player_type: v })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="hls">HLS.js (Default)</SelectItem>
-                      <SelectItem value="clappr">Clappr Player</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    Choose the player for M3U8 playback
-                  </p>
-                </div>
-
                 <div className="flex items-center gap-2">
                   <Label className="text-sm font-medium">Stream Headers (Optional)</Label>
                 </div>
@@ -425,6 +418,36 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
                       </p>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* MPD/DASH Stream Settings - Only show for mpd type */}
+            {serverForm.server_type === 'mpd' && (
+              <div className="space-y-4 pt-4 border-t">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm font-medium">ClearKey DRM (Optional)</Label>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  For streams without key, leave Key ID and Key empty
+                </p>
+
+                <div className="space-y-2">
+                  <Label>Key ID</Label>
+                  <Input
+                    placeholder="Enter Key ID"
+                    value={serverForm.clearkey_key_id}
+                    onChange={(e) => setServerForm({ ...serverForm, clearkey_key_id: e.target.value })}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Key</Label>
+                  <Input
+                    placeholder="Enter Key"
+                    value={serverForm.clearkey_key}
+                    onChange={(e) => setServerForm({ ...serverForm, clearkey_key: e.target.value })}
+                  />
                 </div>
               </div>
             )}

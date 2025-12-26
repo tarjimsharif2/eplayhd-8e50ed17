@@ -6,7 +6,7 @@ export interface StreamingServer {
   match_id: string;
   server_name: string;
   server_url: string;
-  server_type: 'iframe' | 'm3u8' | 'embed';
+  server_type: 'iframe' | 'm3u8' | 'embed' | 'mpd';
   display_order: number;
   is_active: boolean;
   referer_value: string | null;
@@ -17,6 +17,8 @@ export interface StreamingServer {
   drm_scheme: 'widevine' | 'playready' | 'clearkey' | null;
   player_type: 'hls' | 'clappr' | null;
   ad_block_enabled: boolean;
+  clearkey_key_id: string | null;
+  clearkey_key: string | null;
   created_at: string;
   updated_at: string;
 }
