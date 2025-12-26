@@ -42,6 +42,8 @@ export interface SiteSettings {
   smtp_from_email: string | null;
   smtp_from_name: string | null;
   smtp_enabled: boolean;
+  // Ads.txt
+  ads_txt_content: string | null;
 }
 
 // Admin-only hook for full site settings (requires admin role)
