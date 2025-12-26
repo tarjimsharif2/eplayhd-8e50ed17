@@ -39,6 +39,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 
 import PasswordChangeDialog from "@/components/PasswordChangeDialog";
 import { Table, FileText } from "lucide-react";
+import { useGoogleIndexing } from "@/hooks/useGoogleIndexing";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -74,7 +75,9 @@ const Admin = () => {
   const updateSport = useUpdateSport();
   const deleteSport = useDeleteSport();
 
-  // Dialog states
+  // Google Indexing hook
+  const { submitMatchForIndexing, submitTournamentForIndexing } = useGoogleIndexing();
+
   const [matchDialogOpen, setMatchDialogOpen] = useState(false);
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [tournamentDialogOpen, setTournamentDialogOpen] = useState(false);
@@ -386,14 +389,23 @@ const Admin = () => {
         api_score_enabled: matchForm.api_score_enabled,
         cricbuzz_match_id: matchForm.cricbuzz_match_id || null,
       };
+      let matchId: string | undefined;
       
       if (editingMatch) {
         await updateMatch.mutateAsync({ id: editingMatch.id, ...matchData });
+        matchId = editingMatch.id;
         toast({ title: "Match updated successfully" });
       } else {
-        await createMatch.mutateAsync(matchData);
+        const result = await createMatch.mutateAsync(matchData);
+        matchId = result?.id;
         toast({ title: "Match created successfully" });
       }
+      
+      // Submit to Google Indexing if page_type is 'page' (has its own URL)
+      if (matchData.page_type === 'page' && matchId) {
+        submitMatchForIndexing(matchId);
+      }
+      
       setMatchDialogOpen(false);
       resetMatchForm();
     } catch (error: any) {
@@ -602,6 +614,7 @@ const Admin = () => {
         seo_description: tournamentForm.seo_description || null,
         seo_keywords: tournamentForm.seo_keywords || null,
       };
+      const tournamentSlug = tournamentData.slug;
       
       if (editingTournament) {
         await updateTournament.mutateAsync({ id: editingTournament.id, ...tournamentData });
@@ -610,6 +623,12 @@ const Admin = () => {
         await createTournament.mutateAsync(tournamentData);
         toast({ title: "Tournament created successfully" });
       }
+      
+      // Submit to Google Indexing
+      if (tournamentSlug) {
+        submitTournamentForIndexing(tournamentSlug);
+      }
+      
       setTournamentDialogOpen(false);
       resetTournamentForm();
     } catch (error: any) {
