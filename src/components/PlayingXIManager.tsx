@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit2, Trash2, Loader2, Upload, Download } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, Upload, Download, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from "@/hooks/useSportsData";
@@ -164,6 +164,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [fetchingSquad, setFetchingSquad] = useState(false);
   const [limitToPlayingXI, setLimitToPlayingXI] = useState(true);
+  const [clearingSquad, setClearingSquad] = useState(false);
   const [form, setForm] = useState({
     player_name: '',
     player_role: '',
@@ -466,6 +467,33 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
     }
   };
 
+  // Clear all players from the squad
+  const handleClearSquad = async () => {
+    if (!players || players.length === 0) {
+      toast({ title: "No players to clear", variant: "destructive" });
+      return;
+    }
+
+    setClearingSquad(true);
+
+    try {
+      const { error } = await supabase
+        .from('match_playing_xi')
+        .delete()
+        .eq('match_id', matchId);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+      toast({ title: "Squad cleared successfully" });
+    } catch (err: any) {
+      console.error('Clear squad error:', err);
+      toast({ title: "Error", description: err.message || 'Failed to clear squad', variant: "destructive" });
+    } finally {
+      setClearingSquad(false);
+    }
+  };
+
   const renderPlayerCard = (player: Player) => (
     <Card key={player.id} className="hover:border-primary/30 transition-colors">
       <CardContent className="p-3">
@@ -571,35 +599,53 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Squad Fetch Button */}
-      {siteSettings?.cricket_api_enabled && (
-        <div className="flex items-center justify-end gap-4">
-          <div className="flex items-center gap-2">
-            <Switch
-              id="limit-playing-xi"
-              checked={limitToPlayingXI}
-              onCheckedChange={setLimitToPlayingXI}
-            />
-            <Label htmlFor="limit-playing-xi" className="text-sm text-muted-foreground cursor-pointer">
-              Limit to Playing XI (11)
-            </Label>
-          </div>
+      {/* Squad Action Buttons */}
+      <div className="flex items-center justify-end gap-4 flex-wrap">
+        {siteSettings?.cricket_api_enabled && (
+          <>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="limit-playing-xi"
+                checked={limitToPlayingXI}
+                onCheckedChange={setLimitToPlayingXI}
+              />
+              <Label htmlFor="limit-playing-xi" className="text-sm text-muted-foreground cursor-pointer">
+                Limit to Playing XI (11)
+              </Label>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleFetchSquad}
+              disabled={fetchingSquad}
+              className="gap-2"
+            >
+              {fetchingSquad ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              Squad HIT
+            </Button>
+          </>
+        )}
+        {players && players.length > 0 && (
           <Button
-            variant="outline"
+            variant="destructive"
             size="sm"
-            onClick={handleFetchSquad}
-            disabled={fetchingSquad}
+            onClick={handleClearSquad}
+            disabled={clearingSquad}
             className="gap-2"
           >
-            {fetchingSquad ? (
+            {clearingSquad ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              <Download className="w-4 h-4" />
+              <X className="w-4 h-4" />
             )}
-            Squad HIT
+            Clear All
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       <Tabs defaultValue={teamA.id} className="w-full">
         <TabsList className="w-full">
