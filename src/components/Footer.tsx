@@ -12,7 +12,8 @@ const Footer = () => {
   const siteName = settings?.site_name || "LIVE SPORTS";
   const footerText = settings?.footer_text || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`;
   const telegramLink = settings?.telegram_link || "#";
-  const activeTournaments = tournaments?.filter(t => t.is_active)?.slice(0, 5) || [];
+  // Only show tournaments that have show_in_menu enabled (same setting as header)
+  const activeTournaments = tournaments?.filter(t => t.is_active && t.show_in_menu)?.slice(0, 5) || [];
 
   return (
     <footer className="bg-card border-t border-border py-8">
@@ -78,8 +79,11 @@ const Footer = () => {
                   <Link 
                     key={tournament.id} 
                     to={`/tournament/${tournament.slug}`} 
-                    className="hover:text-foreground transition-colors"
+                    className="hover:text-foreground transition-colors flex items-center gap-2"
                   >
+                    {tournament.logo_url && (
+                      <img src={tournament.logo_url} alt="" className="w-4 h-4 object-contain" />
+                    )}
                     {tournament.name}
                   </Link>
                 ))}
