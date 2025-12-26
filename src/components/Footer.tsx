@@ -1,5 +1,6 @@
 import { Tv, MessageCircle, Trophy } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useMemo } from "react";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 import { useFooterPages } from "@/hooks/useDynamicPages";
 import { useTournaments } from "@/hooks/useSportsData";
@@ -13,7 +14,20 @@ const Footer = () => {
   const footerText = settings?.footer_text || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`;
   const telegramLink = settings?.telegram_link || "#";
   // Only show tournaments that have show_in_menu enabled (same setting as header)
-  const activeTournaments = tournaments?.filter(t => t.is_active && t.show_in_menu)?.slice(0, 5) || [];
+  const activeTournaments = tournaments?.filter(t => t.is_active && t.show_in_menu) || [];
+
+  // Group tournaments by sport
+  const tournamentsBySport = useMemo(() => {
+    const groups: Record<string, typeof activeTournaments> = {};
+    activeTournaments.forEach(tournament => {
+      const sport = tournament.sport || 'Other';
+      if (!groups[sport]) {
+        groups[sport] = [];
+      }
+      groups[sport].push(tournament);
+    });
+    return groups;
+  }, [activeTournaments]);
 
   return (
     <footer className="bg-card border-t border-border py-8">
@@ -67,25 +81,34 @@ const Footer = () => {
             </nav>
           </div>
 
-          {/* Tournaments */}
+          {/* Tournaments - Grouped by Sport */}
           {activeTournaments.length > 0 && (
             <div>
               <h4 className="font-semibold text-foreground mb-4 flex items-center gap-2">
                 <Trophy className="w-4 h-4" />
                 Tournaments
               </h4>
-              <nav className="flex flex-col gap-2 text-sm text-muted-foreground">
-                {activeTournaments.map((tournament) => (
-                  <Link 
-                    key={tournament.id} 
-                    to={`/tournament/${tournament.slug}`} 
-                    className="hover:text-foreground transition-colors flex items-center gap-2"
-                  >
-                    {tournament.logo_url && (
-                      <img src={tournament.logo_url} alt="" className="w-4 h-4 object-contain" />
-                    )}
-                    {tournament.name}
-                  </Link>
+              <nav className="flex flex-col gap-3 text-sm text-muted-foreground">
+                {Object.entries(tournamentsBySport).map(([sport, sportTournaments]) => (
+                  <div key={sport}>
+                    <span className="text-xs font-semibold text-muted-foreground/70 uppercase tracking-wider">
+                      {sport}
+                    </span>
+                    <div className="flex flex-col gap-1.5 mt-1">
+                      {sportTournaments.slice(0, 3).map((tournament) => (
+                        <Link 
+                          key={tournament.id} 
+                          to={`/tournament/${tournament.slug}`} 
+                          className="hover:text-foreground transition-colors flex items-center gap-2"
+                        >
+                          {tournament.logo_url && (
+                            <img src={tournament.logo_url} alt="" className="w-4 h-4 object-contain" />
+                          )}
+                          {tournament.name}
+                        </Link>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </nav>
             </div>
