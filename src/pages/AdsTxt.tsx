@@ -9,12 +9,13 @@ const AdsTxt = () => {
     const fetchAdsTxt = async () => {
       const { data } = await supabase
         .from("site_settings_public")
-        .select("ads_txt_content")
+        .select("*")
         .limit(1)
         .maybeSingle();
 
-      if (data?.ads_txt_content) {
-        setContent(data.ads_txt_content);
+      const settings = data as { ads_txt_content?: string } | null;
+      if (settings?.ads_txt_content) {
+        setContent(settings.ads_txt_content);
       }
       setLoading(false);
     };

@@ -194,14 +194,8 @@ const Admin = () => {
     // Cricket API settings
     cricket_api_key: '',
     cricket_api_enabled: true,
-    // SMTP settings
-    smtp_host: '',
-    smtp_port: 587,
-    smtp_user: '',
-    smtp_password: '',
-    smtp_from_email: '',
-    smtp_from_name: '',
-    smtp_enabled: false,
+    // Ads.txt
+    ads_txt_content: '',
   });
   
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -232,13 +226,7 @@ const Admin = () => {
         telegram_link: siteSettings.telegram_link || '',
         cricket_api_key: siteSettings.cricket_api_key || '',
         cricket_api_enabled: siteSettings.cricket_api_enabled !== false,
-        smtp_host: siteSettings.smtp_host || '',
-        smtp_port: siteSettings.smtp_port || 587,
-        smtp_user: siteSettings.smtp_user || '',
-        smtp_password: siteSettings.smtp_password || '',
-        smtp_from_email: siteSettings.smtp_from_email || '',
-        smtp_from_name: siteSettings.smtp_from_name || '',
-        smtp_enabled: siteSettings.smtp_enabled || false,
+        ads_txt_content: (siteSettings as any).ads_txt_content || '',
       });
     }
   }, [siteSettings]);
@@ -767,15 +755,9 @@ const Admin = () => {
         // Cricket API settings
         cricket_api_key: siteSettingsForm.cricket_api_key || null,
         cricket_api_enabled: siteSettingsForm.cricket_api_enabled,
-        // SMTP settings
-        smtp_host: siteSettingsForm.smtp_host || null,
-        smtp_port: siteSettingsForm.smtp_port || 587,
-        smtp_user: siteSettingsForm.smtp_user || null,
-        smtp_password: siteSettingsForm.smtp_password || null,
-        smtp_from_email: siteSettingsForm.smtp_from_email || null,
-        smtp_from_name: siteSettingsForm.smtp_from_name || null,
-        smtp_enabled: siteSettingsForm.smtp_enabled,
-      });
+        // Ads.txt
+        ads_txt_content: siteSettingsForm.ads_txt_content || null,
+      } as any);
       toast({ title: "Site settings updated successfully" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -2518,6 +2500,33 @@ const Admin = () => {
                     </CardContent>
                   </Card>
 
+                  {/* Ads.txt Settings */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <FileText className="w-5 h-5" />
+                        ads.txt
+                      </CardTitle>
+                      <CardDescription>
+                        Configure your ads.txt file for ad verification. Access it at /ads.txt
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="space-y-2">
+                        <Label>ads.txt Content</Label>
+                        <Textarea 
+                          placeholder={"google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0\n# Add your ad network entries here..."}
+                          value={siteSettingsForm.ads_txt_content} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, ads_txt_content: e.target.value })} 
+                          rows={8}
+                          className="font-mono text-xs"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Each line should follow the format: domain, publisher-id, relationship, certification-authority-id
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   {/* Security Settings */}
                   <Card>
