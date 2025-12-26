@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Play, Settings, Check, Loader2, PictureInPicture2 } from 'lucide-react';
+import { AlertCircle, Play, Settings, Check, Loader2, PictureInPicture2, Volume2, VolumeX } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,7 +114,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           width: '100%',
           height: '100%',
           autoPlay: true,
-          mute: false,
+          mute: true, // Must start muted for mobile autoplay
           hideMediaControl: false,
           mediacontrol: { seekbar: '#E91E63', buttons: '#E91E63' },
           playback: {
@@ -231,6 +231,14 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
     );
   }
 
+  const handleUnmute = () => {
+    const videoEl = containerRef.current?.querySelector('video') as HTMLVideoElement;
+    if (videoEl) {
+      videoEl.muted = false;
+      setIsMuted(false);
+    }
+  };
+
   return (
     <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden group">
       {isLoading && (
@@ -244,6 +252,17 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
         className="absolute inset-0 w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-fill"
         style={{ zIndex: 1 }}
       />
+      
+      {/* Unmute Button - Shows when muted */}
+      {isMuted && !isLoading && (
+        <button
+          onClick={handleUnmute}
+          className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-black/70 hover:bg-black/90 text-white px-3 py-2 rounded-lg transition-colors"
+        >
+          <VolumeX className="w-5 h-5" />
+          <span className="text-sm font-medium">Tap to Unmute</span>
+        </button>
+      )}
       
       
       {/* Controls - PiP and Quality */}
