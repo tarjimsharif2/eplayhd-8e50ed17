@@ -269,26 +269,9 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
       <div 
         ref={containerRef} 
         id={playerIdRef.current}
-        className="absolute inset-0 w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-fill [&_.play-wrapper]:hidden [&_.poster-icon]:hidden"
+        className="absolute inset-0 w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-fill"
         style={{ zIndex: 1 }}
       />
-      
-      {/* Center Play/Pause Button */}
-      {!isLoading && (
-        <button
-          onClick={handlePlayPause}
-          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 w-16 h-16 rounded-full bg-primary/90 flex items-center justify-center hover:scale-110 transition-transform opacity-0 group-hover:opacity-100"
-        >
-          {isPlaying ? (
-            <div className="flex gap-1">
-              <div className="w-2 h-6 bg-white rounded-sm"></div>
-              <div className="w-2 h-6 bg-white rounded-sm"></div>
-            </div>
-          ) : (
-            <Play className="w-7 h-7 text-white ml-1" fill="white" />
-          )}
-        </button>
-      )}
 
       
       
