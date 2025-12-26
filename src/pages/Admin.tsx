@@ -36,7 +36,7 @@ import FootballPlayingXIManager from "@/components/FootballPlayingXIManager";
 import PointsTableManager from "@/components/PointsTableManager";
 import { Textarea } from "@/components/ui/textarea";
 import SearchableSelect from "@/components/SearchableSelect";
-import SMTPSettings from "@/components/SMTPSettings";
+
 import PasswordChangeDialog from "@/components/PasswordChangeDialog";
 import { Table, FileText } from "lucide-react";
 
@@ -2518,19 +2518,6 @@ const Admin = () => {
                     </CardContent>
                   </Card>
 
-                  {/* SMTP Settings */}
-                  <SMTPSettings
-                    settings={{
-                      smtp_host: siteSettingsForm.smtp_host,
-                      smtp_port: siteSettingsForm.smtp_port,
-                      smtp_user: siteSettingsForm.smtp_user,
-                      smtp_password: siteSettingsForm.smtp_password,
-                      smtp_from_email: siteSettingsForm.smtp_from_email,
-                      smtp_from_name: siteSettingsForm.smtp_from_name,
-                      smtp_enabled: siteSettingsForm.smtp_enabled,
-                    }}
-                    onSettingsChange={(smtpSettings) => setSiteSettingsForm({ ...siteSettingsForm, ...smtpSettings })}
-                  />
 
                   {/* Security Settings */}
                   <Card>

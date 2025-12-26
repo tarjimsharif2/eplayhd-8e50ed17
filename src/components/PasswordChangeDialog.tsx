@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import { Loader2, Lock, Eye, EyeOff, Shield } from "lucide-react";
+import { Loader2, Lock, Eye, EyeOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -13,12 +13,9 @@ interface PasswordChangeDialogProps {
   onOpenChange: (open: boolean) => void;
 }
 
-type Step = "password" | "otp";
-
 const PasswordChangeDialog = ({ open, onOpenChange }: PasswordChangeDialogProps) => {
   const { user } = useAuth();
   const { toast } = useToast();
-  const [step, setStep] = useState<Step>("password");
   const [isLoading, setIsLoading] = useState(false);
   const [showPasswords, setShowPasswords] = useState({
     current: false,
@@ -30,15 +27,12 @@ const PasswordChangeDialog = ({ open, onOpenChange }: PasswordChangeDialogProps)
     newPassword: "",
     confirmPassword: "",
   });
-  const [otp, setOtp] = useState("");
 
   const resetForm = () => {
-    setStep("password");
     setForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
-    setOtp("");
   };
 
-  const handleSendOTP = async () => {
+  const handleChangePassword = async () => {
     if (!form.newPassword || form.newPassword.length < 8) {
       toast({
         title: "Invalid password",
@@ -71,55 +65,7 @@ const PasswordChangeDialog = ({ open, onOpenChange }: PasswordChangeDialogProps)
           description: "Current password is incorrect",
           variant: "destructive",
         });
-        return;
-      }
-
-      // Send OTP for verification
-      const { error } = await supabase.functions.invoke("send-otp", {
-        body: { email: user?.email, userId: user?.id },
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "Verification code sent",
-        description: "Check your email for the code",
-      });
-      setStep("otp");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to send verification code",
-        variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleVerifyAndChange = async () => {
-    if (otp.length !== 6) {
-      toast({
-        title: "Invalid code",
-        description: "Please enter a 6-digit verification code",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      // Verify OTP
-      const { data: verifyData, error: verifyError } = await supabase.functions.invoke("verify-otp", {
-        body: { userId: user?.id, otp },
-      });
-
-      if (verifyError || !verifyData?.verified) {
-        toast({
-          title: "Invalid code",
-          description: "Verification code is incorrect or expired",
-          variant: "destructive",
-        });
+        setIsLoading(false);
         return;
       }
 
@@ -156,144 +102,94 @@ const PasswordChangeDialog = ({ open, onOpenChange }: PasswordChangeDialogProps)
       <DialogContent>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {step === "password" ? (
-              <><Lock className="w-5 h-5" /> Change Password</>
-            ) : (
-              <><Shield className="w-5 h-5" /> Verify Identity</>
-            )}
+            <Lock className="w-5 h-5" /> Change Password
           </DialogTitle>
           <DialogDescription>
-            {step === "password"
-              ? "Enter your current password and choose a new one"
-              : "Enter the verification code sent to your email"
-            }
+            Enter your current password and choose a new one
           </DialogDescription>
         </DialogHeader>
 
-        {step === "password" ? (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Current Password</Label>
-              <div className="relative">
-                <Input
-                  type={showPasswords.current ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={form.currentPassword}
-                  onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
-                >
-                  {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label>New Password</Label>
-              <div className="relative">
-                <Input
-                  type={showPasswords.new ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={form.newPassword}
-                  onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
-                >
-                  {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Confirm New Password</Label>
-              <div className="relative">
-                <Input
-                  type={showPasswords.confirm ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={form.confirmPassword}
-                  onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
-                  className="pr-10"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-0 top-0 h-full px-3"
-                  onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
-                >
-                  {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </Button>
-              </div>
-            </div>
-
-            <Button
-              variant="gradient"
-              className="w-full"
-              onClick={handleSendOTP}
-              disabled={isLoading || !form.currentPassword || !form.newPassword || !form.confirmPassword}
-            >
-              {isLoading ? (
-                <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Verifying...</>
-              ) : (
-                "Continue"
-              )}
-            </Button>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Verification Code</Label>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label>Current Password</Label>
+            <div className="relative">
               <Input
-                type="text"
-                inputMode="numeric"
-                maxLength={6}
-                placeholder="000000"
-                value={otp}
-                onChange={(e) => setOtp(e.target.value.replace(/\D/g, "").slice(0, 6))}
-                className="text-center text-2xl tracking-widest"
+                type={showPasswords.current ? "text" : "password"}
+                placeholder="••••••••"
+                value={form.currentPassword}
+                onChange={(e) => setForm({ ...form, currentPassword: e.target.value })}
+                className="pr-10"
               />
-              <p className="text-xs text-muted-foreground text-center">
-                Check your email for the 6-digit code
-              </p>
-            </div>
-
-            <div className="flex gap-2">
               <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => setStep("password")}
-                disabled={isLoading}
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3"
+                onClick={() => setShowPasswords({ ...showPasswords, current: !showPasswords.current })}
               >
-                Back
-              </Button>
-              <Button
-                variant="gradient"
-                className="flex-1"
-                onClick={handleVerifyAndChange}
-                disabled={isLoading || otp.length !== 6}
-              >
-                {isLoading ? (
-                  <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Changing...</>
-                ) : (
-                  "Change Password"
-                )}
+                {showPasswords.current ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </Button>
             </div>
           </div>
-        )}
+
+          <div className="space-y-2">
+            <Label>New Password</Label>
+            <div className="relative">
+              <Input
+                type={showPasswords.new ? "text" : "password"}
+                placeholder="••••••••"
+                value={form.newPassword}
+                onChange={(e) => setForm({ ...form, newPassword: e.target.value })}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3"
+                onClick={() => setShowPasswords({ ...showPasswords, new: !showPasswords.new })}
+              >
+                {showPasswords.new ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground">Minimum 8 characters</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Confirm New Password</Label>
+            <div className="relative">
+              <Input
+                type={showPasswords.confirm ? "text" : "password"}
+                placeholder="••••••••"
+                value={form.confirmPassword}
+                onChange={(e) => setForm({ ...form, confirmPassword: e.target.value })}
+                className="pr-10"
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute right-0 top-0 h-full px-3"
+                onClick={() => setShowPasswords({ ...showPasswords, confirm: !showPasswords.confirm })}
+              >
+                {showPasswords.confirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </Button>
+            </div>
+          </div>
+
+          <Button
+            variant="gradient"
+            className="w-full"
+            onClick={handleChangePassword}
+            disabled={isLoading || !form.currentPassword || !form.newPassword || !form.confirmPassword}
+          >
+            {isLoading ? (
+              <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Changing...</>
+            ) : (
+              "Change Password"
+            )}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
