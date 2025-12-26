@@ -114,7 +114,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           width: '100%',
           height: '100%',
           autoPlay: true,
-          mute: true, // Must start muted for mobile autoplay
+          mute: false,
           hideMediaControl: false,
           mediacontrol: { seekbar: '#E91E63', buttons: '#E91E63' },
           playback: {
@@ -131,13 +131,21 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
         player.on('ready', () => {
           if (mounted) {
             setIsLoading(false);
+            setIsMuted(false);
             
-            // Force video element to stretch
+            // Force video element to stretch and try to play unmuted
             const videoEl = containerRef.current?.querySelector('video') as HTMLVideoElement;
             if (videoEl) {
               videoEl.style.objectFit = 'fill';
               videoEl.style.width = '100%';
               videoEl.style.height = '100%';
+              
+              // Try to play unmuted
+              videoEl.muted = false;
+              videoEl.play().catch(() => {
+                // If unmuted autoplay fails, browser requires muted - keep trying unmuted anyway
+                console.log('Unmuted autoplay blocked by browser');
+              });
             }
             
             try {
@@ -249,20 +257,9 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
       <div 
         ref={containerRef} 
         id={playerIdRef.current}
-        className="absolute inset-0 w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-fill"
+        className="absolute inset-0 w-full h-full [&_video]:w-full [&_video]:h-full [&_video]:object-fill [&_.play-wrapper]:hidden [&_.poster-icon]:hidden [&_[data-poster]]:hidden"
         style={{ zIndex: 1 }}
       />
-      
-      {/* Unmute Button - Shows when muted */}
-      {isMuted && !isLoading && (
-        <button
-          onClick={handleUnmute}
-          className="absolute top-4 left-4 z-20 flex items-center gap-2 bg-black/70 hover:bg-black/90 text-white px-3 py-2 rounded-lg transition-colors"
-        >
-          <VolumeX className="w-5 h-5" />
-          <span className="text-sm font-medium">Tap to Unmute</span>
-        </button>
-      )}
       
       
       {/* Controls - PiP and Quality */}
