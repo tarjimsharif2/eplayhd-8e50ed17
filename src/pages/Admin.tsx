@@ -32,10 +32,11 @@ import { format } from "date-fns";
 import StreamingServersManager from "@/components/StreamingServersManager";
 import InningsManager from "@/components/InningsManager";
 import PlayingXIManager from "@/components/PlayingXIManager";
+import FootballPlayingXIManager from "@/components/FootballPlayingXIManager";
 import PointsTableManager from "@/components/PointsTableManager";
 import { Textarea } from "@/components/ui/textarea";
 import SearchableSelect from "@/components/SearchableSelect";
-import { Table } from "lucide-react";
+import { Table, FileText } from "lucide-react";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -94,6 +95,8 @@ const Admin = () => {
   const [matchStatusFilter, setMatchStatusFilter] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
   const [streamingSearchQuery, setStreamingSearchQuery] = useState('');
   const [streamingStatusFilter, setStreamingStatusFilter] = useState<'all' | 'live' | 'upcoming' | 'completed'>('all');
+  const [matchSportFilter, setMatchSportFilter] = useState<string>('all');
+  const [streamingSportFilter, setStreamingSportFilter] = useState<string>('all');
   const [tournamentSearchQuery, setTournamentSearchQuery] = useState('');
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
   const [fetchingResultFor, setFetchingResultFor] = useState<string | null>(null);
@@ -1433,7 +1436,7 @@ const Admin = () => {
                   onChange={(e) => setMatchSearchQuery(e.target.value)}
                   className="max-w-md"
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {(['all', 'live', 'upcoming', 'completed'] as const).map((status) => (
                     <Button
                       key={status}
@@ -1445,6 +1448,17 @@ const Admin = () => {
                       {status}
                     </Button>
                   ))}
+                  <Select value={matchSportFilter} onValueChange={setMatchSportFilter}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="All Sports" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sports</SelectItem>
+                      {sports?.map((sport) => (
+                        <SelectItem key={sport.id} value={sport.id}>{sport.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -1459,6 +1473,8 @@ const Admin = () => {
                     ?.filter((match) => {
                       // Status filter
                       if (matchStatusFilter !== 'all' && match.status !== matchStatusFilter) return false;
+                      // Sport filter
+                      if (matchSportFilter !== 'all' && match.sport_id !== matchSportFilter) return false;
                       // Search filter
                       if (!matchSearchQuery.trim()) return true;
                       const query = matchSearchQuery.toLowerCase();
@@ -1620,7 +1636,7 @@ const Admin = () => {
                   onChange={(e) => setStreamingSearchQuery(e.target.value)}
                   className="max-w-md"
                 />
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   {(['all', 'live', 'upcoming', 'completed'] as const).map((status) => (
                     <Button
                       key={status}
@@ -1632,6 +1648,17 @@ const Admin = () => {
                       {status}
                     </Button>
                   ))}
+                  <Select value={streamingSportFilter} onValueChange={setStreamingSportFilter}>
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue placeholder="All Sports" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Sports</SelectItem>
+                      {sports?.map((sport) => (
+                        <SelectItem key={sport.id} value={sport.id}>{sport.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
@@ -1647,6 +1674,8 @@ const Admin = () => {
                     .filter((match) => {
                       // Status filter
                       if (streamingStatusFilter !== 'all' && match.status !== streamingStatusFilter) return false;
+                      // Sport filter
+                      if (streamingSportFilter !== 'all' && match.sport_id !== streamingSportFilter) return false;
                       // Search filter
                       if (!streamingSearchQuery.trim()) return true;
                       const query = streamingSearchQuery.toLowerCase();
@@ -1798,11 +1827,19 @@ const Admin = () => {
                   </DialogTitle>
                 </DialogHeader>
                 {selectedMatchForPlayingXI && selectedMatchForPlayingXI.team_a && selectedMatchForPlayingXI.team_b && (
-                  <PlayingXIManager
-                    matchId={selectedMatchForPlayingXI.id}
-                    teamA={selectedMatchForPlayingXI.team_a}
-                    teamB={selectedMatchForPlayingXI.team_b}
-                  />
+                  selectedMatchForPlayingXI.sport?.name?.toLowerCase() === 'football' ? (
+                    <FootballPlayingXIManager
+                      matchId={selectedMatchForPlayingXI.id}
+                      teamA={selectedMatchForPlayingXI.team_a}
+                      teamB={selectedMatchForPlayingXI.team_b}
+                    />
+                  ) : (
+                    <PlayingXIManager
+                      matchId={selectedMatchForPlayingXI.id}
+                      teamA={selectedMatchForPlayingXI.team_a}
+                      teamB={selectedMatchForPlayingXI.team_b}
+                    />
+                  )
                 )}
               </DialogContent>
             </Dialog>
@@ -2373,6 +2410,76 @@ const Admin = () => {
                             value={siteSettingsForm.telegram_link} 
                             onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, telegram_link: e.target.value })} 
                           />
+                        </div>
+                      </div>
+
+                      {/* Text File Upload Section */}
+                      <div className="space-y-4 pt-4 border-t border-border">
+                        <div className="space-y-2">
+                          <Label className="flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            Import Settings from .txt File
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <Input
+                              type="file"
+                              accept=".txt"
+                              className="flex-1"
+                              onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                
+                                try {
+                                  const text = await file.text();
+                                  const lines = text.split('\n');
+                                  const settings: Record<string, string> = {};
+                                  
+                                  for (const line of lines) {
+                                    const [key, ...valueParts] = line.split('=');
+                                    if (key && valueParts.length > 0) {
+                                      const trimmedKey = key.trim();
+                                      const value = valueParts.join('=').trim();
+                                      settings[trimmedKey] = value;
+                                    }
+                                  }
+                                  
+                                  // Update form with parsed settings
+                                  setSiteSettingsForm(prev => ({
+                                    ...prev,
+                                    site_name: settings.site_name || prev.site_name,
+                                    site_title: settings.site_title || prev.site_title,
+                                    site_description: settings.site_description || prev.site_description,
+                                    site_keywords: settings.site_keywords || prev.site_keywords,
+                                    logo_url: settings.logo_url || prev.logo_url,
+                                    favicon_url: settings.favicon_url || prev.favicon_url,
+                                    og_image_url: settings.og_image_url || prev.og_image_url,
+                                    footer_text: settings.footer_text || prev.footer_text,
+                                    google_analytics_id: settings.google_analytics_id || prev.google_analytics_id,
+                                    telegram_link: settings.telegram_link || prev.telegram_link,
+                                    canonical_url: settings.canonical_url || prev.canonical_url,
+                                    twitter_handle: settings.twitter_handle || prev.twitter_handle,
+                                    facebook_app_id: settings.facebook_app_id || prev.facebook_app_id,
+                                    google_adsense_id: settings.google_adsense_id || prev.google_adsense_id,
+                                  }));
+                                  
+                                  toast({ 
+                                    title: "Settings imported", 
+                                    description: "Settings loaded from file. Click 'Save All Settings' to apply." 
+                                  });
+                                } catch (error) {
+                                  toast({ 
+                                    title: "Error", 
+                                    description: "Failed to parse settings file", 
+                                    variant: "destructive" 
+                                  });
+                                }
+                                e.target.value = '';
+                              }}
+                            />
+                          </div>
+                          <p className="text-xs text-muted-foreground">
+                            Upload a .txt file with key=value format (one per line). E.g., site_name=My Site
+                          </p>
                         </div>
                       </div>
                     </CardContent>
