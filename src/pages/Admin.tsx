@@ -22,7 +22,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
@@ -1499,6 +1499,16 @@ const Admin = () => {
                               <Button variant="ghost" size="icon" onClick={() => handleCopyMatch(match)} title="Duplicate match">
                                 <Copy className="w-4 h-4 text-primary" />
                               </Button>
+                              {match.page_type === 'page' && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => submitMatchForIndexing(match.id)} 
+                                  title="Submit to Google"
+                                >
+                                  <Globe className="w-4 h-4 text-green-500" />
+                                </Button>
+                              )}
                               <Button variant="ghost" size="icon" onClick={() => handleDeleteMatch(match.id)} title="Delete match">
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
@@ -2027,6 +2037,16 @@ const Admin = () => {
                               <Button variant="ghost" size="icon" onClick={() => handleEditTournament(tournament)}>
                                 <Edit2 className="w-4 h-4" />
                               </Button>
+                              {tournament.slug && (
+                                <Button 
+                                  variant="ghost" 
+                                  size="icon" 
+                                  onClick={() => submitTournamentForIndexing(tournament.slug!)} 
+                                  title="Submit to Google"
+                                >
+                                  <Globe className="w-4 h-4 text-green-500" />
+                                </Button>
+                              )}
                               <Button variant="ghost" size="icon" onClick={() => handleDeleteTournament(tournament.id)}>
                                 <Trash2 className="w-4 h-4 text-destructive" />
                               </Button>
