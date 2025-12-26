@@ -163,6 +163,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
   const [activeTeam, setActiveTeam] = useState<string>(teamA.id);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [fetchingSquad, setFetchingSquad] = useState(false);
+  const [limitToPlayingXI, setLimitToPlayingXI] = useState(true);
   const [form, setForm] = useState({
     player_name: '',
     player_role: '',
@@ -409,7 +410,12 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
 
         if (!localTeamId) continue;
 
-        teamData.players.forEach((player: any, index: number) => {
+        // Limit to 11 players if option is enabled
+        const playersToProcess = limitToPlayingXI 
+          ? teamData.players.slice(0, 11) 
+          : teamData.players;
+
+        playersToProcess.forEach((player: any, index: number) => {
           const playerName = player.name || player.playerName || '';
           const playerRole = player.role || player.playerRole || null;
           
@@ -567,7 +573,17 @@ const PlayingXIManager = ({ matchId, teamA, teamB }: PlayingXIManagerProps) => {
     <div className="space-y-6">
       {/* Squad Fetch Button */}
       {siteSettings?.cricket_api_enabled && (
-        <div className="flex justify-end">
+        <div className="flex items-center justify-end gap-4">
+          <div className="flex items-center gap-2">
+            <Switch
+              id="limit-playing-xi"
+              checked={limitToPlayingXI}
+              onCheckedChange={setLimitToPlayingXI}
+            />
+            <Label htmlFor="limit-playing-xi" className="text-sm text-muted-foreground cursor-pointer">
+              Limit to Playing XI (11)
+            </Label>
+          </div>
           <Button
             variant="outline"
             size="sm"
