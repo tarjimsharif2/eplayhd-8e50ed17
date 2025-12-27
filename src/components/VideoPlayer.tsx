@@ -116,7 +116,8 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           height: '100%',
           autoPlay: true,
           mute: false,
-          hideMediaControl: false,
+          hideMediaControl: true,
+          hideMediaControlDelay: 3000,
           mediacontrol: { seekbar: '#E91E63', buttons: '#E91E63' },
           playback: {
             playInline: true,
@@ -127,6 +128,25 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
             },
           },
           disableVideoTagContextMenu: true,
+        });
+
+        // Handle fullscreen orientation for mobile
+        player.on('fullscreen', () => {
+          try {
+            const orientation = screen.orientation as any;
+            if (orientation && typeof orientation.lock === 'function') {
+              orientation.lock('landscape').catch(() => {});
+            }
+          } catch (e) {}
+        });
+
+        player.on('fullscreenexit', () => {
+          try {
+            const orientation = screen.orientation as any;
+            if (orientation && typeof orientation.unlock === 'function') {
+              orientation.unlock();
+            }
+          } catch (e) {}
         });
 
         player.on('ready', () => {
