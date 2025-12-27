@@ -1,7 +1,7 @@
 import { useMatchInnings } from '@/hooks/useSportsData';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy } from 'lucide-react';
+import { Trophy, Moon, Sun, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ManualScoreCardProps {
@@ -13,9 +13,31 @@ interface ManualScoreCardProps {
   matchResult?: string | null;
   teamAName?: string;
   teamBName?: string;
+  // Test match specific props
+  matchFormat?: string | null;
+  testDay?: number | null;
+  isStumps?: boolean | null;
+  stumpsTime?: string | null;
+  nextDayStart?: string | null;
+  dayStartTime?: string | null;
 }
 
-const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus, isPrimary = false, matchResult, teamAName, teamBName }: ManualScoreCardProps) => {
+const ManualScoreCard = ({ 
+  matchId, 
+  teamAId, 
+  teamBId, 
+  matchStatus, 
+  isPrimary = false, 
+  matchResult, 
+  teamAName, 
+  teamBName,
+  matchFormat,
+  testDay,
+  isStumps,
+  stumpsTime,
+  nextDayStart,
+  dayStartTime
+}: ManualScoreCardProps) => {
   const { data: innings, isLoading } = useMatchInnings(matchId);
 
   // Show loading state
@@ -90,6 +112,25 @@ const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus, isPrimary = f
   // Check if there's a current innings (match in progress)
   const currentInnings = innings.find(i => i.is_current);
   const isLive = matchStatus === 'live' || currentInnings;
+  const isTestMatch = matchFormat?.toLowerCase() === 'test';
+
+  // Format time for display
+  const formatTime = (dateString: string | null | undefined) => {
+    if (!dateString) return null;
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleTimeString('en-US', { 
+        hour: 'numeric', 
+        minute: '2-digit',
+        hour12: true 
+      });
+    } catch {
+      return null;
+    }
+  };
+
+  const formattedStumpsTime = formatTime(stumpsTime);
+  const formattedNextDayStart = formatTime(nextDayStart);
 
   return (
     <motion.div
@@ -100,15 +141,28 @@ const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus, isPrimary = f
     >
       <Card className={`border-border/50 backdrop-blur overflow-hidden ${isPrimary ? 'bg-gradient-to-r from-primary/5 to-primary/10 border-primary/20' : 'bg-card/80'}`}>
         <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Trophy className="w-5 h-5 text-primary" />
               <CardTitle className="text-lg">
                 {isPrimary ? 'Live Score' : 'Match Score'}
               </CardTitle>
+              {/* Test Match Day Badge */}
+              {isTestMatch && testDay && (
+                <Badge variant="secondary" className="ml-2">
+                  Day {testDay}
+                </Badge>
+              )}
             </div>
-            <div className="flex items-center gap-2">
-              {isLive && (
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* STUMPS Badge for Test matches */}
+              {isTestMatch && isStumps && matchStatus === 'live' && (
+                <Badge className="bg-amber-500/20 text-amber-600 border-amber-500/30">
+                  <Moon className="w-3 h-3 mr-1" />
+                  STUMPS
+                </Badge>
+              )}
+              {isLive && !isStumps && (
                 <Badge variant="live" className="animate-pulse">
                   <span className="w-2 h-2 bg-current rounded-full mr-1.5" />
                   LIVE
@@ -119,6 +173,30 @@ const ManualScoreCard = ({ matchId, teamAId, teamBId, matchStatus, isPrimary = f
               )}
             </div>
           </div>
+          
+          {/* Test Match Time Info */}
+          {isTestMatch && matchStatus === 'live' && (
+            <div className="flex flex-wrap items-center gap-4 mt-3 text-sm text-muted-foreground">
+              {isStumps && formattedNextDayStart && (
+                <div className="flex items-center gap-1.5">
+                  <Sun className="w-4 h-4 text-amber-500" />
+                  <span>Next Day Starts: <span className="font-medium text-foreground">{formattedNextDayStart}</span></span>
+                </div>
+              )}
+              {!isStumps && formattedStumpsTime && (
+                <div className="flex items-center gap-1.5">
+                  <Moon className="w-4 h-4 text-amber-500" />
+                  <span>Stumps at: <span className="font-medium text-foreground">{formattedStumpsTime}</span></span>
+                </div>
+              )}
+              {dayStartTime && (
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-4 h-4" />
+                  <span>Day Start: <span className="font-medium text-foreground">{dayStartTime}</span></span>
+                </div>
+              )}
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-3">
           {innings.map((inningsData) => (

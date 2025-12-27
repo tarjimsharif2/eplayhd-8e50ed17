@@ -215,7 +215,7 @@ const MatchPage = () => {
 
 
           {/* Score Card - Shows innings data (always shown for cricket) */}
-          {sport?.name?.toLowerCase() === 'cricket' && teamA && teamB && (
+          {sport?.name?.toLowerCase().includes('cricket') && teamA && teamB && (
             <ManualScoreCard 
               matchId={match.id}
               teamAId={teamA.id}
@@ -225,6 +225,12 @@ const MatchPage = () => {
               matchResult={match.match_result}
               teamAName={teamA.name}
               teamBName={teamB.name}
+              matchFormat={match.match_format}
+              testDay={match.test_day}
+              isStumps={match.is_stumps}
+              stumpsTime={match.stumps_time}
+              nextDayStart={match.next_day_start}
+              dayStartTime={match.day_start_time}
             />
           )}
 
