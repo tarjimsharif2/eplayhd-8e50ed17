@@ -365,6 +365,8 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
 };
 
 const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayerProps) => {
+  const [useDirectEmbed, setUseDirectEmbed] = useState(false);
+
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
     return (
@@ -380,11 +382,8 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
   }
 
   // For iframe and embed types
-  // Use proxy if custom headers are configured, otherwise direct embed
-  const needsProxy = hasCustomHeaders(headers);
+  const needsProxy = hasCustomHeaders(headers) && !useDirectEmbed;
   const iframeSrc = needsProxy ? buildIframeProxyUrl(url, headers) : url;
-
-  console.log('Iframe player:', needsProxy ? 'via proxy' : 'direct');
 
   return (
     <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden">
@@ -394,7 +393,19 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
         allowFullScreen
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         frameBorder="0"
+        referrerPolicy="unsafe-url"
       />
+      
+      {/* Direct embed toggle for iframe streams with headers */}
+      {hasCustomHeaders(headers) && (type === 'iframe' || type === 'embed') && (
+        <button
+          onClick={() => setUseDirectEmbed(!useDirectEmbed)}
+          className="absolute bottom-2 right-2 z-10 px-2 py-1 text-xs bg-black/70 hover:bg-black/90 text-white rounded transition-colors"
+          title={useDirectEmbed ? "Using direct embed" : "Using proxy (click to try direct)"}
+        >
+          {useDirectEmbed ? "Direct" : "Proxy"}
+        </button>
+      )}
     </div>
   );
 };
