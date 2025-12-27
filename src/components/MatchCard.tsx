@@ -289,7 +289,6 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
           {/* Sport Badge & Match Number */}
           <div className="flex items-center justify-between mb-3">
             <Badge variant="sport" className="gap-1.5 text-sm">
-              <SportIcon sport={sportName} iconUrl={sportIconUrl} />
               {sportName}
             </Badge>
             <div className="flex items-center gap-2">
