@@ -16,7 +16,6 @@ interface StreamHeaders {
   userAgent?: string | null;
 }
 
-
 interface VideoPlayerProps {
   url: string;
   type: 'iframe' | 'm3u8' | 'embed';
@@ -32,6 +31,40 @@ const isValidUrl = (url: string): boolean => {
   } catch {
     return false;
   }
+};
+
+// Check if headers are configured
+const hasCustomHeaders = (headers?: StreamHeaders): boolean => {
+  if (!headers) return false;
+  return !!(headers.referer || headers.origin || headers.cookie || headers.userAgent);
+};
+
+// Build proxy URL for M3U8 streams
+const buildM3U8ProxyUrl = (url: string, headers?: StreamHeaders): string => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const proxyUrl = new URL(`${supabaseUrl}/functions/v1/stream-proxy`);
+  proxyUrl.searchParams.set('url', url);
+  
+  if (headers?.referer) proxyUrl.searchParams.set('referer', headers.referer);
+  if (headers?.origin) proxyUrl.searchParams.set('origin', headers.origin);
+  if (headers?.userAgent) proxyUrl.searchParams.set('userAgent', headers.userAgent);
+  if (headers?.cookie) proxyUrl.searchParams.set('cookie', headers.cookie);
+  
+  return proxyUrl.toString();
+};
+
+// Build proxy URL for iframe content
+const buildIframeProxyUrl = (url: string, headers?: StreamHeaders): string => {
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+  const proxyUrl = new URL(`${supabaseUrl}/functions/v1/iframe-proxy`);
+  proxyUrl.searchParams.set('url', url);
+  
+  if (headers?.referer) proxyUrl.searchParams.set('referer', headers.referer);
+  if (headers?.origin) proxyUrl.searchParams.set('origin', headers.origin);
+  if (headers?.userAgent) proxyUrl.searchParams.set('userAgent', headers.userAgent);
+  if (headers?.cookie) proxyUrl.searchParams.set('cookie', headers.cookie);
+  
+  return proxyUrl.toString();
 };
 
 interface QualityLevel {
@@ -104,8 +137,15 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
 
         if (!mounted) return;
 
+        // Use proxy URL if headers are configured
+        const streamUrl = hasCustomHeaders(headers) 
+          ? buildM3U8ProxyUrl(url, headers) 
+          : url;
+
+        console.log('Playing M3U8:', hasCustomHeaders(headers) ? 'via proxy' : 'direct', streamUrl.substring(0, 100));
+
         const player = new Clappr.Player({
-          source: url,
+          source: streamUrl,
           parent: containerRef.current,
           width: '100%',
           height: '100%',
@@ -186,7 +226,6 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           if (mounted) setIsPlaying(false);
         });
 
-
         player.on('error', (e: any) => {
           console.error('Clappr playback error:', e);
           if (mounted) {
@@ -225,7 +264,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
         playerRef.current = null;
       }
     };
-  }, [url]);
+  }, [url, headers]);
 
   const handleQualityChange = (levelIndex: number) => {
     try {
@@ -255,25 +294,6 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
     );
   }
 
-  const handleUnmute = () => {
-    const videoEl = containerRef.current?.querySelector('video') as HTMLVideoElement;
-    if (videoEl) {
-      videoEl.muted = false;
-      setIsMuted(false);
-    }
-  };
-
-  const handlePlayPause = () => {
-    const videoEl = containerRef.current?.querySelector('video') as HTMLVideoElement;
-    if (videoEl) {
-      if (videoEl.paused) {
-        videoEl.play();
-      } else {
-        videoEl.pause();
-      }
-    }
-  };
-
   return (
     <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden group">
       {isLoading && (
@@ -288,60 +308,58 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
         style={{ zIndex: 1 }}
       />
 
-      
-      
       {/* Controls - PiP and Quality */}
       <div className="absolute bottom-16 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          {/* PiP Button */}
-          {isPiPSupported && (
-            <Button 
-              variant="secondary" 
-              size="sm" 
-              className={`bg-black/70 hover:bg-black/90 text-white border-0 ${isPiPActive ? 'ring-2 ring-primary' : ''}`}
-              onClick={togglePiP}
-              title="Picture-in-Picture"
-            >
-              <PictureInPicture2 className="w-4 h-4" />
-            </Button>
-          )}
+        {/* PiP Button */}
+        {isPiPSupported && (
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            className={`bg-black/70 hover:bg-black/90 text-white border-0 ${isPiPActive ? 'ring-2 ring-primary' : ''}`}
+            onClick={togglePiP}
+            title="Picture-in-Picture"
+          >
+            <PictureInPicture2 className="w-4 h-4" />
+          </Button>
+        )}
 
-          {/* Quality Selector */}
-          {qualityLevels.length > 1 && (
-            <DropdownMenu open={showQualityMenu} onOpenChange={setShowQualityMenu}>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="secondary" 
-                  size="sm" 
-                  className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
-                >
-                  <Settings className="w-4 h-4" />
-                  <span className="text-xs">{getCurrentQualityLabel()}</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
-                <DropdownMenuItem 
-                  onClick={() => handleQualityChange(-1)}
+        {/* Quality Selector */}
+        {qualityLevels.length > 1 && (
+          <DropdownMenu open={showQualityMenu} onOpenChange={setShowQualityMenu}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="text-xs">{getCurrentQualityLabel()}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
+              <DropdownMenuItem 
+                onClick={() => handleQualityChange(-1)}
+                className="text-white hover:bg-white/20 gap-2"
+              >
+                {currentQuality === -1 && <Check className="w-4 h-4" />}
+                <span className={currentQuality !== -1 ? 'ml-6' : ''}>Auto</span>
+              </DropdownMenuItem>
+              {qualityLevels.map((level) => (
+                <DropdownMenuItem
+                  key={level.index}
+                  onClick={() => handleQualityChange(level.index)}
                   className="text-white hover:bg-white/20 gap-2"
                 >
-                  {currentQuality === -1 && <Check className="w-4 h-4" />}
-                  <span className={currentQuality !== -1 ? 'ml-6' : ''}>Auto</span>
+                  {currentQuality === level.index && <Check className="w-4 h-4" />}
+                  <span className={currentQuality !== level.index ? 'ml-6' : ''}>
+                    {level.label}
+                  </span>
                 </DropdownMenuItem>
-                {qualityLevels.map((level) => (
-                  <DropdownMenuItem
-                    key={level.index}
-                    onClick={() => handleQualityChange(level.index)}
-                    className="text-white hover:bg-white/20 gap-2"
-                  >
-                    {currentQuality === level.index && <Check className="w-4 h-4" />}
-                    <span className={currentQuality !== level.index ? 'ml-6' : ''}>
-                      {level.label}
-                    </span>
-                  </DropdownMenuItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
-        </div>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
     </div>
   );
 };
@@ -356,24 +374,26 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
     );
   }
 
-  // For M3U8 streams, use Clappr player only
+  // For M3U8 streams, use Clappr player (with proxy if headers are set)
   if (type === 'm3u8') {
     return <ClapprPlayer url={url} headers={headers} />;
   }
 
+  // For iframe and embed types
+  // Use proxy if custom headers are configured, otherwise direct embed
+  const needsProxy = hasCustomHeaders(headers);
+  const iframeSrc = needsProxy ? buildIframeProxyUrl(url, headers) : url;
 
-  // For iframe and embed types - handle referrer if specified
-  const referrerPolicy = headers?.referer ? 'origin' : 'no-referrer-when-downgrade';
+  console.log('Iframe player:', needsProxy ? 'via proxy' : 'direct');
 
   return (
     <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden">
       <iframe
-        src={url}
+        src={iframeSrc}
         className="absolute inset-0 w-full h-full"
         allowFullScreen
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         frameBorder="0"
-        referrerPolicy={referrerPolicy}
       />
     </div>
   );

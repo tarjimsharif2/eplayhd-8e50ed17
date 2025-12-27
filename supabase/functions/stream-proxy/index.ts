@@ -150,21 +150,29 @@ serve(async (req) => {
       });
     }
 
-    // Support both POST body and GET query parameter
+    // Support GET query parameters for all requests
     let url: string | null = null;
-    let headers: any = {};
+    let headers: Record<string, string> = {};
     
     const urlParams = new URL(req.url).searchParams;
-    const queryUrl = urlParams.get('url');
+    url = urlParams.get('url');
     
-    if (queryUrl) {
-      // GET request with URL in query string (for segments)
-      url = queryUrl;
-    } else if (req.method === 'POST') {
-      // POST request with URL in body (for initial playlist)
+    // Get headers from query params (for proxy requests)
+    const referer = urlParams.get('referer');
+    const origin = urlParams.get('origin');
+    const userAgent = urlParams.get('userAgent');
+    const cookie = urlParams.get('cookie');
+    
+    if (referer) headers.referer = referer;
+    if (origin) headers.origin = origin;
+    if (userAgent) headers.userAgent = userAgent;
+    if (cookie) headers.cookie = cookie;
+    
+    // Also support POST body for backwards compatibility
+    if (!url && req.method === 'POST') {
       const body = await req.json();
       url = body.url;
-      headers = body.headers || {};
+      headers = { ...headers, ...(body.headers || {}) };
     }
 
     if (!url) {
@@ -261,14 +269,22 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const proxyBaseUrl = `${supabaseUrl}/functions/v1/stream-proxy`;
     
+    // Build header query params to preserve across proxy requests
+    const headerParams = new URLSearchParams();
+    if (headers.referer) headerParams.set('referer', headers.referer);
+    if (headers.origin) headerParams.set('origin', headers.origin);
+    if (headers.userAgent) headerParams.set('userAgent', headers.userAgent);
+    if (headers.cookie) headerParams.set('cookie', headers.cookie);
+    const headerQueryString = headerParams.toString();
+    
     if (url.endsWith('.m3u8') || contentType.includes('mpegurl') || contentType.includes('x-mpegURL')) {
       const baseUrl = url.substring(0, url.lastIndexOf('/') + 1);
       
-      // Rewrite all URLs to go through the proxy
+      // Rewrite all URLs to go through the proxy with headers preserved
       processedContent = content.split('\n').map(line => {
         const trimmedLine = line.trim();
         
-        // Skip empty lines and tags (but check for URI in tags)
+        // Skip empty lines
         if (!trimmedLine) {
           return line;
         }
@@ -280,14 +296,14 @@ serve(async (req) => {
             if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
               absoluteUri = baseUrl + uri;
             }
-            // Validate the rewritten URL as well
             const uriValidation = isValidExternalUrl(absoluteUri);
             if (!uriValidation.valid) {
               console.warn('Blocked invalid URI in M3U8:', absoluteUri);
-              return match; // Keep original if invalid
+              return match;
             }
-            // Encode the URL for proxy
-            const proxyUrl = `${proxyBaseUrl}?url=${encodeURIComponent(absoluteUri)}`;
+            // Encode URL and preserve headers
+            let proxyUrl = `${proxyBaseUrl}?url=${encodeURIComponent(absoluteUri)}`;
+            if (headerQueryString) proxyUrl += `&${headerQueryString}`;
             return `URI="${proxyUrl}"`;
           });
         }
@@ -303,15 +319,16 @@ serve(async (req) => {
           absoluteUrl = baseUrl + trimmedLine;
         }
         
-        // Validate the rewritten URL
         const urlValidation = isValidExternalUrl(absoluteUrl);
         if (!urlValidation.valid) {
           console.warn('Blocked invalid URL in M3U8:', absoluteUrl);
-          return line; // Keep original if invalid
+          return line;
         }
         
-        // For .ts segments and other M3U8 files, route through proxy
-        return `${proxyBaseUrl}?url=${encodeURIComponent(absoluteUrl)}`;
+        // Route through proxy with headers preserved
+        let proxyUrl = `${proxyBaseUrl}?url=${encodeURIComponent(absoluteUrl)}`;
+        if (headerQueryString) proxyUrl += `&${headerQueryString}`;
+        return proxyUrl;
       }).join('\n');
     }
 

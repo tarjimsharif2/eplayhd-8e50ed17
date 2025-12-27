@@ -3,6 +3,9 @@ project_id = "doqteforumjdugifxryl"
 [functions.stream-proxy]
 verify_jwt = false
 
+[functions.iframe-proxy]
+verify_jwt = false
+
 [functions.fetch-match-result]
 verify_jwt = false
 
