@@ -6,7 +6,7 @@ export interface StreamingServer {
   match_id: string;
   server_name: string;
   server_url: string;
-  server_type: 'iframe' | 'm3u8' | 'embed' | 'mpd';
+  server_type: 'iframe' | 'm3u8' | 'embed';
   display_order: number;
   is_active: boolean;
   referer_value: string | null;

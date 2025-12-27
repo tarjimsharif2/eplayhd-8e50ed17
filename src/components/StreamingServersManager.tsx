@@ -35,19 +35,14 @@ interface StreamingServersManagerProps {
 type ServerFormType = {
   server_name: string;
   server_url: string;
-  server_type: 'iframe' | 'm3u8' | 'embed' | 'mpd';
+  server_type: 'iframe' | 'm3u8' | 'embed';
   display_order: number;
   is_active: boolean;
   referer_value: string;
   origin_value: string;
   cookie_value: string;
   user_agent: string;
-  drm_license_url: string;
-  drm_scheme: 'none' | 'widevine' | 'playready' | 'clearkey';
-  player_type: 'hls' | 'clappr';
   ad_block_enabled: boolean;
-  clearkey_key_id: string;
-  clearkey_key: string;
 };
 
 const defaultServerForm: ServerFormType = {
@@ -60,13 +55,9 @@ const defaultServerForm: ServerFormType = {
   origin_value: '',
   cookie_value: '',
   user_agent: '',
-  drm_license_url: '',
-  drm_scheme: 'none',
-  player_type: 'clappr',
   ad_block_enabled: false,
-  clearkey_key_id: '',
-  clearkey_key: '',
 };
+
 
 const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProps) => {
   const { toast } = useToast();
@@ -111,34 +102,25 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       origin_value: server.origin_value || '',
       cookie_value: server.cookie_value || '',
       user_agent: server.user_agent || '',
-      drm_license_url: server.drm_license_url || '',
-      drm_scheme: server.drm_scheme || 'none',
-      player_type: server.player_type || 'clappr',
       ad_block_enabled: server.ad_block_enabled || false,
-      clearkey_key_id: server.clearkey_key_id || '',
-      clearkey_key: server.clearkey_key || '',
     });
     setDialogOpen(true);
   };
 
   const handleEditSaved = (saved: SavedStreamingServer) => {
     setEditingSavedServer(saved);
+    const serverType = (saved.server_type === 'mpd' ? 'm3u8' : saved.server_type) as 'iframe' | 'm3u8' | 'embed';
     setServerForm({
       server_name: saved.server_name,
       server_url: saved.server_url,
-      server_type: saved.server_type,
+      server_type: serverType,
       display_order: 0,
       is_active: true,
       referer_value: saved.referer_value || '',
       origin_value: saved.origin_value || '',
       cookie_value: saved.cookie_value || '',
       user_agent: saved.user_agent || '',
-      drm_license_url: saved.drm_license_url || '',
-      drm_scheme: saved.drm_scheme || 'none',
-      player_type: saved.player_type || 'clappr',
       ad_block_enabled: saved.ad_block_enabled || false,
-      clearkey_key_id: saved.clearkey_key_id || '',
-      clearkey_key: saved.clearkey_key || '',
     });
     setSavedDialogOpen(true);
   };
@@ -164,12 +146,12 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       origin_value: serverForm.origin_value || null,
       cookie_value: serverForm.cookie_value || null,
       user_agent: serverForm.user_agent || null,
-      drm_license_url: serverForm.drm_license_url || null,
-      drm_scheme: serverForm.drm_scheme === 'none' ? null : serverForm.drm_scheme,
-      player_type: serverForm.server_type === 'm3u8' ? serverForm.player_type : null,
       ad_block_enabled: serverForm.ad_block_enabled,
-      clearkey_key_id: serverForm.server_type === 'mpd' ? (serverForm.clearkey_key_id || null) : null,
-      clearkey_key: serverForm.server_type === 'mpd' ? (serverForm.clearkey_key || null) : null,
+      drm_license_url: null,
+      drm_scheme: null,
+      player_type: null,
+      clearkey_key_id: null,
+      clearkey_key: null,
     };
 
     try {
@@ -209,12 +191,12 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       origin_value: serverForm.origin_value || null,
       cookie_value: serverForm.cookie_value || null,
       user_agent: serverForm.user_agent || null,
-      drm_license_url: serverForm.drm_license_url || null,
-      drm_scheme: serverForm.drm_scheme === 'none' ? null : serverForm.drm_scheme,
-      player_type: serverForm.server_type === 'm3u8' ? serverForm.player_type : null,
       ad_block_enabled: serverForm.ad_block_enabled,
-      clearkey_key_id: serverForm.server_type === 'mpd' ? (serverForm.clearkey_key_id || null) : null,
-      clearkey_key: serverForm.server_type === 'mpd' ? (serverForm.clearkey_key || null) : null,
+      drm_license_url: null,
+      drm_scheme: null,
+      player_type: null,
+      clearkey_key_id: null,
+      clearkey_key: null,
       tags: editingSavedServer?.tags || [],
     };
 
@@ -252,12 +234,12 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
         origin_value: server.origin_value,
         cookie_value: server.cookie_value,
         user_agent: server.user_agent,
-        drm_license_url: server.drm_license_url,
-        drm_scheme: server.drm_scheme,
-        player_type: server.player_type,
         ad_block_enabled: server.ad_block_enabled,
-        clearkey_key_id: server.clearkey_key_id,
-        clearkey_key: server.clearkey_key,
+        drm_license_url: null,
+        drm_scheme: null,
+        player_type: null,
+        clearkey_key_id: null,
+        clearkey_key: null,
         tags: [],
       });
       toast({ title: "Server saved to library" });
@@ -268,23 +250,24 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
 
   const handleUseSavedServer = async (saved: SavedStreamingServer) => {
     try {
+      const serverType = (saved.server_type === 'mpd' ? 'm3u8' : saved.server_type) as 'iframe' | 'm3u8' | 'embed';
       await createServer.mutateAsync({
         match_id: match.id,
         server_name: saved.server_name,
         server_url: saved.server_url,
-        server_type: saved.server_type,
+        server_type: serverType,
         display_order: servers?.length || 0,
         is_active: true,
         referer_value: saved.referer_value,
         origin_value: saved.origin_value,
         cookie_value: saved.cookie_value,
         user_agent: saved.user_agent,
-        drm_license_url: saved.drm_license_url,
-        drm_scheme: saved.drm_scheme,
-        player_type: saved.player_type,
-        ad_block_enabled: saved.ad_block_enabled,
-        clearkey_key_id: saved.clearkey_key_id,
-        clearkey_key: saved.clearkey_key,
+        ad_block_enabled: saved.ad_block_enabled || false,
+        drm_license_url: null,
+        drm_scheme: null,
+        player_type: null,
+        clearkey_key_id: null,
+        clearkey_key: null,
       });
       toast({ title: "Server added to match" });
       setActiveTab('servers');
@@ -305,7 +288,6 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'm3u8': return 'bg-green-500/20 text-green-400 border-green-500/30';
-      case 'mpd': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
       case 'iframe': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
       case 'embed': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
       default: return 'bg-muted text-muted-foreground';
@@ -329,14 +311,13 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
         <Label>Server Type *</Label>
         <Select 
           value={serverForm.server_type} 
-          onValueChange={(v: 'iframe' | 'm3u8' | 'embed' | 'mpd') => setServerForm({ ...serverForm, server_type: v })}
+          onValueChange={(v: 'iframe' | 'm3u8' | 'embed') => setServerForm({ ...serverForm, server_type: v })}
         >
           <SelectTrigger>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="m3u8">M3U8 (HLS Stream)</SelectItem>
-            <SelectItem value="mpd">MPD (DASH Stream)</SelectItem>
             <SelectItem value="iframe">iFrame Embed</SelectItem>
             <SelectItem value="embed">Custom Embed</SelectItem>
           </SelectContent>
@@ -365,12 +346,14 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
         />
       </div>
 
+      {/* Stream Headers Section - Shown for M3U8 */}
       {serverForm.server_type === 'm3u8' && (
         <div className="space-y-4 pt-4 border-t">
-          <Label className="text-sm font-medium">Stream Headers (Optional)</Label>
+          <Label className="text-sm font-medium">Stream Headers (for proxied playback)</Label>
+          <p className="text-xs text-muted-foreground">These headers will be sent when fetching the stream through the proxy</p>
           <div className="grid grid-cols-1 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs">Referer Value</Label>
+              <Label className="text-xs">Referer</Label>
               <Input
                 placeholder="https://example.com"
                 value={serverForm.referer_value}
@@ -378,7 +361,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">Origin Value</Label>
+              <Label className="text-xs">Origin</Label>
               <Input
                 placeholder="https://example.com"
                 value={serverForm.origin_value}
@@ -386,7 +369,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">Cookie Value</Label>
+              <Label className="text-xs">Cookie</Label>
               <Input
                 placeholder="session=abc123; token=xyz"
                 value={serverForm.cookie_value}
@@ -394,7 +377,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">User Agent</Label>
+              <Label className="text-xs">User-Agent</Label>
               <Input
                 placeholder="Mozilla/5.0..."
                 value={serverForm.user_agent}
@@ -402,75 +385,39 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
               />
             </div>
           </div>
-
-          <div className="space-y-4 pt-4 border-t">
-            <Label className="text-sm font-medium">DRM Protection (Optional)</Label>
-            <div className="space-y-2">
-              <Label className="text-xs">DRM Scheme</Label>
-              <Select 
-                value={serverForm.drm_scheme} 
-                onValueChange={(v: 'none' | 'widevine' | 'playready' | 'clearkey') => setServerForm({ ...serverForm, drm_scheme: v })}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="No DRM" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No DRM</SelectItem>
-                  <SelectItem value="widevine">Widevine</SelectItem>
-                  <SelectItem value="playready">PlayReady</SelectItem>
-                  <SelectItem value="clearkey">ClearKey</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {serverForm.drm_scheme && serverForm.drm_scheme !== 'none' && (
-              <div className="space-y-2">
-                <Label className="text-xs">DRM License URL *</Label>
-                <Input
-                  placeholder="https://license.example.com/widevine"
-                  value={serverForm.drm_license_url}
-                  onChange={(e) => setServerForm({ ...serverForm, drm_license_url: e.target.value })}
-                />
-              </div>
-            )}
-          </div>
         </div>
       )}
 
-      {serverForm.server_type === 'mpd' && (
+      {/* Iframe Headers Section */}
+      {(serverForm.server_type === 'iframe' || serverForm.server_type === 'embed') && (
         <div className="space-y-4 pt-4 border-t">
-          <Label className="text-sm font-medium">ClearKey DRM (Optional)</Label>
+          <Label className="text-sm font-medium">Request Headers (Optional)</Label>
+          <p className="text-xs text-muted-foreground">Configure headers for iframe embeds</p>
           <div className="grid grid-cols-1 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs">Key ID</Label>
+              <Label className="text-xs">Referer</Label>
               <Input
-                placeholder="Enter Key ID"
-                value={serverForm.clearkey_key_id}
-                onChange={(e) => setServerForm({ ...serverForm, clearkey_key_id: e.target.value })}
+                placeholder="https://example.com"
+                value={serverForm.referer_value}
+                onChange={(e) => setServerForm({ ...serverForm, referer_value: e.target.value })}
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-xs">Key</Label>
+              <Label className="text-xs">Origin</Label>
               <Input
-                placeholder="Enter Key"
-                value={serverForm.clearkey_key}
-                onChange={(e) => setServerForm({ ...serverForm, clearkey_key: e.target.value })}
+                placeholder="https://example.com"
+                value={serverForm.origin_value}
+                onChange={(e) => setServerForm({ ...serverForm, origin_value: e.target.value })}
               />
             </div>
-          </div>
-        </div>
-      )}
-
-      {serverForm.server_type === 'iframe' && (
-        <div className="space-y-4 pt-4 border-t">
-          <Label className="text-sm font-medium">Iframe Settings (Optional)</Label>
-          <div className="space-y-2">
-            <Label className="text-xs">Referrer Policy URL</Label>
-            <Input
-              placeholder="https://example.com"
-              value={serverForm.referer_value}
-              onChange={(e) => setServerForm({ ...serverForm, referer_value: e.target.value })}
-            />
+            <div className="space-y-2">
+              <Label className="text-xs">User-Agent</Label>
+              <Input
+                placeholder="Mozilla/5.0..."
+                value={serverForm.user_agent}
+                onChange={(e) => setServerForm({ ...serverForm, user_agent: e.target.value })}
+              />
+            </div>
           </div>
         </div>
       )}

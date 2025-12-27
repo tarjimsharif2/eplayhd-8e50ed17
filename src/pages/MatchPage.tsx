@@ -165,16 +165,12 @@ const MatchPage = () => {
                   <VideoPlayer 
                     key={`${activeServer.id}-${activeServer.server_type}`}
                     url={activeServer.server_url} 
-                    type={activeServer.server_type as 'iframe' | 'm3u8' | 'embed' | 'mpd'}
+                    type={activeServer.server_type}
                     headers={{
                       referer: activeServer.referer_value,
                       origin: activeServer.origin_value,
                       cookie: activeServer.cookie_value,
                       userAgent: activeServer.user_agent,
-                    }}
-                    clearKey={{
-                      keyId: activeServer.clearkey_key_id,
-                      key: activeServer.clearkey_key,
                     }}
                     adBlockEnabled={activeServer.ad_block_enabled || false}
                   />
