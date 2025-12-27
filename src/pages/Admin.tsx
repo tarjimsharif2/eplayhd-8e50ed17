@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
 import { 
   useMatches, useTeams, useTournaments, useBanners, useSports, useIsAdmin,
@@ -106,6 +107,12 @@ const Admin = () => {
   const [streamingSportFilter, setStreamingSportFilter] = useState<string>('all');
   const [tournamentSearchQuery, setTournamentSearchQuery] = useState('');
   const [teamSearchQuery, setTeamSearchQuery] = useState('');
+  
+  // Bulk selection state
+  const [selectedMatches, setSelectedMatches] = useState<Set<string>>(new Set());
+  const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
+  const [selectedTournaments, setSelectedTournaments] = useState<Set<string>>(new Set());
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
 
   // Form states
@@ -464,10 +471,51 @@ const Admin = () => {
   const handleDeleteMatch = async (id: string) => {
     try {
       await deleteMatch.mutateAsync(id);
+      setSelectedMatches(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       toast({ title: "Match deleted successfully" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
+  };
+
+  const handleBulkDeleteMatches = async () => {
+    if (selectedMatches.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      await Promise.all(Array.from(selectedMatches).map(id => deleteMatch.mutateAsync(id)));
+      setSelectedMatches(new Set());
+      toast({ title: `${selectedMatches.size} matches deleted successfully` });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const toggleMatchSelection = (id: string) => {
+    setSelectedMatches(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllMatchesSelection = (matchIds: string[]) => {
+    setSelectedMatches(prev => {
+      const allSelected = matchIds.every(id => prev.has(id));
+      if (allSelected) {
+        return new Set();
+      }
+      return new Set(matchIds);
+    });
   };
 
   const handleCopyMatch = (match: Match) => {
@@ -592,10 +640,51 @@ const Admin = () => {
   const handleDeleteTeam = async (id: string) => {
     try {
       await deleteTeam.mutateAsync(id);
+      setSelectedTeams(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       toast({ title: "Team deleted successfully" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
+  };
+
+  const handleBulkDeleteTeams = async () => {
+    if (selectedTeams.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      await Promise.all(Array.from(selectedTeams).map(id => deleteTeam.mutateAsync(id)));
+      setSelectedTeams(new Set());
+      toast({ title: `${selectedTeams.size} teams deleted successfully` });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const toggleTeamSelection = (id: string) => {
+    setSelectedTeams(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllTeamsSelection = (teamIds: string[]) => {
+    setSelectedTeams(prev => {
+      const allSelected = teamIds.every(id => prev.has(id));
+      if (allSelected) {
+        return new Set();
+      }
+      return new Set(teamIds);
+    });
   };
 
   const resetTeamForm = () => {
@@ -665,10 +754,51 @@ const Admin = () => {
   const handleDeleteTournament = async (id: string) => {
     try {
       await deleteTournament.mutateAsync(id);
+      setSelectedTournaments(prev => {
+        const next = new Set(prev);
+        next.delete(id);
+        return next;
+      });
       toast({ title: "Tournament deleted successfully" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
+  };
+
+  const handleBulkDeleteTournaments = async () => {
+    if (selectedTournaments.size === 0) return;
+    setIsBulkDeleting(true);
+    try {
+      await Promise.all(Array.from(selectedTournaments).map(id => deleteTournament.mutateAsync(id)));
+      setSelectedTournaments(new Set());
+      toast({ title: `${selectedTournaments.size} tournaments deleted successfully` });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setIsBulkDeleting(false);
+    }
+  };
+
+  const toggleTournamentSelection = (id: string) => {
+    setSelectedTournaments(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleAllTournamentsSelection = (tournamentIds: string[]) => {
+    setSelectedTournaments(prev => {
+      const allSelected = tournamentIds.every(id => prev.has(id));
+      if (allSelected) {
+        return new Set();
+      }
+      return new Set(tournamentIds);
+    });
   };
 
   const resetTournamentForm = () => {
@@ -1414,127 +1544,163 @@ const Admin = () => {
 
               {matchesLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
-              ) : (
-                <div className="grid gap-4">
-                  {matches?.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8">No matches yet. Add your first match!</p>
-                  )}
-                  {matches
-                    ?.filter((match) => {
-                      // Status filter
-                      if (matchStatusFilter !== 'all' && match.status !== matchStatusFilter) return false;
-                      // Sport filter
-                      if (matchSportFilter !== 'all' && match.sport_id !== matchSportFilter) return false;
-                      // Search filter
-                      if (!matchSearchQuery.trim()) return true;
-                      const query = matchSearchQuery.toLowerCase();
-                      return (
-                        match.team_a?.name?.toLowerCase().includes(query) ||
-                        match.team_b?.name?.toLowerCase().includes(query) ||
-                        match.team_a?.short_name?.toLowerCase().includes(query) ||
-                        match.team_b?.short_name?.toLowerCase().includes(query) ||
-                        match.tournament?.name?.toLowerCase().includes(query) ||
-                        match.venue?.toLowerCase().includes(query) ||
-                        match.match_label?.toLowerCase().includes(query)
-                      );
-                    })
-                    .sort((a, b) => {
-                      // Sort by status: live first, then upcoming, then completed
-                      const statusOrder = { live: 0, upcoming: 1, completed: 2 };
-                      const statusDiff = statusOrder[a.status] - statusOrder[b.status];
-                      if (statusDiff !== 0) return statusDiff;
-                      // Within same status, sort by start time
-                      const timeA = a.match_start_time ? new Date(a.match_start_time).getTime() : 0;
-                      const timeB = b.match_start_time ? new Date(b.match_start_time).getTime() : 0;
-                      return timeA - timeB;
-                    })
-                    .map((match, index) => (
-                    <motion.div
-                      key={match.id}
-                      initial={{ opacity: 0, x: -20 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <Card className={`hover:border-primary/50 transition-colors ${match.is_priority ? 'border-yellow-500/50 bg-yellow-500/5' : ''}`}>
-                        <CardContent className="p-4">
-                          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                                {match.is_priority && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
-                                {match.match_label && <Badge variant="outline" className="text-xs">{match.match_label}</Badge>}
-                                <Badge variant="sport">{match.sport?.name || match.tournament?.sport}</Badge>
-                                {match.tournament && (
-                                  <span className="text-muted-foreground text-sm">
-                                    {match.tournament.name} {match.tournament.season}
-                                  </span>
-                                )}
-                                {match.match_link && (
-                                  <LinkIcon className="w-3 h-3 text-primary" />
-                                )}
+              ) : (() => {
+                const filteredMatches = matches
+                  ?.filter((match) => {
+                    if (matchStatusFilter !== 'all' && match.status !== matchStatusFilter) return false;
+                    if (matchSportFilter !== 'all' && match.sport_id !== matchSportFilter) return false;
+                    if (!matchSearchQuery.trim()) return true;
+                    const query = matchSearchQuery.toLowerCase();
+                    return (
+                      match.team_a?.name?.toLowerCase().includes(query) ||
+                      match.team_b?.name?.toLowerCase().includes(query) ||
+                      match.team_a?.short_name?.toLowerCase().includes(query) ||
+                      match.team_b?.short_name?.toLowerCase().includes(query) ||
+                      match.tournament?.name?.toLowerCase().includes(query) ||
+                      match.venue?.toLowerCase().includes(query) ||
+                      match.match_label?.toLowerCase().includes(query)
+                    );
+                  })
+                  .sort((a, b) => {
+                    const statusOrder = { live: 0, upcoming: 1, completed: 2 };
+                    const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+                    if (statusDiff !== 0) return statusDiff;
+                    const timeA = a.match_start_time ? new Date(a.match_start_time).getTime() : 0;
+                    const timeB = b.match_start_time ? new Date(b.match_start_time).getTime() : 0;
+                    return timeA - timeB;
+                  }) || [];
+                const filteredMatchIds = filteredMatches.map(m => m.id);
+                const allSelected = filteredMatchIds.length > 0 && filteredMatchIds.every(id => selectedMatches.has(id));
+                
+                return (
+                  <div className="space-y-4">
+                    {/* Bulk Actions Bar */}
+                    {filteredMatches.length > 0 && (
+                      <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 border">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={allSelected}
+                            onCheckedChange={() => toggleAllMatchesSelection(filteredMatchIds)}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {selectedMatches.size > 0 ? `${selectedMatches.size} selected` : 'Select all'}
+                          </span>
+                        </div>
+                        {selectedMatches.size > 0 && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleBulkDeleteMatches}
+                            disabled={isBulkDeleting}
+                          >
+                            {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete {selectedMatches.size}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="grid gap-4">
+                      {filteredMatches.length === 0 && (
+                        <p className="text-center text-muted-foreground py-8">No matches yet. Add your first match!</p>
+                      )}
+                      {filteredMatches.map((match, index) => (
+                        <motion.div
+                          key={match.id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                        >
+                          <Card className={`hover:border-primary/50 transition-colors ${match.is_priority ? 'border-yellow-500/50 bg-yellow-500/5' : ''} ${selectedMatches.has(match.id) ? 'border-primary bg-primary/5' : ''}`}>
+                            <CardContent className="p-4">
+                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                <div className="flex items-start gap-3 flex-1">
+                                  <Checkbox
+                                    checked={selectedMatches.has(match.id)}
+                                    onCheckedChange={() => toggleMatchSelection(match.id)}
+                                    className="mt-1"
+                                  />
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                                      {match.is_priority && <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />}
+                                      {match.match_label && <Badge variant="outline" className="text-xs">{match.match_label}</Badge>}
+                                      <Badge variant="sport">{match.sport?.name || match.tournament?.sport}</Badge>
+                                      {match.tournament && (
+                                        <span className="text-muted-foreground text-sm">
+                                          {match.tournament.name} {match.tournament.season}
+                                        </span>
+                                      )}
+                                      {match.match_link && (
+                                        <LinkIcon className="w-3 h-3 text-primary" />
+                                      )}
+                                    </div>
+                                    <p className="font-semibold text-lg">
+                                      {match.team_a?.name} vs {match.team_b?.name}
+                                    </p>
+                                    <p className="text-muted-foreground text-sm">
+                                      {match.match_date} • {match.match_time}
+                                      {match.venue && ` • ${match.venue}`}
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant={match.status === 'live' ? 'live' : match.status === 'completed' ? 'completed' : 'upcoming'}>
+                                    {match.status}
+                                  </Badge>
+                                  {match.sport?.name?.toLowerCase() === 'cricket' && (
+                                    <Button 
+                                      variant="outline" 
+                                      size="sm"
+                                      onClick={() => {
+                                        setSelectedMatchForInnings(match);
+                                        setInningsDialogOpen(true);
+                                      }}
+                                    >
+                                      <Play className="w-3 h-3 mr-1" />
+                                      Innings
+                                    </Button>
+                                  )}
+                                  <Button 
+                                    variant="outline" 
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedMatchForPlayingXI(match);
+                                      setPlayingXIDialogOpen(true);
+                                    }}
+                                  >
+                                    <Users className="w-3 h-3 mr-1" />
+                                    XI
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match)} title="Edit match">
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleCopyMatch(match)} title="Duplicate match">
+                                    <Copy className="w-4 h-4 text-primary" />
+                                  </Button>
+                                  {match.page_type === 'page' && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      onClick={() => submitMatchForIndexing(match.id)} 
+                                      title="Submit to Google"
+                                    >
+                                      <Globe className="w-4 h-4 text-green-500" />
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteMatch(match.id)} title="Delete match">
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </div>
                               </div>
-                              <p className="font-semibold text-lg">
-                                {match.team_a?.name} vs {match.team_b?.name}
-                              </p>
-                              <p className="text-muted-foreground text-sm">
-                                {match.match_date} • {match.match_time}
-                                {match.venue && ` • ${match.venue}`}
-                              </p>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Badge variant={match.status === 'live' ? 'live' : match.status === 'completed' ? 'completed' : 'upcoming'}>
-                                {match.status}
-                              </Badge>
-                              {match.sport?.name?.toLowerCase() === 'cricket' && (
-                                <Button 
-                                  variant="outline" 
-                                  size="sm"
-                                  onClick={() => {
-                                    setSelectedMatchForInnings(match);
-                                    setInningsDialogOpen(true);
-                                  }}
-                                >
-                                  <Play className="w-3 h-3 mr-1" />
-                                  Innings
-                                </Button>
-                              )}
-                              <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => {
-                                  setSelectedMatchForPlayingXI(match);
-                                  setPlayingXIDialogOpen(true);
-                                }}
-                              >
-                                <Users className="w-3 h-3 mr-1" />
-                                XI
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleEditMatch(match)} title="Edit match">
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleCopyMatch(match)} title="Duplicate match">
-                                <Copy className="w-4 h-4 text-primary" />
-                              </Button>
-                              {match.page_type === 'page' && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  onClick={() => submitMatchForIndexing(match.id)} 
-                                  title="Submit to Google"
-                                >
-                                  <Globe className="w-4 h-4 text-green-500" />
-                                </Button>
-                              )}
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteMatch(match.id)} title="Delete match">
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </TabsContent>
 
             {/* Live Scores Tab */}
@@ -1849,56 +2015,94 @@ const Admin = () => {
 
               {teamsLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                  {teams?.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8 col-span-full">No teams yet. Add your first team!</p>
-                  )}
-                  {teams
-                    ?.filter((team) => {
-                      if (!teamSearchQuery.trim()) return true;
-                      const query = teamSearchQuery.toLowerCase();
-                      return (
-                        team.name?.toLowerCase().includes(query) ||
-                        team.short_name?.toLowerCase().includes(query)
-                      );
-                    })
-                    .map((team, index) => (
-                    <motion.div
-                      key={team.id}
-                      initial={{ opacity: 0, scale: 0.95 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.05 }}
-                    >
-                      <Card className="hover:border-primary/50 transition-colors">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/30 to-accent/20 flex items-center justify-center border border-primary/20">
-                              {team.logo_url ? (
-                                <img src={team.logo_url} alt={team.name} className="w-8 h-8 object-contain" />
-                              ) : (
-                                <span className="font-display text-primary">{team.short_name}</span>
-                              )}
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-semibold">{team.name}</p>
-                              <p className="text-muted-foreground text-sm">{team.short_name}</p>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => handleEditTeam(team)}>
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteTeam(team.id)}>
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+              ) : (() => {
+                const filteredTeams = teams
+                  ?.filter((team) => {
+                    if (!teamSearchQuery.trim()) return true;
+                    const query = teamSearchQuery.toLowerCase();
+                    return (
+                      team.name?.toLowerCase().includes(query) ||
+                      team.short_name?.toLowerCase().includes(query)
+                    );
+                  }) || [];
+                const filteredTeamIds = filteredTeams.map(t => t.id);
+                const allSelected = filteredTeamIds.length > 0 && filteredTeamIds.every(id => selectedTeams.has(id));
+
+                return (
+                  <div className="space-y-4">
+                    {/* Bulk Actions Bar */}
+                    {filteredTeams.length > 0 && (
+                      <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 border">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={allSelected}
+                            onCheckedChange={() => toggleAllTeamsSelection(filteredTeamIds)}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {selectedTeams.size > 0 ? `${selectedTeams.size} selected` : 'Select all'}
+                          </span>
+                        </div>
+                        {selectedTeams.size > 0 && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleBulkDeleteTeams}
+                            disabled={isBulkDeleting}
+                          >
+                            {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete {selectedTeams.size}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {filteredTeams.length === 0 && (
+                        <p className="text-center text-muted-foreground py-8 col-span-full">No teams yet. Add your first team!</p>
+                      )}
+                      {filteredTeams.map((team, index) => (
+                        <motion.div
+                          key={team.id}
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: index * 0.05 }}
+                        >
+                          <Card className={`hover:border-primary/50 transition-colors ${selectedTeams.has(team.id) ? 'border-primary bg-primary/5' : ''}`}>
+                            <CardContent className="p-4">
+                              <div className="flex items-center gap-4">
+                                <Checkbox
+                                  checked={selectedTeams.has(team.id)}
+                                  onCheckedChange={() => toggleTeamSelection(team.id)}
+                                />
+                                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/30 to-accent/20 flex items-center justify-center border border-primary/20">
+                                  {team.logo_url ? (
+                                    <img src={team.logo_url} alt={team.name} className="w-8 h-8 object-contain" />
+                                  ) : (
+                                    <span className="font-display text-primary">{team.short_name}</span>
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="font-semibold">{team.name}</p>
+                                  <p className="text-muted-foreground text-sm">{team.short_name}</p>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditTeam(team)}>
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteTeam(team.id)}>
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </TabsContent>
 
             {/* Tournaments Tab */}
@@ -2025,72 +2229,111 @@ const Admin = () => {
 
               {tournamentsLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
-              ) : (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {tournaments?.length === 0 && (
-                    <p className="text-center text-muted-foreground py-8 col-span-full">No tournaments yet. Add your first tournament!</p>
-                  )}
-                  {tournaments
-                    ?.filter((tournament) => {
-                      if (!tournamentSearchQuery.trim()) return true;
-                      const query = tournamentSearchQuery.toLowerCase();
-                      return (
-                        tournament.name?.toLowerCase().includes(query) ||
-                        tournament.sport?.toLowerCase().includes(query) ||
-                        tournament.season?.toLowerCase().includes(query)
-                      );
-                    })
-                    .map((tournament, index) => (
-                    <motion.div
-                      key={tournament.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.1 }}
-                    >
-                      <Card className="hover:border-primary/50 transition-colors">
-                        <CardContent className="p-6">
-                          <div className="flex items-start justify-between">
-                            <div className="flex items-start gap-4">
-                              {tournament.logo_url && (
-                                <img src={tournament.logo_url} alt={tournament.name} className="w-12 h-12 object-contain rounded-lg" />
-                              )}
-                              <div>
-                                <h3 className="font-display text-2xl text-gradient tracking-wider mb-2">
-                                  {tournament.name}
-                                </h3>
-                                <div className="flex items-center gap-2">
-                                  <Badge variant="sport">{tournament.sport}</Badge>
-                                  <span className="text-muted-foreground text-sm">
-                                    Season {tournament.season}
-                                  </span>
+              ) : (() => {
+                const filteredTournaments = tournaments
+                  ?.filter((tournament) => {
+                    if (!tournamentSearchQuery.trim()) return true;
+                    const query = tournamentSearchQuery.toLowerCase();
+                    return (
+                      tournament.name?.toLowerCase().includes(query) ||
+                      tournament.sport?.toLowerCase().includes(query) ||
+                      tournament.season?.toLowerCase().includes(query)
+                    );
+                  }) || [];
+                const filteredTournamentIds = filteredTournaments.map(t => t.id);
+                const allSelected = filteredTournamentIds.length > 0 && filteredTournamentIds.every(id => selectedTournaments.has(id));
+
+                return (
+                  <div className="space-y-4">
+                    {/* Bulk Actions Bar */}
+                    {filteredTournaments.length > 0 && (
+                      <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 border">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={allSelected}
+                            onCheckedChange={() => toggleAllTournamentsSelection(filteredTournamentIds)}
+                          />
+                          <span className="text-sm text-muted-foreground">
+                            {selectedTournaments.size > 0 ? `${selectedTournaments.size} selected` : 'Select all'}
+                          </span>
+                        </div>
+                        {selectedTournaments.size > 0 && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={handleBulkDeleteTournaments}
+                            disabled={isBulkDeleting}
+                          >
+                            {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete {selectedTournaments.size}
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {filteredTournaments.length === 0 && (
+                        <p className="text-center text-muted-foreground py-8 col-span-full">No tournaments yet. Add your first tournament!</p>
+                      )}
+                      {filteredTournaments.map((tournament, index) => (
+                        <motion.div
+                          key={tournament.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                        >
+                          <Card className={`hover:border-primary/50 transition-colors ${selectedTournaments.has(tournament.id) ? 'border-primary bg-primary/5' : ''}`}>
+                            <CardContent className="p-6">
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-4">
+                                  <Checkbox
+                                    checked={selectedTournaments.has(tournament.id)}
+                                    onCheckedChange={() => toggleTournamentSelection(tournament.id)}
+                                    className="mt-1"
+                                  />
+                                  {tournament.logo_url && (
+                                    <img src={tournament.logo_url} alt={tournament.name} className="w-12 h-12 object-contain rounded-lg" />
+                                  )}
+                                  <div>
+                                    <h3 className="font-display text-2xl text-gradient tracking-wider mb-2">
+                                      {tournament.name}
+                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                      <Badge variant="sport">{tournament.sport}</Badge>
+                                      <span className="text-muted-foreground text-sm">
+                                        Season {tournament.season}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <Button variant="ghost" size="icon" onClick={() => handleEditTournament(tournament)}>
+                                    <Edit2 className="w-4 h-4" />
+                                  </Button>
+                                  {tournament.slug && (
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      onClick={() => submitTournamentForIndexing(tournament.slug!)} 
+                                      title="Submit to Google"
+                                    >
+                                      <Globe className="w-4 h-4 text-green-500" />
+                                    </Button>
+                                  )}
+                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteTournament(tournament.id)}>
+                                    <Trash2 className="w-4 h-4 text-destructive" />
+                                  </Button>
                                 </div>
                               </div>
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Button variant="ghost" size="icon" onClick={() => handleEditTournament(tournament)}>
-                                <Edit2 className="w-4 h-4" />
-                              </Button>
-                              {tournament.slug && (
-                                <Button 
-                                  variant="ghost" 
-                                  size="icon" 
-                                  onClick={() => submitTournamentForIndexing(tournament.slug!)} 
-                                  title="Submit to Google"
-                                >
-                                  <Globe className="w-4 h-4 text-green-500" />
-                                </Button>
-                              )}
-                              <Button variant="ghost" size="icon" onClick={() => handleDeleteTournament(tournament.id)}>
-                                <Trash2 className="w-4 h-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    </motion.div>
-                  ))}
-                </div>
-              )}
+                            </CardContent>
+                          </Card>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
             </TabsContent>
 
             {/* Points Table Tab */}
