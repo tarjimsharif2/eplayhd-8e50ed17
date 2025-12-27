@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Switch } from "@/components/ui/switch";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useAuth } from "@/hooks/useAuth";
@@ -113,6 +114,11 @@ const Admin = () => {
   const [selectedTeams, setSelectedTeams] = useState<Set<string>>(new Set());
   const [selectedTournaments, setSelectedTournaments] = useState<Set<string>>(new Set());
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  
+  // Bulk delete confirmation dialogs
+  const [bulkDeleteMatchesDialogOpen, setBulkDeleteMatchesDialogOpen] = useState(false);
+  const [bulkDeleteTeamsDialogOpen, setBulkDeleteTeamsDialogOpen] = useState(false);
+  const [bulkDeleteTournamentsDialogOpen, setBulkDeleteTournamentsDialogOpen] = useState(false);
   
 
   // Form states
@@ -488,6 +494,7 @@ const Admin = () => {
     try {
       await Promise.all(Array.from(selectedMatches).map(id => deleteMatch.mutateAsync(id)));
       setSelectedMatches(new Set());
+      setBulkDeleteMatchesDialogOpen(false);
       toast({ title: `${selectedMatches.size} matches deleted successfully` });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -657,6 +664,7 @@ const Admin = () => {
     try {
       await Promise.all(Array.from(selectedTeams).map(id => deleteTeam.mutateAsync(id)));
       setSelectedTeams(new Set());
+      setBulkDeleteTeamsDialogOpen(false);
       toast({ title: `${selectedTeams.size} teams deleted successfully` });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -771,6 +779,7 @@ const Admin = () => {
     try {
       await Promise.all(Array.from(selectedTournaments).map(id => deleteTournament.mutateAsync(id)));
       setSelectedTournaments(new Set());
+      setBulkDeleteTournamentsDialogOpen(false);
       toast({ title: `${selectedTournaments.size} tournaments deleted successfully` });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -1590,7 +1599,7 @@ const Admin = () => {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={handleBulkDeleteMatches}
+                            onClick={() => setBulkDeleteMatchesDialogOpen(true)}
                             disabled={isBulkDeleting}
                           >
                             {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
@@ -2046,7 +2055,7 @@ const Admin = () => {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={handleBulkDeleteTeams}
+                            onClick={() => setBulkDeleteTeamsDialogOpen(true)}
                             disabled={isBulkDeleting}
                           >
                             {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
@@ -2261,7 +2270,7 @@ const Admin = () => {
                           <Button
                             variant="destructive"
                             size="sm"
-                            onClick={handleBulkDeleteTournaments}
+                            onClick={() => setBulkDeleteTournamentsDialogOpen(true)}
                             disabled={isBulkDeleting}
                           >
                             {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
@@ -3004,6 +3013,70 @@ const Admin = () => {
         </div>
       </main>
       <Footer />
+
+      {/* Bulk Delete Confirmation Dialogs */}
+      <AlertDialog open={bulkDeleteMatchesDialogOpen} onOpenChange={setBulkDeleteMatchesDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedMatches.size} Match{selectedMatches.size > 1 ? 'es' : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the selected match{selectedMatches.size > 1 ? 'es' : ''} and all associated data including streaming servers and innings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteMatches}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Delete {selectedMatches.size} Match{selectedMatches.size > 1 ? 'es' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkDeleteTeamsDialogOpen} onOpenChange={setBulkDeleteTeamsDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedTeams.size} Team{selectedTeams.size > 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the selected team{selectedTeams.size > 1 ? 's' : ''}. Make sure no matches are using these teams.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteTeams}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Delete {selectedTeams.size} Team{selectedTeams.size > 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={bulkDeleteTournamentsDialogOpen} onOpenChange={setBulkDeleteTournamentsDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete {selectedTournaments.size} Tournament{selectedTournaments.size > 1 ? 's' : ''}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the selected tournament{selectedTournaments.size > 1 ? 's' : ''} and may affect associated matches.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDeleteTournaments}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Delete {selectedTournaments.size} Tournament{selectedTournaments.size > 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

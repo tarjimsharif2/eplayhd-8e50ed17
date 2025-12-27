@@ -116,6 +116,18 @@ const TournamentPage = () => {
   // STUMPS matches are included in live matches
   const stumpsMatches = liveMatches.filter(m => m.is_stumps);
 
+  // Sort all matches by status: Live -> Upcoming -> Completed, then by start time
+  const sortedAllMatches = [...matches].sort((a, b) => {
+    const statusOrder: Record<string, number> = { 'live': 0, 'upcoming': 1, 'completed': 2 };
+    const statusDiff = (statusOrder[a.status] ?? 3) - (statusOrder[b.status] ?? 3);
+    if (statusDiff !== 0) return statusDiff;
+    
+    // Within same status, sort by date and time
+    const dateA = `${a.match_date} ${a.match_time}`;
+    const dateB = `${b.match_date} ${b.match_time}`;
+    return dateA.localeCompare(dateB);
+  });
+
   // SEO - use tournament's custom SEO if available
   const seoTitle = tournament.seo_title || `${tournament.name} - ${tournament.season} | ${siteSettings?.site_name || 'Live Sports'}`;
   const seoDescription = tournament.seo_description || `Follow ${tournament.name} ${tournament.season}. Live scores, match schedules, points table and streaming links.`;
@@ -221,13 +233,13 @@ const TournamentPage = () => {
               </TabsList>
 
               <TabsContent value="all">
-                {matches.length === 0 ? (
+                {sortedAllMatches.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     No matches scheduled
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {matches.map((match, index) => (
+                    {sortedAllMatches.map((match, index) => (
                       <MatchCard key={match.id} match={match} index={index} />
                     ))}
                   </div>

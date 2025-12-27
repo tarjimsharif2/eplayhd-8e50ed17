@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Match, useUpdateMatch } from "@/hooks/useSportsData";
+import { Match, useUpdateMatch, Team } from "@/hooks/useSportsData";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { Save, Play, Clock, RefreshCw, Pause, RotateCcw, Coffee } from "lucide-react";
 import TestMatchManager from "@/components/TestMatchManager";
+import InningsManager from "@/components/InningsManager";
 
 interface LiveScoreUpdaterProps {
   match: Match;
@@ -348,6 +349,18 @@ const LiveScoreUpdater = ({ match }: LiveScoreUpdaterProps) => {
         {/* Test Match Controls */}
         {isTestMatch && (
           <TestMatchManager match={match} />
+        )}
+
+        {/* Innings Manager for Cricket */}
+        {isCricket && teamA && teamB && (
+          <div className="pt-4 border-t border-border/30">
+            <InningsManager 
+              matchId={match.id}
+              teamA={teamA as Team}
+              teamB={teamB as Team}
+              matchFormat={match.match_format}
+            />
+          </div>
         )}
 
         {/* Save Button */}
