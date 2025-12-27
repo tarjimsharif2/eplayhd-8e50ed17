@@ -53,9 +53,40 @@ function checkRateLimit(clientIp: string): boolean {
     return true;
   }
   
-  if (clientData.count >= 100) return false;
+  if (clientData.count >= 200) return false;
   clientData.count++;
   return true;
+}
+
+// Build proxy URL for a given URL
+function buildProxyUrl(targetUrl: string, baseProxyUrl: string, referer?: string, origin?: string): string {
+  const proxyUrl = new URL(baseProxyUrl);
+  proxyUrl.searchParams.set('url', targetUrl);
+  if (referer) proxyUrl.searchParams.set('referer', referer);
+  if (origin) proxyUrl.searchParams.set('origin', origin);
+  return proxyUrl.toString();
+}
+
+// Rewrite URLs in HTML to go through proxy
+function rewriteHtmlUrls(html: string, baseUrl: URL, proxyBaseUrl: string, referer?: string, origin?: string): string {
+  // Rewrite iframe src attributes
+  html = html.replace(
+    /(<iframe[^>]*\s+src\s*=\s*["'])([^"']+)(["'][^>]*>)/gi,
+    (match, prefix, src, suffix) => {
+      try {
+        const absoluteUrl = new URL(src, baseUrl.href).href;
+        const proxiedUrl = buildProxyUrl(absoluteUrl, proxyBaseUrl, referer, origin);
+        return `${prefix}${proxiedUrl}${suffix}`;
+      } catch {
+        return match;
+      }
+    }
+  );
+
+  // Rewrite script src for external scripts (optional, for full proxy)
+  // Skip this for now as it may break functionality
+
+  return html;
 }
 
 serve(async (req) => {
@@ -73,22 +104,14 @@ serve(async (req) => {
       });
     }
 
-    let url: string | null = null;
-    let customHeaders: Record<string, string> = {};
-    
-    const urlParams = new URL(req.url).searchParams;
-    url = urlParams.get('url');
+    const reqUrl = new URL(req.url);
+    let url: string | null = reqUrl.searchParams.get('url');
     
     // Get headers from query params
-    const referer = urlParams.get('referer');
-    const origin = urlParams.get('origin');
-    const userAgent = urlParams.get('userAgent');
-    const cookie = urlParams.get('cookie');
-    
-    if (referer) customHeaders.referer = referer;
-    if (origin) customHeaders.origin = origin;
-    if (userAgent) customHeaders.userAgent = userAgent;
-    if (cookie) customHeaders.cookie = cookie;
+    const referer = reqUrl.searchParams.get('referer');
+    const origin = reqUrl.searchParams.get('origin');
+    const userAgent = reqUrl.searchParams.get('userAgent');
+    const cookie = reqUrl.searchParams.get('cookie');
 
     if (!url) {
       return new Response(JSON.stringify({ error: 'URL is required' }), {
@@ -106,17 +129,16 @@ serve(async (req) => {
     }
 
     console.log('Iframe proxy fetching:', url);
-    console.log('With headers:', JSON.stringify(customHeaders));
 
     const requestHeaders: HeadersInit = {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
-      'User-Agent': customHeaders.userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'User-Agent': userAgent || 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
     };
 
-    if (customHeaders.referer) requestHeaders['Referer'] = customHeaders.referer;
-    if (customHeaders.origin) requestHeaders['Origin'] = customHeaders.origin;
-    if (customHeaders.cookie) requestHeaders['Cookie'] = customHeaders.cookie;
+    if (referer) requestHeaders['Referer'] = referer;
+    if (origin) requestHeaders['Origin'] = origin;
+    if (cookie) requestHeaders['Cookie'] = cookie;
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000);
@@ -140,103 +162,37 @@ serve(async (req) => {
 
     const contentType = response.headers.get('content-type') || 'text/html';
     
-    // For HTML content, we need to rewrite relative URLs and inject referrer policy
+    // For HTML content, rewrite iframe URLs to go through proxy
     if (contentType.includes('text/html')) {
       let html = await response.text();
       const baseUrl = new URL(url);
       const baseHref = `${baseUrl.protocol}//${baseUrl.host}`;
       
-      // Build the injected head content
-      let headInjection = '';
+      // Build the proxy base URL (same as current function)
+      const proxyBaseUrl = `${reqUrl.protocol}//${reqUrl.host}${reqUrl.pathname}`;
       
-      // Add base tag if not present
+      // Rewrite iframe URLs in the HTML to go through proxy
+      html = rewriteHtmlUrls(html, baseUrl, proxyBaseUrl, referer || url, origin || undefined);
+      
+      // Inject base tag for relative URLs (scripts, css, images)
       if (!html.includes('<base')) {
-        headInjection += `<base href="${baseHref}/">`;
-      }
-      
-      // Add referrer meta tag to set document referrer for all requests
-      if (customHeaders.referer) {
-        headInjection += `<meta name="referrer" content="unsafe-url">`;
-      }
-      
-      // Inject script to modify fetch/XHR requests with custom headers
-      if (customHeaders.referer || customHeaders.origin) {
-        const headersJson = JSON.stringify({
-          referer: customHeaders.referer || '',
-          origin: customHeaders.origin || '',
-        });
-        
-        headInjection += `
-<script>
-(function() {
-  const customHeaders = ${headersJson};
-  
-  // Store original referrer
-  if (customHeaders.referer) {
-    Object.defineProperty(document, 'referrer', {
-      get: function() { return customHeaders.referer; }
-    });
-  }
-  
-  // Override fetch to add headers
-  const originalFetch = window.fetch;
-  window.fetch = function(url, options = {}) {
-    options.headers = options.headers || {};
-    if (customHeaders.referer && !options.headers['Referer']) {
-      options.headers['Referer'] = customHeaders.referer;
-    }
-    if (customHeaders.origin && !options.headers['Origin']) {
-      options.headers['Origin'] = customHeaders.origin;
-    }
-    // Set referrerPolicy to allow sending referer
-    options.referrerPolicy = 'unsafe-url';
-    options.referrer = customHeaders.referer || document.location.href;
-    return originalFetch.call(this, url, options);
-  };
-  
-  // Override XMLHttpRequest to add headers
-  const originalXHROpen = XMLHttpRequest.prototype.open;
-  const originalXHRSend = XMLHttpRequest.prototype.send;
-  
-  XMLHttpRequest.prototype.open = function(method, url, ...args) {
-    this._customUrl = url;
-    return originalXHROpen.apply(this, [method, url, ...args]);
-  };
-  
-  XMLHttpRequest.prototype.send = function(body) {
-    if (customHeaders.referer) {
-      try { this.setRequestHeader('Referer', customHeaders.referer); } catch(e) {}
-    }
-    if (customHeaders.origin) {
-      try { this.setRequestHeader('Origin', customHeaders.origin); } catch(e) {}
-    }
-    return originalXHRSend.call(this, body);
-  };
-})();
-</script>`;
-      }
-      
-      // Inject into head
-      if (headInjection) {
         if (html.includes('<head>')) {
-          html = html.replace('<head>', '<head>' + headInjection);
+          html = html.replace('<head>', `<head><base href="${baseHref}/">`);
         } else if (html.includes('<head ')) {
-          html = html.replace(/<head([^>]*)>/i, '<head$1>' + headInjection);
+          html = html.replace(/<head([^>]*)>/i, `<head$1><base href="${baseHref}/">`);
         } else if (html.includes('<html')) {
-          html = html.replace(/<html([^>]*)>/i, '<html$1><head>' + headInjection + '</head>');
-        } else {
-          html = headInjection + html;
+          html = html.replace(/<html([^>]*)>/i, `<html$1><head><base href="${baseHref}/"></head>`);
         }
       }
       
-      console.log('Successfully proxied iframe content with header injection');
+      console.log('Successfully proxied with iframe URL rewriting');
       
       return new Response(html, {
         headers: {
           ...corsHeaders,
           'Content-Type': 'text/html; charset=utf-8',
           'Cache-Control': 'no-cache',
-          'Referrer-Policy': 'unsafe-url',
+          'X-Frame-Options': 'ALLOWALL',
         },
       });
     }
