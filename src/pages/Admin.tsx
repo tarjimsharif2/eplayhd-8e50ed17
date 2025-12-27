@@ -187,7 +187,6 @@ const Admin = () => {
 
   const [sportForm, setSportForm] = useState({
     name: '',
-    icon_url: '',
   });
 
   const [siteSettingsForm, setSiteSettingsForm] = useState({
@@ -868,7 +867,7 @@ const Admin = () => {
     try {
       const sportData = {
         name: sportForm.name,
-        icon_url: sportForm.icon_url || null,
+        icon_url: null,
       };
       
       if (editingSport) {
@@ -889,7 +888,6 @@ const Admin = () => {
     setEditingSport(sport);
     setSportForm({
       name: sport.name,
-      icon_url: sport.icon_url || '',
     });
     setSportDialogOpen(true);
   };
@@ -905,7 +903,7 @@ const Admin = () => {
 
   const resetSportForm = () => {
     setEditingSport(null);
-    setSportForm({ name: '', icon_url: '' });
+    setSportForm({ name: '' });
   };
 
   // Site Settings handler
@@ -2400,11 +2398,6 @@ const Admin = () => {
                         <Label>Sport Name</Label>
                         <Input placeholder="e.g., Badminton" value={sportForm.name} onChange={(e) => setSportForm({ ...sportForm, name: e.target.value })} />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Icon URL (optional)</Label>
-                        <Input placeholder="https://..." value={sportForm.icon_url} onChange={(e) => setSportForm({ ...sportForm, icon_url: e.target.value })} />
-                        <p className="text-xs text-muted-foreground">Leave empty to use default icon</p>
-                      </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setSportDialogOpen(false)}>Cancel</Button>
@@ -2435,11 +2428,7 @@ const Admin = () => {
                         <CardContent className="p-4">
                           <div className="flex items-center gap-4">
                             <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/30 to-accent/20 flex items-center justify-center border border-primary/20">
-                              {sport.icon_url ? (
-                                <img src={sport.icon_url} alt={sport.name} className="w-6 h-6 object-contain" />
-                              ) : (
-                                <Gamepad2 className="w-6 h-6 text-primary" />
-                              )}
+                              <Gamepad2 className="w-6 h-6 text-primary" />
                             </div>
                             <div className="flex-1">
                               <p className="font-semibold">{sport.name}</p>
