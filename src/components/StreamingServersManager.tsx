@@ -335,16 +335,6 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
         />
       </div>
 
-      <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
-        <div className="space-y-0.5">
-          <Label>Ad Blocker</Label>
-          <p className="text-xs text-muted-foreground">Block pop-up ads and overlays</p>
-        </div>
-        <Switch
-          checked={serverForm.ad_block_enabled}
-          onCheckedChange={(checked) => setServerForm({ ...serverForm, ad_block_enabled: checked })}
-        />
-      </div>
 
       {/* Stream Headers Section - Shown for M3U8 */}
       {serverForm.server_type === 'm3u8' && (
