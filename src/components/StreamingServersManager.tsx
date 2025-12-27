@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -26,6 +26,7 @@ import {
 import { Match } from "@/hooks/useSportsData";
 import { Plus, Edit2, Trash2, Tv, Loader2, ExternalLink, Play, Search, BookmarkPlus, Library, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import HeaderEditor, { HeaderItem, headersToServerForm, serverFormToHeaders } from "@/components/HeaderEditor";
 
 interface StreamingServersManagerProps {
   match: Match;
@@ -79,15 +80,18 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
   const [editingSavedServer, setEditingSavedServer] = useState<SavedStreamingServer | null>(null);
   const [activeTab, setActiveTab] = useState<'servers' | 'saved'>('servers');
   const [serverForm, setServerForm] = useState<ServerFormType>({ ...defaultServerForm });
+  const [formHeaders, setFormHeaders] = useState<HeaderItem[]>([]);
 
   const resetForm = () => {
     setEditingServer(null);
     setServerForm({ ...defaultServerForm });
+    setFormHeaders([]);
   };
 
   const resetSavedForm = () => {
     setEditingSavedServer(null);
     setServerForm({ ...defaultServerForm });
+    setFormHeaders([]);
   };
 
   const handleEdit = (server: StreamingServer) => {
@@ -104,6 +108,12 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       user_agent: server.user_agent || '',
       ad_block_enabled: server.ad_block_enabled || false,
     });
+    setFormHeaders(serverFormToHeaders({
+      referer_value: server.referer_value || '',
+      origin_value: server.origin_value || '',
+      cookie_value: server.cookie_value || '',
+      user_agent: server.user_agent || '',
+    }));
     setDialogOpen(true);
   };
 
@@ -122,6 +132,12 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       user_agent: saved.user_agent || '',
       ad_block_enabled: saved.ad_block_enabled || false,
     });
+    setFormHeaders(serverFormToHeaders({
+      referer_value: saved.referer_value || '',
+      origin_value: saved.origin_value || '',
+      cookie_value: saved.cookie_value || '',
+      user_agent: saved.user_agent || '',
+    }));
     setSavedDialogOpen(true);
   };
 
@@ -136,16 +152,19 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       return;
     }
 
+    // Get header values from the HeaderEditor
+    const headerValues = headersToServerForm(formHeaders);
+
     const serverData = {
       server_name: serverForm.server_name,
       server_url: serverForm.server_url,
       server_type: serverForm.server_type,
       display_order: serverForm.display_order,
       is_active: serverForm.is_active,
-      referer_value: serverForm.referer_value || null,
-      origin_value: serverForm.origin_value || null,
-      cookie_value: serverForm.cookie_value || null,
-      user_agent: serverForm.user_agent || null,
+      referer_value: headerValues.referer_value || null,
+      origin_value: headerValues.origin_value || null,
+      cookie_value: headerValues.cookie_value || null,
+      user_agent: headerValues.user_agent || null,
       ad_block_enabled: serverForm.ad_block_enabled,
       drm_license_url: null,
       drm_scheme: null,
@@ -183,14 +202,17 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       return;
     }
 
+    // Get header values from the HeaderEditor
+    const headerValues = headersToServerForm(formHeaders);
+
     const savedData = {
       server_name: serverForm.server_name,
       server_url: serverForm.server_url,
       server_type: serverForm.server_type,
-      referer_value: serverForm.referer_value || null,
-      origin_value: serverForm.origin_value || null,
-      cookie_value: serverForm.cookie_value || null,
-      user_agent: serverForm.user_agent || null,
+      referer_value: headerValues.referer_value || null,
+      origin_value: headerValues.origin_value || null,
+      cookie_value: headerValues.cookie_value || null,
+      user_agent: headerValues.user_agent || null,
       ad_block_enabled: serverForm.ad_block_enabled,
       drm_license_url: null,
       drm_scheme: null,
@@ -336,81 +358,20 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       </div>
 
 
-      {/* Stream Headers Section - Shown for M3U8 */}
-      {serverForm.server_type === 'm3u8' && (
-        <div className="space-y-4 pt-4 border-t">
-          <Label className="text-sm font-medium">Stream Headers (for proxied playback)</Label>
-          <p className="text-xs text-muted-foreground">These headers will be sent when fetching the stream through the proxy</p>
-          <div className="grid grid-cols-1 gap-3">
-            <div className="space-y-2">
-              <Label className="text-xs">Referer</Label>
-              <Input
-                placeholder="https://example.com"
-                value={serverForm.referer_value}
-                onChange={(e) => setServerForm({ ...serverForm, referer_value: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Origin</Label>
-              <Input
-                placeholder="https://example.com"
-                value={serverForm.origin_value}
-                onChange={(e) => setServerForm({ ...serverForm, origin_value: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Cookie</Label>
-              <Input
-                placeholder="session=abc123; token=xyz"
-                value={serverForm.cookie_value}
-                onChange={(e) => setServerForm({ ...serverForm, cookie_value: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">User-Agent</Label>
-              <Input
-                placeholder="Mozilla/5.0..."
-                value={serverForm.user_agent}
-                onChange={(e) => setServerForm({ ...serverForm, user_agent: e.target.value })}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Iframe Headers Section */}
-      {(serverForm.server_type === 'iframe' || serverForm.server_type === 'embed') && (
-        <div className="space-y-4 pt-4 border-t">
-          <Label className="text-sm font-medium">Request Headers (Optional)</Label>
-          <p className="text-xs text-muted-foreground">Configure headers for iframe embeds</p>
-          <div className="grid grid-cols-1 gap-3">
-            <div className="space-y-2">
-              <Label className="text-xs">Referer</Label>
-              <Input
-                placeholder="https://example.com"
-                value={serverForm.referer_value}
-                onChange={(e) => setServerForm({ ...serverForm, referer_value: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">Origin</Label>
-              <Input
-                placeholder="https://example.com"
-                value={serverForm.origin_value}
-                onChange={(e) => setServerForm({ ...serverForm, origin_value: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label className="text-xs">User-Agent</Label>
-              <Input
-                placeholder="Mozilla/5.0..."
-                value={serverForm.user_agent}
-                onChange={(e) => setServerForm({ ...serverForm, user_agent: e.target.value })}
-              />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Request Headers Section - Mod Header Style */}
+      <div className="space-y-3 pt-4 border-t">
+        <Label className="text-sm font-medium flex items-center gap-2">
+          Request Headers
+          <Badge variant="outline" className="text-xs font-normal">
+            {serverForm.server_type === 'm3u8' ? 'Proxied' : 'Optional'}
+          </Badge>
+        </Label>
+        <HeaderEditor
+          headers={formHeaders}
+          onChange={setFormHeaders}
+          compact
+        />
+      </div>
     </div>
   );
 
