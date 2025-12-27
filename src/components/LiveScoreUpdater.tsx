@@ -28,8 +28,8 @@ const LiveScoreUpdater = ({ match }: LiveScoreUpdaterProps) => {
   const lastSyncRef = useRef<number>(Date.now());
 
   const sportName = match.sport?.name?.toLowerCase() || "";
-  const isFootball = sportName === "football" || sportName === "soccer";
-  const isCricket = sportName === "cricket";
+  const isFootball = sportName.includes("football") || sportName.includes("soccer");
+  const isCricket = sportName.includes("cricket");
   const isTestMatch = isCricket && match.match_format?.toLowerCase() === "test";
 
   // Sync match minute from props when match data changes
