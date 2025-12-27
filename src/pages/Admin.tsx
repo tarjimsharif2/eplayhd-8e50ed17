@@ -850,49 +850,38 @@ const Admin = () => {
           <Tabs defaultValue="matches" className="space-y-4 sm:space-y-6">
             <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
               <TabsList className="bg-muted/50 p-1 flex flex-nowrap sm:flex-wrap h-auto min-w-max sm:min-w-0 gap-1">
-                <TabsTrigger value="matches" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Calendar className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Matches</span>
+                <TabsTrigger value="matches" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Matches
                 </TabsTrigger>
-                <TabsTrigger value="live-scores" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Play className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Live</span>
+                <TabsTrigger value="live-scores" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Live Scores
                 </TabsTrigger>
-                <TabsTrigger value="streaming" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Tv className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Stream</span>
+                <TabsTrigger value="streaming" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Streaming
                 </TabsTrigger>
-                <TabsTrigger value="teams" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Users className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Teams</span>
+                <TabsTrigger value="teams" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Teams
                 </TabsTrigger>
-                <TabsTrigger value="tournaments" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Trophy className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Tourneys</span>
+                <TabsTrigger value="tournaments" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Tournaments
                 </TabsTrigger>
-                <TabsTrigger value="points-table" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Table className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Points</span>
+                <TabsTrigger value="points-table" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Points Table
                 </TabsTrigger>
-                <TabsTrigger value="sports" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Gamepad2 className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Sports</span>
+                <TabsTrigger value="sports" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Sports
                 </TabsTrigger>
-                <TabsTrigger value="banners" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Image className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Banners</span>
+                <TabsTrigger value="banners" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Banners
                 </TabsTrigger>
-                <TabsTrigger value="pages" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Pages</span>
+                <TabsTrigger value="pages" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Pages
                 </TabsTrigger>
-                <TabsTrigger value="ads" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Megaphone className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Ads</span>
+                <TabsTrigger value="ads" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Ads
                 </TabsTrigger>
-                <TabsTrigger value="settings" className="gap-1 sm:gap-2 text-xs sm:text-sm whitespace-nowrap">
-                  <Settings className="w-3 h-3 sm:w-4 sm:h-4" />
-                  <span className="hidden xs:inline">Settings</span>
+                <TabsTrigger value="settings" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Settings
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -911,7 +900,7 @@ const Admin = () => {
                       Add Match
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+                  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>{editingMatch ? 'Edit Match' : 'Add New Match'}</DialogTitle>
                       <DialogDescription>
@@ -919,43 +908,45 @@ const Admin = () => {
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
-                      {/* Sport Selection */}
-                      <div className="space-y-2">
-                        <Label>Sport *</Label>
-                        <Select value={matchForm.sport_id || ''} onValueChange={(v) => setMatchForm({ ...matchForm, sport_id: v || null })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select sport" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {sports?.map((s) => (
-                              <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
+                      {/* Sport and Tournament Row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Sport *</Label>
+                          <Select value={matchForm.sport_id || ''} onValueChange={(v) => setMatchForm({ ...matchForm, sport_id: v || null })}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select sport" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {sports?.map((s) => (
+                                <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <Label>Tournament (optional)</Label>
+                          <SearchableSelect
+                            options={[
+                              { value: 'none', label: 'No Tournament' },
+                              ...(tournaments?.map((t) => ({
+                                value: t.id,
+                                label: t.name,
+                                sublabel: t.season,
+                                imageUrl: t.logo_url,
+                              })) || [])
+                            ]}
+                            value={matchForm.tournament_id || 'none'}
+                            onValueChange={(v) => setMatchForm({ ...matchForm, tournament_id: v === 'none' ? null : v })}
+                            placeholder="Select tournament (optional)"
+                            searchPlaceholder="Search tournaments..."
+                            emptyText="No tournaments found."
+                          />
+                        </div>
                       </div>
                       
-                      {/* Tournament (Optional) - Searchable */}
-                      <div className="space-y-2">
-                        <Label>Tournament (optional)</Label>
-                        <SearchableSelect
-                          options={[
-                            { value: 'none', label: 'No Tournament' },
-                            ...(tournaments?.map((t) => ({
-                              value: t.id,
-                              label: t.name,
-                              sublabel: t.season,
-                              imageUrl: t.logo_url,
-                            })) || [])
-                          ]}
-                          value={matchForm.tournament_id || 'none'}
-                          onValueChange={(v) => setMatchForm({ ...matchForm, tournament_id: v === 'none' ? null : v })}
-                          placeholder="Select tournament (optional)"
-                          searchPlaceholder="Search tournaments..."
-                          emptyText="No tournaments found."
-                        />
-                      </div>
-                      
-                      <div className="grid grid-cols-2 gap-4">
+                      {/* Teams Row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Team A *</Label>
                           <SearchableSelect
@@ -990,7 +981,8 @@ const Admin = () => {
                         </div>
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4">
+                      {/* Match Number and Status Row */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Match Number</Label>
                           <Input type="number" value={matchForm.match_number} onChange={(e) => setMatchForm({ ...matchForm, match_number: parseInt(e.target.value) || 1 })} />
@@ -1231,7 +1223,7 @@ const Admin = () => {
                           <Gamepad2 className="w-4 h-4" />
                           Cricket Match Format (optional)
                         </h4>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Match Format</Label>
                             <Select value={matchForm.match_format || ''} onValueChange={(v) => setMatchForm({ ...matchForm, match_format: v || null })}>
@@ -1362,7 +1354,7 @@ const Admin = () => {
                       </div>
 
                       {matchForm.status !== 'upcoming' && (
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Score A</Label>
                             <Input placeholder="e.g., 180/5" value={matchForm.score_a} onChange={(e) => setMatchForm({ ...matchForm, score_a: e.target.value })} />
@@ -2251,7 +2243,7 @@ const Admin = () => {
                         <Label>Link URL (optional)</Label>
                         <Input placeholder="https://..." value={bannerForm.link_url} onChange={(e) => setBannerForm({ ...bannerForm, link_url: e.target.value })} />
                       </div>
-                      <div className="grid grid-cols-2 gap-4">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Display Order</Label>
                           <Input type="number" value={bannerForm.display_order} onChange={(e) => setBannerForm({ ...bannerForm, display_order: parseInt(e.target.value) || 0 })} />
