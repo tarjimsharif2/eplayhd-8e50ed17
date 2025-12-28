@@ -357,46 +357,49 @@ Deno.serve(async (req) => {
           }
         }
         
-        // Also try to get extras from the 'extra' field in the event
+        // Also try to get extras and overs from the 'extra' field in the event
+        const extraFieldData: Record<string, any> = {};
         if (matchingEvent.extra && typeof matchingEvent.extra === 'object') {
           console.log('Extra field data:', JSON.stringify(matchingEvent.extra));
+          
+          // Parse the extra field to get total overs per innings
+          Object.entries(matchingEvent.extra).forEach(([inningsKey, inningsData]: [string, any]) => {
+            if (Array.isArray(inningsData) && inningsData.length > 0) {
+              const firstEntry = inningsData[0];
+              extraFieldData[inningsKey] = {
+                totalOvers: firstEntry.total_overs || null,
+                total: firstEntry.total || null,
+              };
+            }
+          });
         }
         
         console.log(`Parsed ${batsmen.length} batsmen, ${bowlers.length} bowlers, ${extras.length} extras entries`);
         
-        // Calculate overs from bowlers data if not provided by API
+        // Calculate overs - first try API fields, then extra field data
         let homeOvers = matchingEvent.event_home_overs || null;
         let awayOvers = matchingEvent.event_away_overs || null;
         
-        // If overs not available from API, try to calculate from scorecard
+        // If overs not available from API, try to get from extra field data
         if (!homeOvers || !awayOvers) {
-          // Get unique innings
-          const inningsData: Record<string, { team: string, totalOvers: number }> = {};
+          const homeTeamLower = (matchingEvent.event_home_team || '').toLowerCase();
+          const awayTeamLower = (matchingEvent.event_away_team || '').toLowerCase();
           
-          bowlers.forEach((bowler: any) => {
-            if (bowler.innings && bowler.overs) {
-              if (!inningsData[bowler.innings]) {
-                inningsData[bowler.innings] = { team: bowler.team, totalOvers: 0 };
-              }
-              // Parse overs (can be "4" or "4.3")
-              const overs = parseFloat(bowler.overs) || 0;
-              inningsData[bowler.innings].totalOvers += overs;
-            }
-          });
-          
-          // Assign overs to teams
-          Object.entries(inningsData).forEach(([innings, data]) => {
-            const teamLower = (data.team || '').toLowerCase();
-            const homeTeamLower = (matchingEvent.event_home_team || '').toLowerCase();
-            const awayTeamLower = (matchingEvent.event_away_team || '').toLowerCase();
+          // Look through extra field data to find overs for each team
+          Object.entries(extraFieldData).forEach(([inningsKey, data]) => {
+            const inningsTeam = inningsKey.replace(/ \d+ INN$/i, '').toLowerCase().trim();
             
-            // Bowlers' team is the fielding team, so swap: if home team is bowling, away team is batting
-            if (teamLower.includes(homeTeamLower.split(' ')[0]) || homeTeamLower.includes(teamLower.split(' ')[0])) {
-              // Home team bowled, so away team batted these overs
-              if (!awayOvers) awayOvers = data.totalOvers.toFixed(1);
-            } else if (teamLower.includes(awayTeamLower.split(' ')[0]) || awayTeamLower.includes(teamLower.split(' ')[0])) {
-              // Away team bowled, so home team batted these overs
-              if (!homeOvers) homeOvers = data.totalOvers.toFixed(1);
+            // Check if this innings belongs to home or away team
+            if (inningsTeam.includes(homeTeamLower.split(' ')[0]) || homeTeamLower.includes(inningsTeam.split(' ')[0])) {
+              // This innings is for the home team
+              if (!homeOvers && data.totalOvers) {
+                homeOvers = data.totalOvers;
+              }
+            } else if (inningsTeam.includes(awayTeamLower.split(' ')[0]) || awayTeamLower.includes(inningsTeam.split(' ')[0])) {
+              // This innings is for the away team
+              if (!awayOvers && data.totalOvers) {
+                awayOvers = data.totalOvers;
+              }
             }
           });
         }
