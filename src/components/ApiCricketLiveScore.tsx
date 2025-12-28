@@ -67,111 +67,121 @@ const ApiCricketLiveScore = ({
     return score.replace(/\s*\(\d+\.?\d*\s*ov\)/, '').trim();
   };
 
-  const FullScoreboardContent = () => (
-    <div className="space-y-6">
-      {/* Teams Header */}
-      <div className="grid grid-cols-2 gap-4">
-        {/* Home Team */}
-        <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
-          {(teamALogo || scoreData?.homeTeamLogo) && (
-            <img 
-              src={teamALogo || scoreData?.homeTeamLogo} 
-              alt={scoreData?.homeTeam} 
-              className="w-16 h-16 object-contain" 
-            />
-          )}
-          <span className="text-base font-semibold text-center">
-            {scoreData?.homeTeam}
-          </span>
-          <div className="text-center">
-            <span className="text-3xl font-bold text-primary">
-              {cleanScore(scoreData?.homeScore || '-')}
+  const renderFullScoreboard = () => {
+    if (!scoreData) {
+      return (
+        <div className="text-center py-8 text-muted-foreground">
+          No score data available
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-6">
+        {/* Teams Header */}
+        <div className="grid grid-cols-2 gap-4">
+          {/* Home Team */}
+          <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
+            {(teamALogo || scoreData.homeTeamLogo) && (
+              <img 
+                src={teamALogo || scoreData.homeTeamLogo} 
+                alt={scoreData.homeTeam} 
+                className="w-16 h-16 object-contain" 
+              />
+            )}
+            <span className="text-base font-semibold text-center">
+              {scoreData.homeTeam}
             </span>
-            {(homeOvers || scoreData?.homeRunRate) && (
-              <div className="flex flex-col gap-1 mt-1">
-                {homeOvers && (
-                  <span className="text-sm text-muted-foreground">({homeOvers} ov)</span>
-                )}
-                {scoreData?.homeRunRate && (
-                  <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
-                )}
-              </div>
+            <div className="text-center">
+              <span className="text-3xl font-bold text-primary">
+                {cleanScore(scoreData.homeScore || '-')}
+              </span>
+              {(homeOvers || scoreData.homeRunRate) && (
+                <div className="flex flex-col gap-1 mt-1">
+                  {homeOvers && (
+                    <span className="text-sm text-muted-foreground">({homeOvers} ov)</span>
+                  )}
+                  {scoreData.homeRunRate && (
+                    <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Away Team */}
+          <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
+            {(teamBLogo || scoreData.awayTeamLogo) && (
+              <img 
+                src={teamBLogo || scoreData.awayTeamLogo} 
+                alt={scoreData.awayTeam} 
+                className="w-16 h-16 object-contain" 
+              />
+            )}
+            <span className="text-base font-semibold text-center">
+              {scoreData.awayTeam}
+            </span>
+            <div className="text-center">
+              <span className="text-3xl font-bold text-primary">
+                {cleanScore(scoreData.awayScore || '-')}
+              </span>
+              {(awayOvers || scoreData.awayRunRate) && (
+                <div className="flex flex-col gap-1 mt-1">
+                  {awayOvers && (
+                    <span className="text-sm text-muted-foreground">({awayOvers} ov)</span>
+                  )}
+                  {scoreData.awayRunRate && (
+                    <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Match Info */}
+        <div className="space-y-3">
+          {scoreData.statusInfo && (
+            <div className="text-center p-3 bg-primary/10 rounded-lg">
+              <p className="text-sm font-medium">{scoreData.statusInfo}</p>
+            </div>
+          )}
+          
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            {scoreData.status && (
+              <Badge variant="outline">{scoreData.status}</Badge>
+            )}
+            {scoreData.eventType && (
+              <Badge variant="secondary">{scoreData.eventType}</Badge>
+            )}
+            {scoreData.eventLive && (
+              <Badge variant="destructive" className="animate-pulse">LIVE</Badge>
             )}
           </div>
-        </div>
 
-        {/* Away Team */}
-        <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
-          {(teamBLogo || scoreData?.awayTeamLogo) && (
-            <img 
-              src={teamBLogo || scoreData?.awayTeamLogo} 
-              alt={scoreData?.awayTeam} 
-              className="w-16 h-16 object-contain" 
-            />
+          {scoreData.venue && (
+            <p className="text-center text-sm text-muted-foreground">
+              Venue: {scoreData.venue}
+            </p>
           )}
-          <span className="text-base font-semibold text-center">
-            {scoreData?.awayTeam}
-          </span>
-          <div className="text-center">
-            <span className="text-3xl font-bold text-primary">
-              {cleanScore(scoreData?.awayScore || '-')}
-            </span>
-            {(awayOvers || scoreData?.awayRunRate) && (
-              <div className="flex flex-col gap-1 mt-1">
-                {awayOvers && (
-                  <span className="text-sm text-muted-foreground">({awayOvers} ov)</span>
-                )}
-                {scoreData?.awayRunRate && (
-                  <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
-      {/* Match Info */}
-      <div className="space-y-3">
-        {scoreData?.statusInfo && (
-          <div className="text-center p-3 bg-primary/10 rounded-lg">
-            <p className="text-sm font-medium">{scoreData.statusInfo}</p>
+          {scoreData.toss && (
+            <p className="text-center text-xs text-muted-foreground">
+              {scoreData.toss}
+            </p>
+          )}
+        </div>
+
+        {/* Last Updated */}
+        {scoreData.lastUpdated && (
+          <div className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1">
+            <Clock className="w-3 h-3" />
+            Last updated: {scoreData.lastUpdated.toLocaleTimeString()}
           </div>
         )}
-        
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {scoreData?.status && (
-            <Badge variant="outline">{scoreData.status}</Badge>
-          )}
-          {scoreData?.eventType && (
-            <Badge variant="secondary">{scoreData.eventType}</Badge>
-          )}
-          {scoreData?.eventLive && (
-            <Badge variant="destructive" className="animate-pulse">LIVE</Badge>
-          )}
-        </div>
-
-        {scoreData?.venue && (
-          <p className="text-center text-sm text-muted-foreground">
-            Venue: {scoreData.venue}
-          </p>
-        )}
-
-        {scoreData?.toss && (
-          <p className="text-center text-xs text-muted-foreground">
-            {scoreData.toss}
-          </p>
-        )}
       </div>
-
-      {/* Last Updated */}
-      {scoreData?.lastUpdated && (
-        <div className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1">
-          <Clock className="w-3 h-3" />
-          Last updated: {scoreData.lastUpdated.toLocaleTimeString()}
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   return (
     <motion.div
@@ -317,7 +327,7 @@ const ApiCricketLiveScore = ({
                       Full Scoreboard
                     </DialogTitle>
                   </DialogHeader>
-                  <FullScoreboardContent />
+                  {renderFullScoreboard()}
                 </DialogContent>
               </Dialog>
             </div>
