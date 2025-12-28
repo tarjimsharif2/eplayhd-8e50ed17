@@ -254,6 +254,7 @@ Deno.serve(async (req) => {
         // Parse scorecard for batting/bowling details
         let batsmen: any[] = [];
         let bowlers: any[] = [];
+        let extras: any[] = [];
         
         // Scorecard can be an object with innings keys (e.g., "Team 1 INN") or an array
         if (matchingEvent.scorecard) {
@@ -262,6 +263,17 @@ Deno.serve(async (req) => {
           // Handle scorecard as object with innings keys
           if (typeof scorecardData === 'object' && !Array.isArray(scorecardData)) {
             Object.entries(scorecardData).forEach(([inningsKey, players]: [string, any]) => {
+              // Track extras for this innings
+              let inningsExtras = {
+                wides: 0,
+                noballs: 0,
+                byes: 0,
+                legbyes: 0,
+                total: 0,
+                team: inningsKey.replace(/ \d+ INN$/, ''),
+                innings: inningsKey,
+              };
+              
               if (Array.isArray(players)) {
                 players.forEach((player: any) => {
                   if (player.type === 'Batsman') {
@@ -287,9 +299,29 @@ Deno.serve(async (req) => {
                       team: inningsKey.replace(/ \d+ INN$/, ''),
                       innings: inningsKey,
                     });
+                  } else if (player.type === 'Extra' || player.player?.toLowerCase().includes('extra')) {
+                    // Parse extras from the scorecard
+                    const extraRuns = parseInt(player.R) || 0;
+                    inningsExtras.total = extraRuns;
+                    // Try to extract breakdown if available from player info or status
+                    if (player.status) {
+                      const status = player.status.toLowerCase();
+                      const wdMatch = status.match(/wd[:\s]*(\d+)/i) || status.match(/wide[s]?[:\s]*(\d+)/i);
+                      const nbMatch = status.match(/nb[:\s]*(\d+)/i) || status.match(/no.?ball[s]?[:\s]*(\d+)/i);
+                      const bMatch = status.match(/\bb[:\s]*(\d+)/i) || status.match(/bye[s]?[:\s]*(\d+)/i);
+                      const lbMatch = status.match(/lb[:\s]*(\d+)/i) || status.match(/leg.?bye[s]?[:\s]*(\d+)/i);
+                      
+                      if (wdMatch) inningsExtras.wides = parseInt(wdMatch[1]) || 0;
+                      if (nbMatch) inningsExtras.noballs = parseInt(nbMatch[1]) || 0;
+                      if (bMatch) inningsExtras.byes = parseInt(bMatch[1]) || 0;
+                      if (lbMatch) inningsExtras.legbyes = parseInt(lbMatch[1]) || 0;
+                    }
                   }
                 });
               }
+              
+              // Add extras for this innings
+              extras.push(inningsExtras);
             });
           }
           // Handle scorecard as array (legacy format)
@@ -309,11 +341,28 @@ Deno.serve(async (req) => {
                   innings: innings.innings,
                 }))];
               }
+              // Handle extras in array format
+              if (innings.extras) {
+                extras.push({
+                  wides: innings.extras.wides || 0,
+                  noballs: innings.extras.noballs || 0,
+                  byes: innings.extras.byes || 0,
+                  legbyes: innings.extras.legbyes || 0,
+                  total: innings.extras.total || 0,
+                  team: innings.team,
+                  innings: innings.innings,
+                });
+              }
             });
           }
         }
         
-        console.log(`Parsed ${batsmen.length} batsmen, ${bowlers.length} bowlers`);
+        // Also try to get extras from the 'extra' field in the event
+        if (matchingEvent.extra && typeof matchingEvent.extra === 'object') {
+          console.log('Extra field data:', JSON.stringify(matchingEvent.extra));
+        }
+        
+        console.log(`Parsed ${batsmen.length} batsmen, ${bowlers.length} bowlers, ${extras.length} extras entries`);
         
         // Calculate overs from bowlers data if not provided by API
         let homeOvers = matchingEvent.event_home_overs || null;
@@ -380,6 +429,7 @@ Deno.serve(async (req) => {
               scorecard: matchingEvent.scorecard,
               batsmen,
               bowlers,
+              extras,
             }
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

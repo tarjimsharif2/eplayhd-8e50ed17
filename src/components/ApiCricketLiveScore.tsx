@@ -268,6 +268,14 @@ const ApiCricketLiveScore = ({
                             const totalSixes = team.batsmen.reduce((sum, b) => sum + (parseInt(b.sixes) || 0), 0);
                             const wickets = team.batsmen.filter(b => b.how_out && b.how_out !== 'not out').length;
                             const overs = (totalBalls / 6).toFixed(1);
+                            
+                            // Get extras data from scoreData if available for this team/innings
+                            const extrasData = scoreData?.extras?.find(e => 
+                              e.innings === team.label || 
+                              e.team?.toLowerCase().includes(team.name.toLowerCase().split(' ')[0])
+                            );
+                            const extras = extrasData || { wides: 0, noballs: 0, byes: 0, legbyes: 0, total: 0 };
+                            const extrasTotal = extras.total || (extras.wides + extras.noballs + extras.byes + extras.legbyes);
 
                             return (
                               <div className="rounded-lg border overflow-x-auto">
@@ -305,11 +313,20 @@ const ApiCricketLiveScore = ({
                                     ))}
                                   </TableBody>
                                   <TableFooter>
+                                    {/* Extras Row */}
+                                    <TableRow className="bg-muted/30">
+                                      <TableCell className="py-1.5 px-2 text-xs text-muted-foreground">
+                                        Extras (wd {extras.wides}, nb {extras.noballs}, b {extras.byes}, lb {extras.legbyes})
+                                      </TableCell>
+                                      <TableCell className="text-right text-xs py-1.5 px-1 font-medium">{extrasTotal}</TableCell>
+                                      <TableCell colSpan={4}></TableCell>
+                                    </TableRow>
+                                    {/* Total Row */}
                                     <TableRow className="bg-primary/10 font-semibold">
                                       <TableCell className="py-2 px-2 text-xs">
                                         Total ({wickets} wkts, {overs} ov)
                                       </TableCell>
-                                      <TableCell className="text-right text-xs py-2 px-1 font-bold">{totalRuns}</TableCell>
+                                      <TableCell className="text-right text-xs py-2 px-1 font-bold">{totalRuns + extrasTotal}</TableCell>
                                       <TableCell className="text-right text-xs py-2 px-1">{totalBalls}</TableCell>
                                       <TableCell className="text-right text-xs py-2 px-1">{totalFours}</TableCell>
                                       <TableCell className="text-right text-xs py-2 px-1">{totalSixes}</TableCell>
