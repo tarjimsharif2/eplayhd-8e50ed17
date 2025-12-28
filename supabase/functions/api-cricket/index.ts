@@ -191,12 +191,49 @@ Deno.serve(async (req) => {
         status = 'completed';
       }
 
+      // Extract overs from the extra field
+      let homeOvers: string | null = null;
+      let awayOvers: string | null = null;
+      
+      if (matchingEvent.extra && typeof matchingEvent.extra === 'object') {
+        const homeTeamLower = (matchingEvent.event_home_team || '').toLowerCase();
+        const awayTeamLower = (matchingEvent.event_away_team || '').toLowerCase();
+        
+        Object.entries(matchingEvent.extra).forEach(([inningsKey, inningsData]: [string, any]) => {
+          if (Array.isArray(inningsData) && inningsData.length > 0) {
+            const firstEntry = inningsData[0];
+            const inningsTeam = inningsKey.replace(/ \d+ INN$/i, '').toLowerCase().trim();
+            
+            if (inningsTeam.includes(homeTeamLower.split(' ')[0]) || homeTeamLower.includes(inningsTeam.split(' ')[0])) {
+              if (!homeOvers && firstEntry.total_overs) {
+                homeOvers = firstEntry.total_overs;
+              }
+            } else if (inningsTeam.includes(awayTeamLower.split(' ')[0]) || awayTeamLower.includes(inningsTeam.split(' ')[0])) {
+              if (!awayOvers && firstEntry.total_overs) {
+                awayOvers = firstEntry.total_overs;
+              }
+            }
+          }
+        });
+      }
+
+      // Format scores with overs
+      let scoreA = matchingEvent.event_home_final_result || null;
+      let scoreB = matchingEvent.event_away_final_result || null;
+      
+      if (scoreA && homeOvers) {
+        scoreA = `${scoreA} (${homeOvers} ov)`;
+      }
+      if (scoreB && awayOvers) {
+        scoreB = `${scoreB} (${awayOvers} ov)`;
+      }
+
       // Update match in database
       const { error: updateError } = await supabase
         .from('matches')
         .update({
-          score_a: matchingEvent.event_home_final_result || null,
-          score_b: matchingEvent.event_away_final_result || null,
+          score_a: scoreA,
+          score_b: scoreB,
           status: status,
           last_api_sync: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -218,8 +255,10 @@ Deno.serve(async (req) => {
             eventKey: matchingEvent.event_key,
             homeTeam: matchingEvent.event_home_team,
             awayTeam: matchingEvent.event_away_team,
-            homeScore: matchingEvent.event_home_final_result || '-',
-            awayScore: matchingEvent.event_away_final_result || '-',
+            homeScore: scoreA || '-',
+            awayScore: scoreB || '-',
+            homeOvers: homeOvers,
+            awayOvers: awayOvers,
             status: matchingEvent.event_status,
             statusInfo: matchingEvent.event_status_info,
           }
