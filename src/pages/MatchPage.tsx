@@ -197,17 +197,6 @@ const MatchPage = () => {
             </Card>
           </motion.div>
 
-          {/* Live Score from API Cricket */}
-          {match?.api_score_enabled && match.team_a && match.team_b && (
-            <ApiCricketLiveScore
-              teamAName={match.team_a.name}
-              teamBName={match.team_b.name}
-              teamALogo={match.team_a.logo_url}
-              teamBLogo={match.team_b.logo_url}
-              enabled={match.api_score_enabled}
-            />
-          )}
-
           {/* Server Selection */}
           {servers && servers.length > 0 && (
             <motion.div
@@ -235,6 +224,18 @@ const MatchPage = () => {
             </motion.div>
           )}
 
+          {/* Live Score from API Cricket - Now positioned under server selection */}
+          {match?.api_score_enabled && match.team_a && match.team_b && (
+            <ApiCricketLiveScore
+              teamAName={match.team_a.name}
+              teamBName={match.team_b.name}
+              teamALogo={match.team_a.logo_url}
+              teamBLogo={match.team_b.logo_url}
+              enabled={match.api_score_enabled}
+              matchId={match.id}
+              matchStatus={match.status}
+            />
+          )}
 
           {/* Score Card - Shows innings data (always shown for cricket) */}
           {sport?.name?.toLowerCase().includes('cricket') && teamA && teamB && (
