@@ -448,11 +448,11 @@ const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHea
 
 const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayerProps) => {
   const [useDirectEmbed, setUseDirectEmbed] = useState(false);
-  const [adBlockActive, setAdBlockActive] = useState(adBlockEnabled);
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
   const [adBlockRules, setAdBlockRules] = useState<AdBlockRules | null>(null);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
-  // Fetch ad-block rules from site settings
+  // Fetch ad-block rules from site settings if enabled
   useEffect(() => {
     const fetchRules = async () => {
       try {
@@ -469,10 +469,10 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
       }
     };
     
-    if (adBlockActive) {
+    if (adBlockEnabled) {
       fetchRules();
     }
-  }, [adBlockActive]);
+  }, [adBlockEnabled]);
 
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
@@ -500,10 +500,9 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
   const buildIframeSrc = () => {
     if (needsProxy) {
       const proxyUrl = buildIframeProxyUrl(url, headers);
-      if (adBlockActive) {
+      if (adBlockEnabled) {
         const urlObj = new URL(proxyUrl);
         urlObj.searchParams.set('adBlock', 'true');
-        // Pass custom rules if available
         if (adBlockRules) {
           urlObj.searchParams.set('adBlockRules', encodeURIComponent(JSON.stringify(adBlockRules)));
         }
@@ -518,6 +517,13 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
 
   return (
     <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
+      {/* Loading spinner */}
+      {isIframeLoading && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        </div>
+      )}
+      
       <iframe
         ref={iframeRef}
         src={iframeSrc}
@@ -530,6 +536,7 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
           padding: 0,
           overflow: 'hidden'
         }}
+        onLoad={() => setIsIframeLoading(false)}
         allowFullScreen
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         frameBorder="0"
@@ -537,23 +544,9 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
         referrerPolicy="unsafe-url"
       />
       
-      {/* Controls overlay */}
-      <div className="absolute bottom-2 right-2 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* Ad-block toggle */}
-        <button
-          onClick={() => setAdBlockActive(!adBlockActive)}
-          className={`px-2 py-1 text-xs rounded transition-colors ${
-            adBlockActive 
-              ? 'bg-green-600/80 hover:bg-green-600 text-white' 
-              : 'bg-black/70 hover:bg-black/90 text-white'
-          }`}
-          title={adBlockActive ? "Ad-block enabled (click to disable)" : "Enable ad-block"}
-        >
-          {adBlockActive ? "🛡️ On" : "🛡️ Off"}
-        </button>
-        
-        {/* Direct embed toggle for iframe streams with headers */}
-        {hasCustomHeaders(headers) && (type === 'iframe' || type === 'embed') && (
+      {/* Direct embed toggle for iframe streams with headers */}
+      {hasCustomHeaders(headers) && (type === 'iframe' || type === 'embed') && (
+        <div className="absolute bottom-2 right-2 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
           <button
             onClick={() => setUseDirectEmbed(!useDirectEmbed)}
             className="px-2 py-1 text-xs bg-black/70 hover:bg-black/90 text-white rounded transition-colors"
@@ -561,8 +554,8 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
           >
             {useDirectEmbed ? "Direct" : "Proxy"}
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
