@@ -31,9 +31,12 @@ export interface SiteSettings {
   facebook_app_id: string | null;
   telegram_link: string | null;
   social_links: Record<string, string>;
-  // Cricket API settings (sensitive - admin only)
+  // Cricket API settings (legacy - cricketdata.org)
   cricket_api_key: string | null;
   cricket_api_enabled: boolean;
+  // API Cricket settings (api-cricket.com)
+  api_cricket_key: string | null;
+  api_cricket_enabled: boolean;
   // SMTP settings
   smtp_host: string | null;
   smtp_port: number | null;

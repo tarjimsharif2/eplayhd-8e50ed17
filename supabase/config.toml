@@ -12,6 +12,9 @@ verify_jwt = false
 [functions.cricket-api]
 verify_jwt = false
 
+[functions.api-cricket]
+verify_jwt = false
+
 [functions.google-indexing]
 verify_jwt = false
 

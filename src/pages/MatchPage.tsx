@@ -8,6 +8,7 @@ import AdSlot from '@/components/AdSlot';
 import PlayingXI from '@/components/PlayingXI';
 import PointsTable from '@/components/PointsTable';
 import ManualScoreCard from '@/components/ManualScoreCard';
+import ApiCricketLiveScore from '@/components/ApiCricketLiveScore';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -195,6 +196,17 @@ const MatchPage = () => {
               </CardContent>
             </Card>
           </motion.div>
+
+          {/* Live Score from API Cricket */}
+          {match?.api_score_enabled && match.team_a && match.team_b && (
+            <ApiCricketLiveScore
+              teamAName={match.team_a.name}
+              teamBName={match.team_b.name}
+              teamALogo={match.team_a.logo_url}
+              teamBLogo={match.team_b.logo_url}
+              enabled={match.api_score_enabled}
+            />
+          )}
 
           {/* Server Selection */}
           {servers && servers.length > 0 && (

@@ -483,6 +483,8 @@ export type Database = {
           ad_block_rules: Json | null
           ads_enabled: boolean | null
           ads_txt_content: string | null
+          api_cricket_enabled: boolean | null
+          api_cricket_key: string | null
           canonical_url: string | null
           created_at: string
           cricket_api_enabled: boolean | null
@@ -525,6 +527,8 @@ export type Database = {
           ad_block_rules?: Json | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
+          api_cricket_enabled?: boolean | null
+          api_cricket_key?: string | null
           canonical_url?: string | null
           created_at?: string
           cricket_api_enabled?: boolean | null
@@ -567,6 +571,8 @@ export type Database = {
           ad_block_rules?: Json | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
+          api_cricket_enabled?: boolean | null
+          api_cricket_key?: string | null
           canonical_url?: string | null
           created_at?: string
           cricket_api_enabled?: boolean | null
@@ -612,6 +618,7 @@ export type Database = {
           ad_block_rules: Json | null
           ads_enabled: boolean | null
           ads_txt_content: string | null
+          api_cricket_enabled: boolean | null
           canonical_url: string | null
           created_at: string | null
           cricket_api_enabled: boolean | null
@@ -646,6 +653,7 @@ export type Database = {
           ad_block_rules?: Json | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
+          api_cricket_enabled?: boolean | null
           canonical_url?: string | null
           created_at?: string | null
           cricket_api_enabled?: boolean | null
@@ -680,6 +688,7 @@ export type Database = {
           ad_block_rules?: Json | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
+          api_cricket_enabled?: boolean | null
           canonical_url?: string | null
           created_at?: string | null
           cricket_api_enabled?: boolean | null

@@ -24,7 +24,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe, CloudDownload } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe, CloudDownload, Radio } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
@@ -214,9 +214,12 @@ const Admin = () => {
     twitter_handle: '',
     facebook_app_id: '',
     telegram_link: '',
-    // Cricket API settings
+    // Cricket API settings (legacy)
     cricket_api_key: '',
     cricket_api_enabled: true,
+    // API Cricket settings (api-cricket.com)
+    api_cricket_key: '',
+    api_cricket_enabled: false,
     // Ads.txt
     ads_txt_content: '',
     // Custom code injection
@@ -253,6 +256,8 @@ const Admin = () => {
         telegram_link: siteSettings.telegram_link || '',
         cricket_api_key: siteSettings.cricket_api_key || '',
         cricket_api_enabled: siteSettings.cricket_api_enabled !== false,
+        api_cricket_key: (siteSettings as any).api_cricket_key || '',
+        api_cricket_enabled: (siteSettings as any).api_cricket_enabled || false,
         ads_txt_content: (siteSettings as any).ads_txt_content || '',
         custom_header_code: siteSettings.custom_header_code || '',
         custom_footer_code: siteSettings.custom_footer_code || '',
@@ -1570,6 +1575,21 @@ const Admin = () => {
                           </div>
                         </div>
                       )}
+
+                      {/* Live Score API Toggle */}
+                      <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm bg-muted/20">
+                        <div className="space-y-0.5">
+                          <Label className="text-base font-medium flex items-center gap-2">
+                            <Radio className="w-4 h-4 text-live" />
+                            Show Live Score
+                          </Label>
+                          <p className="text-sm text-muted-foreground">Display live score from API on the match stream page</p>
+                        </div>
+                        <Switch
+                          checked={matchForm.api_score_enabled}
+                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, api_score_enabled: checked })}
+                        />
+                      </div>
 
                     </div>
                     <DialogFooter>
@@ -2909,17 +2929,62 @@ const Admin = () => {
                     </CardContent>
                   </Card>
 
-                  {/* Cricket API Settings */}
+                  {/* API Cricket Settings (api-cricket.com) */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Cricket Score API</CardTitle>
-                      <CardDescription>Configure live cricket score updates from CricketData.org API</CardDescription>
+                      <CardTitle className="flex items-center gap-2">
+                        <Radio className="w-5 h-5 text-live" />
+                        Live Score API (api-cricket.com)
+                      </CardTitle>
+                      <CardDescription>Configure live cricket score display on match stream pages</CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-6">
                       <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
                         <div className="space-y-0.5">
-                          <Label className="text-base font-medium">Enable Live Scores</Label>
-                          <p className="text-sm text-muted-foreground">Globally enable/disable live score updates from API</p>
+                          <Label className="text-base font-medium">Enable API Cricket</Label>
+                          <p className="text-sm text-muted-foreground">Globally enable/disable live score display from api-cricket.com</p>
+                        </div>
+                        <Switch
+                          checked={siteSettingsForm.api_cricket_enabled}
+                          onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, api_cricket_enabled: checked })}
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label>API Cricket Key</Label>
+                        <Input 
+                          type="password"
+                          placeholder="Enter your API key from api-cricket.com" 
+                          value={siteSettingsForm.api_cricket_key} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, api_cricket_key: e.target.value })} 
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Get your API key from{' '}
+                          <a href="https://api-cricket.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                            api-cricket.com
+                          </a>
+                        </p>
+                      </div>
+
+                      <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                        <p className="text-xs text-muted-foreground">
+                          <strong>Note:</strong> Enable live scores per-match using the "Show Live Score" toggle in each match's edit dialog.
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+
+                  {/* Legacy Cricket API Settings - Keep for backward compatibility */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Cricket Score API (Legacy)</CardTitle>
+                      <CardDescription>Configure live cricket score updates from CricketData.org API (legacy integration)</CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                        <div className="space-y-0.5">
+                          <Label className="text-base font-medium">Enable Legacy API</Label>
+                          <p className="text-sm text-muted-foreground">Enable/disable legacy CricketData.org integration</p>
                         </div>
                         <Switch
                           checked={siteSettingsForm.cricket_api_enabled}

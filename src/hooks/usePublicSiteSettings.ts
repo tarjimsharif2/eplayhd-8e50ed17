@@ -33,6 +33,8 @@ export interface PublicSiteSettings {
   social_links: Record<string, string>;
   // Cricket API enabled flag (but NOT the key)
   cricket_api_enabled: boolean;
+  // API Cricket enabled flag (api-cricket.com)
+  api_cricket_enabled: boolean;
   // Custom code injection
   custom_header_code: string | null;
   custom_footer_code: string | null;
