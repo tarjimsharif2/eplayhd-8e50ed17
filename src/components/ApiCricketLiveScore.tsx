@@ -341,29 +341,6 @@ const ApiCricketLiveScore = ({
                                       </TableRow>
                                     ))}
                                   </TableBody>
-                                  <TableFooter>
-                                    {/* Extras Row - only show if there are extras */}
-                                    {extrasTotal > 0 && (
-                                      <TableRow className="bg-muted/30">
-                                        <TableCell className="py-1.5 px-2 text-xs text-muted-foreground">
-                                          Extras
-                                        </TableCell>
-                                        <TableCell className="text-right text-xs py-1.5 px-1 font-medium">{extrasTotal}</TableCell>
-                                        <TableCell colSpan={4}></TableCell>
-                                      </TableRow>
-                                    )}
-                                    {/* Total Row */}
-                                    <TableRow className="bg-primary/10 font-semibold">
-                                      <TableCell className="py-2 px-2 text-xs">
-                                        Total ({wickets} wkts, {overs} ov)
-                                      </TableCell>
-                                      <TableCell className="text-right text-xs py-2 px-1 font-bold">{totalRuns + extrasTotal}</TableCell>
-                                      <TableCell className="text-right text-xs py-2 px-1">{totalBalls}</TableCell>
-                                      <TableCell className="text-right text-xs py-2 px-1">{totalFours}</TableCell>
-                                      <TableCell className="text-right text-xs py-2 px-1">{totalSixes}</TableCell>
-                                      <TableCell className="text-right text-xs py-2 px-1"></TableCell>
-                                    </TableRow>
-                                  </TableFooter>
                                 </Table>
                               </div>
                             );
