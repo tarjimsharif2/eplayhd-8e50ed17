@@ -26,3 +26,6 @@ verify_jwt = false
 
 [functions.auto-sync-scores]
 verify_jwt = false
+
+[functions.sync-api-scores]
+verify_jwt = false

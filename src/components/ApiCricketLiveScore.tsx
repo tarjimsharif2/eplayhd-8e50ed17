@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 import { useApiCricketScore, BatsmanData, BowlerData } from '@/hooks/useApiCricketScore';
-import { RefreshCw, Radio, Clock, AlertCircle, Trophy, User, Target, ChevronDown, ChevronUp } from 'lucide-react';
+import { Radio, Clock, AlertCircle, Trophy, User, Target, ChevronDown, ChevronUp, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ApiCricketLiveScoreProps {
@@ -342,15 +342,6 @@ const ApiCricketLiveScore = ({
                   {scoreData.lastUpdated.toLocaleTimeString()}
                 </span>
               )}
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => refetch()}
-                disabled={isLoading}
-                className="h-7 w-7 p-0"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-              </Button>
             </div>
           </div>
         </CardHeader>

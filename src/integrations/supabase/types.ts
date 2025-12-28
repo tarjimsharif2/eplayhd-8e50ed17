@@ -128,6 +128,86 @@ export type Database = {
         }
         Relationships: []
       }
+      match_api_scores: {
+        Row: {
+          api_event_key: string | null
+          away_overs: string | null
+          away_score: string | null
+          away_team: string | null
+          batsmen: Json | null
+          bowlers: Json | null
+          created_at: string
+          event_live: boolean | null
+          extras: Json | null
+          home_overs: string | null
+          home_score: string | null
+          home_team: string | null
+          id: string
+          last_synced_at: string
+          match_id: string
+          scorecard: Json | null
+          status: string | null
+          status_info: string | null
+          toss: string | null
+          updated_at: string
+          venue: string | null
+        }
+        Insert: {
+          api_event_key?: string | null
+          away_overs?: string | null
+          away_score?: string | null
+          away_team?: string | null
+          batsmen?: Json | null
+          bowlers?: Json | null
+          created_at?: string
+          event_live?: boolean | null
+          extras?: Json | null
+          home_overs?: string | null
+          home_score?: string | null
+          home_team?: string | null
+          id?: string
+          last_synced_at?: string
+          match_id: string
+          scorecard?: Json | null
+          status?: string | null
+          status_info?: string | null
+          toss?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Update: {
+          api_event_key?: string | null
+          away_overs?: string | null
+          away_score?: string | null
+          away_team?: string | null
+          batsmen?: Json | null
+          bowlers?: Json | null
+          created_at?: string
+          event_live?: boolean | null
+          extras?: Json | null
+          home_overs?: string | null
+          home_score?: string | null
+          home_team?: string | null
+          id?: string
+          last_synced_at?: string
+          match_id?: string
+          scorecard?: Json | null
+          status?: string | null
+          status_info?: string | null
+          toss?: string | null
+          updated_at?: string
+          venue?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "match_api_scores_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: true
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       match_innings: {
         Row: {
           batting_team_id: string
