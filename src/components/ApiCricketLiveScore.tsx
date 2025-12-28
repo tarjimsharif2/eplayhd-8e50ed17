@@ -62,13 +62,22 @@ const ApiCricketLiveScore = ({
     return oversMatch ? oversMatch[1] : null;
   };
 
-  // Get overs - first from API field, then try parsing from score
-  const homeOvers = scoreData?.homeOvers || (scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null);
-  const awayOvers = scoreData?.awayOvers || (scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null);
+  // Get raw overs - first from API field, then try parsing from score
+  const rawHomeOvers = scoreData?.homeOvers || (scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null);
+  const rawAwayOvers = scoreData?.awayOvers || (scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null);
 
   // Clean score to just show runs/wickets
   const cleanScore = (score: string) => {
     return score.replace(/\s*\(\d+\.?\d*\s*ov\)/, '').trim();
+  };
+
+  // Helper function to determine if teamA matches the API's home team
+  const getTeamAMatchesHome = () => {
+    if (!scoreData) return true;
+    const homeTeamNameLower = scoreData.homeTeam?.toLowerCase() || '';
+    const teamANameLower = teamAName?.toLowerCase() || '';
+    return homeTeamNameLower.includes(teamANameLower.split(' ')[0]) || 
+           teamANameLower.includes(homeTeamNameLower.split(' ')[0]);
   };
 
   const renderFullScoreboard = () => {
@@ -90,14 +99,7 @@ const ApiCricketLiveScore = ({
           {/* Teams Header - Match logos with team names correctly */}
           {(() => {
             // Determine which logo belongs to which team by comparing names
-            const homeTeamNameLower = scoreData.homeTeam?.toLowerCase() || '';
-            const awayTeamNameLower = scoreData.awayTeam?.toLowerCase() || '';
-            const teamANameLower = teamAName?.toLowerCase() || '';
-            const teamBNameLower = teamBName?.toLowerCase() || '';
-            
-            // Check if teamA matches homeTeam or awayTeam
-            const teamAMatchesHome = homeTeamNameLower.includes(teamANameLower.split(' ')[0]) || 
-                                      teamANameLower.includes(homeTeamNameLower.split(' ')[0]);
+            const teamAMatchesHome = getTeamAMatchesHome();
             
             // Assign logos correctly based on team name matching
             const homeLogo = teamAMatchesHome 
@@ -106,6 +108,10 @@ const ApiCricketLiveScore = ({
             const awayLogo = teamAMatchesHome 
               ? (teamBLogo || scoreData.awayTeamLogo) 
               : (teamALogo || scoreData.awayTeamLogo);
+
+            // Assign overs correctly based on team name matching  
+            const homeOvers = rawHomeOvers;
+            const awayOvers = rawAwayOvers;
 
             return (
               <div className="grid grid-cols-2 gap-4">
@@ -491,6 +497,10 @@ const ApiCricketLiveScore = ({
                 const awayLogo = teamAMatchesHome 
                   ? (teamBLogo || scoreData.awayTeamLogo) 
                   : (teamALogo || scoreData.awayTeamLogo);
+
+                // Assign overs correctly
+                const homeOvers = rawHomeOvers;
+                const awayOvers = rawAwayOvers;
 
                 return (
                   <div className="grid grid-cols-2 gap-4">
