@@ -633,11 +633,20 @@ const Admin = () => {
       }
 
       if (!data.success) {
-        toast({
-          title: "Sync failed",
-          description: data.error || "Failed to sync match data",
-          variant: "destructive"
-        });
+        // Check if it's a connection issue
+        if (data.error?.includes('connection') || data.error?.includes('Connection')) {
+          toast({
+            title: "CricAPI temporarily unavailable",
+            description: "The cricket data service is temporarily unreachable. Please update scores manually or try again later.",
+            variant: "destructive"
+          });
+        } else {
+          toast({
+            title: "Sync failed",
+            description: data.error || "Failed to sync match data",
+            variant: "destructive"
+          });
+        }
         return;
       }
 
@@ -650,11 +659,20 @@ const Admin = () => {
       window.location.reload();
     } catch (error: any) {
       console.error('Sync error:', error);
-      toast({
-        title: "Sync failed",
-        description: error.message || "Failed to sync from CricAPI",
-        variant: "destructive"
-      });
+      // Check for 503 (service unavailable) or connection errors
+      if (error.message?.includes('503') || error.message?.includes('connection') || error.message?.includes('Connection')) {
+        toast({
+          title: "CricAPI temporarily unavailable",
+          description: "The external cricket data service cannot be reached. Please enter scores manually using the Edit button.",
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "Sync failed",
+          description: error.message || "Failed to sync from CricAPI",
+          variant: "destructive"
+        });
+      }
     } finally {
       setSyncingMatchId(null);
     }
