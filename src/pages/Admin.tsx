@@ -619,17 +619,31 @@ const Admin = () => {
     });
   };
 
-  // Sync match from CricAPI
+  // Sync match from API Cricket (api-cricket.com)
   
-  const handleSyncFromCricAPI = async (match: Match) => {
+  const handleSyncFromApiCricket = async (match: Match) => {
     if (syncingMatchId) return;
+    
+    const teamA = teams?.find(t => t.id === match.team_a_id);
+    const teamB = teams?.find(t => t.id === match.team_b_id);
+    
+    if (!teamA || !teamB) {
+      toast({
+        title: "Sync failed",
+        description: "Could not find team information",
+        variant: "destructive"
+      });
+      return;
+    }
     
     setSyncingMatchId(match.id);
     try {
-      const { data, error } = await supabase.functions.invoke('cricket-api', {
+      const { data, error } = await supabase.functions.invoke('api-cricket', {
         body: {
           action: 'syncMatch',
-          matchId: match.id
+          matchId: match.id,
+          teamAName: teamA.name,
+          teamBName: teamB.name
         }
       });
 
@@ -638,46 +652,37 @@ const Admin = () => {
       }
 
       if (!data.success) {
-        // Check if it's a connection issue
-        if (data.error?.includes('connection') || data.error?.includes('Connection')) {
-          toast({
-            title: "CricAPI temporarily unavailable",
-            description: "The cricket data service is temporarily unreachable. Please update scores manually or try again later.",
-            variant: "destructive"
-          });
-        } else {
-          toast({
-            title: "Sync failed",
-            description: data.error || "Failed to sync match data",
-            variant: "destructive"
-          });
-        }
+        toast({
+          title: "Sync failed",
+          description: data.error || "Failed to sync match data",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!data.match) {
+        toast({
+          title: "No match found",
+          description: "Could not find a matching live event for this match",
+          variant: "destructive"
+        });
         return;
       }
 
       toast({
         title: "Match synced",
-        description: `Status: ${data.data.status}, Score: ${data.data.score_a || 'N/A'} vs ${data.data.score_b || 'N/A'}`,
+        description: `Score: ${data.match.homeScore} vs ${data.match.awayScore} - ${data.match.statusInfo || data.match.status}`,
       });
       
       // Refresh matches data
       window.location.reload();
     } catch (error: any) {
       console.error('Sync error:', error);
-      // Check for 503 (service unavailable) or connection errors
-      if (error.message?.includes('503') || error.message?.includes('connection') || error.message?.includes('Connection')) {
-        toast({
-          title: "CricAPI temporarily unavailable",
-          description: "The external cricket data service cannot be reached. Please enter scores manually using the Edit button.",
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "Sync failed",
-          description: error.message || "Failed to sync from CricAPI",
-          variant: "destructive"
-        });
-      }
+      toast({
+        title: "Sync failed",
+        description: error.message || "Failed to sync from API Cricket",
+        variant: "destructive"
+      });
     } finally {
       setSyncingMatchId(null);
     }
@@ -1782,9 +1787,9 @@ const Admin = () => {
                                   <Button 
                                     variant="ghost" 
                                     size="icon" 
-                                    onClick={() => handleSyncFromCricAPI(match)} 
+                                    onClick={() => handleSyncFromApiCricket(match)} 
                                     disabled={syncingMatchId === match.id}
-                                    title="Sync from CricAPI"
+                                    title="Sync from API Cricket"
                                   >
                                     {syncingMatchId === match.id ? (
                                       <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
@@ -2985,42 +2990,6 @@ const Admin = () => {
                           className="font-mono text-xs"
                         />
                         <p className="text-xs text-muted-foreground">Code will be injected before the closing &lt;/body&gt; tag. Use for chat widgets, tracking scripts, etc.</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* Legacy Cricket API Settings - Keep for backward compatibility */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle>Cricket Score API (Legacy)</CardTitle>
-                      <CardDescription>Configure live cricket score updates from CricketData.org API (legacy integration)</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
-                        <div className="space-y-0.5">
-                          <Label className="text-base font-medium">Enable Legacy API</Label>
-                          <p className="text-sm text-muted-foreground">Enable/disable legacy CricketData.org integration</p>
-                        </div>
-                        <Switch
-                          checked={siteSettingsForm.cricket_api_enabled}
-                          onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, cricket_api_enabled: checked })}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>Cricket API Key</Label>
-                        <Input 
-                          type="password"
-                          placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" 
-                          value={siteSettingsForm.cricket_api_key} 
-                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, cricket_api_key: e.target.value })} 
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Get your free API key from{' '}
-                          <a href="https://cricketdata.org/signup.aspx" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                            cricketdata.org
-                          </a>
-                        </p>
                       </div>
                     </CardContent>
                   </Card>

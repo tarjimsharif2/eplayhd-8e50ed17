@@ -78,12 +78,12 @@ Deno.serve(async (req) => {
 
     const apiKey = settings.api_cricket_key;
     const body = await req.json();
-    const { action, teamAName, teamBName, eventKey } = body;
+    const { action, teamAName, teamBName, eventKey, matchId } = body;
 
     console.log(`API Cricket request - Action: ${action}, Teams: ${teamAName} vs ${teamBName}`);
 
-    if (action === 'getLiveScore') {
-      // Fetch live events for the current date
+    // Helper to find matching event
+    const findMatchingEvent = async () => {
       const today = new Date().toISOString().split('T')[0];
       const url = `https://apiv2.api-cricket.com/cricket/?method=get_events&APIkey=${apiKey}&date_start=${today}&date_stop=${today}`;
       
@@ -98,23 +98,16 @@ Deno.serve(async (req) => {
 
       if (!response.ok) {
         console.error(`API Cricket error: ${response.status} ${response.statusText}`);
-        return new Response(
-          JSON.stringify({ success: false, error: `API request failed: ${response.status}` }),
-          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return null;
       }
 
       const data = await response.json();
 
       if (!data.success || data.success !== 1) {
         console.error('API Cricket returned unsuccessful response:', data);
-        return new Response(
-          JSON.stringify({ success: false, error: data.error || 'API returned error' }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        return null;
       }
 
-      // Find matching match by team names
       const events = data.result || [];
       const normalizeTeamName = (name: string) => 
         name?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
@@ -122,7 +115,7 @@ Deno.serve(async (req) => {
       const teamANormalized = normalizeTeamName(teamAName);
       const teamBNormalized = normalizeTeamName(teamBName);
 
-      const matchingEvent = events.find((event: any) => {
+      return events.find((event: any) => {
         const homeNormalized = normalizeTeamName(event.event_home_team);
         const awayNormalized = normalizeTeamName(event.event_away_team);
         
@@ -133,6 +126,67 @@ Deno.serve(async (req) => {
            awayNormalized.includes(teamBNormalized) || teamBNormalized.includes(awayNormalized))
         );
       });
+    };
+
+    if (action === 'syncMatch' && matchId) {
+      // Sync match scores from API to database
+      const matchingEvent = await findMatchingEvent();
+      
+      if (!matchingEvent) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'No matching event found' }),
+          { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Found matching event for sync: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);
+
+      // Determine match status
+      let status: 'upcoming' | 'live' | 'completed' = 'upcoming';
+      if (matchingEvent.event_live === '1') {
+        status = 'live';
+      } else if (matchingEvent.event_status === 'Finished' || matchingEvent.event_final_result) {
+        status = 'completed';
+      }
+
+      // Update match in database
+      const { error: updateError } = await supabase
+        .from('matches')
+        .update({
+          score_a: matchingEvent.event_home_final_result || null,
+          score_b: matchingEvent.event_away_final_result || null,
+          status: status,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', matchId);
+
+      if (updateError) {
+        console.error('Error updating match:', updateError);
+        return new Response(
+          JSON.stringify({ success: false, error: 'Failed to update match in database' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({
+          success: true,
+          match: {
+            eventKey: matchingEvent.event_key,
+            homeTeam: matchingEvent.event_home_team,
+            awayTeam: matchingEvent.event_away_team,
+            homeScore: matchingEvent.event_home_final_result || '-',
+            awayScore: matchingEvent.event_away_final_result || '-',
+            status: matchingEvent.event_status,
+            statusInfo: matchingEvent.event_status_info,
+          }
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (action === 'getLiveScore') {
+      const matchingEvent = await findMatchingEvent();
 
       if (matchingEvent) {
         console.log(`Found matching event: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);
