@@ -294,7 +294,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
 
   if (error) {
     return (
-      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
         <AlertCircle className="w-10 h-10 text-destructive" />
         <p className="text-destructive text-center px-4">{error}</p>
       </div>
@@ -302,7 +302,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   }
 
   return (
-    <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden group">
+    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center z-10 bg-black">
           <Loader2 className="w-10 h-10 text-primary animate-spin" />
@@ -420,7 +420,7 @@ const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHea
 
   if (isExtracting) {
     return (
-      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-10 h-10 text-primary animate-spin" />
         <p className="text-muted-foreground text-sm">Extracting stream URL...</p>
       </div>
@@ -429,7 +429,7 @@ const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHea
 
   if (error) {
     return (
-      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
         <AlertCircle className="w-10 h-10 text-destructive" />
         <p className="text-destructive text-center px-4">{error}</p>
         <p className="text-muted-foreground text-xs text-center px-4">
@@ -477,7 +477,7 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
     return (
-      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex items-center justify-center">
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center">
         <p className="text-destructive">Invalid streaming URL</p>
       </div>
     );
@@ -517,7 +517,7 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
   const iframeSrc = buildIframeSrc();
 
   return (
-    <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden group">
+    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
       <iframe
         ref={iframeRef}
         src={iframeSrc}
