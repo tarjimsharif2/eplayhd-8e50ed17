@@ -185,21 +185,29 @@ const ApiCricketLiveScore = ({
               scoreData.bowlers?.forEach(b => b.innings && inningsSet.add(b.innings));
               const innings = Array.from(inningsSet);
 
-              // Build team data
+              // Build team data with scores
               const getTeamData = () => {
                 if (innings.length > 0) {
-                  return innings.map(inning => ({
-                    name: inning.replace(/ \d+ INN$/, ''),
-                    label: inning.match(/\d+ INN/)?.[0] || 'Innings',
-                    batsmen: scoreData.batsmen?.filter(b => b.innings === inning) || [],
-                    bowlers: scoreData.bowlers?.filter(b => b.innings === inning) || [],
-                  }));
+                  return innings.map((inning, i) => {
+                    const teamName = inning.replace(/ \d+ INN$/, '');
+                    // Try to match team score
+                    const isHomeTeam = teamName.toLowerCase().includes(scoreData.homeTeam?.toLowerCase().split(' ')[0] || '');
+                    const score = isHomeTeam ? scoreData.homeScore : scoreData.awayScore;
+                    return {
+                      name: teamName,
+                      label: inning.match(/\d+ INN/)?.[0] || 'Innings',
+                      score: score || '',
+                      batsmen: scoreData.batsmen?.filter(b => b.innings === inning) || [],
+                      bowlers: scoreData.bowlers?.filter(b => b.innings === inning) || [],
+                    };
+                  });
                 }
                 // Fallback: use team names
                 return [
                   {
                     name: scoreData.homeTeam || 'Team A',
                     label: '1st Innings',
+                    score: scoreData.homeScore || '',
                     batsmen: scoreData.batsmen?.filter(b => 
                       b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '') || !b.team
                     ) || [],
@@ -210,6 +218,7 @@ const ApiCricketLiveScore = ({
                   {
                     name: scoreData.awayTeam || 'Team B',
                     label: '2nd Innings',
+                    score: scoreData.awayScore || '',
                     batsmen: scoreData.batsmen?.filter(b => 
                       b.team?.toLowerCase().includes(scoreData.awayTeam?.toLowerCase() || '')
                     ) || [],
@@ -237,11 +246,16 @@ const ApiCricketLiveScore = ({
                     <TabsContent key={idx} value={`team-${idx}`} className="mt-3 space-y-4">
                       {/* Batting Section */}
                       <div className="space-y-2">
-                        <div className="flex items-center gap-2">
-                          <User className="w-4 h-4 text-primary" />
-                          <span className="font-semibold text-sm">Batting</span>
-                          {team.label && (
-                            <Badge variant="outline" className="text-[10px]">{team.label}</Badge>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <User className="w-4 h-4 text-primary" />
+                            <span className="font-semibold text-sm">Batting</span>
+                            {team.label && (
+                              <Badge variant="outline" className="text-[10px]">{team.label}</Badge>
+                            )}
+                          </div>
+                          {team.score && (
+                            <span className="text-sm font-bold text-primary">{team.score}</span>
                           )}
                         </div>
                         {team.batsmen.length > 0 ? (
