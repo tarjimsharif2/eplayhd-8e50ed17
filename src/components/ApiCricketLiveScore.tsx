@@ -219,13 +219,15 @@ const ApiCricketLiveScore = ({
                 if (innings.length > 0) {
                   return innings.map((inning, i) => {
                     const teamName = inning.replace(/ \d+ INN$/, '');
-                    // Try to match team score
+                    // Try to match team score and overs
                     const isHomeTeam = teamName.toLowerCase().includes(scoreData.homeTeam?.toLowerCase().split(' ')[0] || '');
                     const score = isHomeTeam ? scoreData.homeScore : scoreData.awayScore;
+                    const overs = isHomeTeam ? rawHomeOvers : rawAwayOvers;
                     return {
                       name: teamName,
                       label: inning.match(/\d+ INN/)?.[0] || 'Innings',
                       score: score || '',
+                      overs: overs || null,
                       batsmen: scoreData.batsmen?.filter(b => b.innings === inning) || [],
                       bowlers: scoreData.bowlers?.filter(b => b.innings === inning) || [],
                     };
@@ -237,6 +239,7 @@ const ApiCricketLiveScore = ({
                     name: scoreData.homeTeam || 'Team A',
                     label: '1st Innings',
                     score: scoreData.homeScore || '',
+                    overs: rawHomeOvers || null,
                     batsmen: scoreData.batsmen?.filter(b => 
                       b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '') || !b.team
                     ) || [],
@@ -248,6 +251,7 @@ const ApiCricketLiveScore = ({
                     name: scoreData.awayTeam || 'Team B',
                     label: '2nd Innings',
                     score: scoreData.awayScore || '',
+                    overs: rawAwayOvers || null,
                     batsmen: scoreData.batsmen?.filter(b => 
                       b.team?.toLowerCase().includes(scoreData.awayTeam?.toLowerCase() || '')
                     ) || [],
@@ -283,12 +287,10 @@ const ApiCricketLiveScore = ({
                               <Badge variant="outline" className="text-[10px]">{team.label}</Badge>
                             )}
                           </div>
-                          {team.score && !team.score.includes('(') && (
-                            <span className="text-sm font-bold text-primary">{team.score}</span>
-                          )}
-                          {team.score && team.score.includes('(') && (
-                            <span className="text-sm font-bold text-primary">{team.score.split('(')[0].trim()}</span>
-                          )}
+                          <span className="text-sm font-bold text-primary">
+                            {cleanScore(team.score || '-')}
+                            {team.overs && ` (${team.overs} ov)`}
+                          </span>
                         </div>
                         {team.batsmen.length > 0 ? (
                           (() => {
