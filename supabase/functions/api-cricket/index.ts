@@ -316,7 +316,16 @@ Deno.serve(async (req) => {
               };
               
               if (Array.isArray(players)) {
+                // Log all player types for debugging
+                const playerTypes = players.map((p: any) => p.type).filter((t: string) => t);
+                console.log(`Innings ${inningsKey} - Player types found: ${[...new Set(playerTypes)].join(', ')}`);
+                
                 players.forEach((player: any) => {
+                  // Log each player for debugging
+                  if (player.type !== 'Batsman' && player.type !== 'Bowler') {
+                    console.log(`Non-standard player entry: type=${player.type}, player=${player.player}, status=${player.status}`);
+                  }
+                  
                   if (player.type === 'Batsman') {
                     batsmen.push({
                       player: player.player,

@@ -6,8 +6,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { useApiCricketScore, BatsmanData, BowlerData, FallOfWicketData, DidNotBatData } from '@/hooks/useApiCricketScore';
-import { RefreshCw, Radio, Clock, AlertCircle, Trophy, User, Target, ChevronDown, ChevronUp, AlertTriangle, UserX } from 'lucide-react';
+import { useApiCricketScore, BatsmanData, BowlerData } from '@/hooks/useApiCricketScore';
+import { RefreshCw, Clock, AlertCircle, Trophy, User, Target, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ApiCricketLiveScoreProps {
@@ -214,12 +214,27 @@ const ApiCricketLiveScore = ({
                         </div>
                         {team.batsmen.length > 0 ? (
                           (() => {
+                            // Separate batsmen who batted vs did not bat
+                            const batsmenWhoBatted = team.batsmen.filter(b => parseInt(b.balls) > 0 || parseInt(b.runs) > 0);
+                            const batsmenDidNotBat = team.batsmen.filter(b => parseInt(b.balls) === 0 && parseInt(b.runs) === 0);
+                            
+                            // Combine with any explicit DNB data
+                            const allDidNotBat = [
+                              ...batsmenDidNotBat.map(b => ({ player: b.player, team: b.team, innings: b.innings })),
+                              ...(team.didNotBat || [])
+                            ];
+                            // Remove duplicates
+                            const uniqueDidNotBat = allDidNotBat.filter((dnb, idx, arr) => 
+                              arr.findIndex(d => d.player === dnb.player) === idx
+                            );
+                            
                             // Calculate totals
-                            const totalRuns = team.batsmen.reduce((sum, b) => sum + (parseInt(b.runs) || 0), 0);
-                            const totalBalls = team.batsmen.reduce((sum, b) => sum + (parseInt(b.balls) || 0), 0);
-                            const totalFours = team.batsmen.reduce((sum, b) => sum + (parseInt(b.fours) || 0), 0);
-                            const totalSixes = team.batsmen.reduce((sum, b) => sum + (parseInt(b.sixes) || 0), 0);
-                            const wickets = team.batsmen.filter(b => b.how_out && b.how_out !== 'not out').length;
+                            const totalRuns = batsmenWhoBatted.reduce((sum, b) => sum + (parseInt(b.runs) || 0), 0);
+                            const totalBalls = batsmenWhoBatted.reduce((sum, b) => sum + (parseInt(b.balls) || 0), 0);
+                            const totalFours = batsmenWhoBatted.reduce((sum, b) => sum + (parseInt(b.fours) || 0), 0);
+                            const totalSixes = batsmenWhoBatted.reduce((sum, b) => sum + (parseInt(b.sixes) || 0), 0);
+                            const dismissedBatsmen = batsmenWhoBatted.filter(b => b.how_out && b.how_out !== 'not out');
+                            const wickets = dismissedBatsmen.length;
                             const overs = (totalBalls / 6).toFixed(1);
                             
                             // Get extras data from scoreData if available for this team/innings
@@ -232,6 +247,7 @@ const ApiCricketLiveScore = ({
                             const extrasTotal = extras.total || (extras.wides + extras.noballs + extras.byes + extras.legbyes);
 
                             return (
+                              <>
                               <div className="rounded-lg border overflow-x-auto">
                                 <Table>
                                   <TableHeader>
@@ -245,7 +261,7 @@ const ApiCricketLiveScore = ({
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {team.batsmen.map((batsman, bIdx) => (
+                                    {batsmenWhoBatted.map((batsman, bIdx) => (
                                       <TableRow key={bIdx}>
                                         <TableCell className="py-2 px-2">
                                           <div className="flex flex-col">
@@ -268,6 +284,29 @@ const ApiCricketLiveScore = ({
                                   </TableBody>
                                 </Table>
                               </div>
+                              
+                              {/* Did Not Bat - inline after batting table */}
+                              {uniqueDidNotBat.length > 0 && (
+                                <div className="mt-2 p-2 rounded-lg border bg-muted/20">
+                                  <p className="text-xs">
+                                    <span className="text-muted-foreground font-medium">Did Not Bat: </span>
+                                    <span className="text-muted-foreground">{uniqueDidNotBat.map(d => d.player).join(', ')}</span>
+                                  </p>
+                                </div>
+                              )}
+                              
+                              {/* Fall of Wickets - derive from dismissed batsmen */}
+                              {dismissedBatsmen.length > 0 && (
+                                <div className="mt-2 p-2 rounded-lg border bg-muted/20">
+                                  <p className="text-xs">
+                                    <span className="text-muted-foreground font-medium">Fall of Wickets: </span>
+                                    <span className="text-muted-foreground">
+                                      {dismissedBatsmen.map((b, idx) => `${idx + 1}-? (${b.player})`).join(', ')}
+                                    </span>
+                                  </p>
+                                </div>
+                              )}
+                              </>
                             );
                           })()
                         ) : (
@@ -313,42 +352,6 @@ const ApiCricketLiveScore = ({
                         )}
                       </div>
 
-                      {/* Did Not Bat Section */}
-                      {team.didNotBat && team.didNotBat.length > 0 && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <UserX className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-semibold text-sm text-muted-foreground">Did Not Bat</span>
-                          </div>
-                          <div className="p-3 rounded-lg border bg-muted/20">
-                            <p className="text-xs text-muted-foreground">
-                              {team.didNotBat.map(d => d.player).join(', ')}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Fall of Wickets Section */}
-                      {team.fallOfWickets && team.fallOfWickets.length > 0 && (
-                        <div className="space-y-2">
-                          <div className="flex items-center gap-2">
-                            <AlertTriangle className="w-4 h-4 text-orange-500" />
-                            <span className="font-semibold text-sm">Fall of Wickets</span>
-                          </div>
-                          <div className="p-3 rounded-lg border bg-muted/20">
-                            <div className="flex flex-wrap gap-2">
-                              {team.fallOfWickets.map((fow, fowIdx) => (
-                                <Badge key={fowIdx} variant="outline" className="text-xs">
-                                  {fow.wicketNumber}-{fow.score}
-                                  {fow.player && ` (${fow.player}`}
-                                  {fow.over && `, ${fow.over} ov`}
-                                  {fow.player && ')'}
-                                </Badge>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-                      )}
                     </TabsContent>
                   ))}
                 </Tabs>
