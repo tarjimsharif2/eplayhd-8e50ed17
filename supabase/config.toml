@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.update-match-status]
 verify_jwt = false
+
+[functions.extract-m3u8]
+verify_jwt = false

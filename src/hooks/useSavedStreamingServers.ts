@@ -5,7 +5,7 @@ export interface SavedStreamingServer {
   id: string;
   server_name: string;
   server_url: string;
-  server_type: 'iframe' | 'm3u8' | 'embed' | 'mpd';
+  server_type: 'iframe' | 'm3u8' | 'embed' | 'mpd' | 'iframe_to_m3u8';
   referer_value: string | null;
   origin_value: string | null;
   cookie_value: string | null;
