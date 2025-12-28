@@ -607,22 +607,38 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
           {renderServerForm()}
           
           {/* Match server specific fields */}
-          <div className="grid grid-cols-2 gap-4 pt-4 border-t">
-            <div className="space-y-2">
-              <Label>Display Order</Label>
-              <Input
-                type="number"
-                placeholder="0"
-                value={serverForm.display_order}
-                onChange={(e) => setServerForm({ ...serverForm, display_order: parseInt(e.target.value) || 0 })}
-              />
+          <div className="space-y-4 pt-4 border-t">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Display Order</Label>
+                <Input
+                  type="number"
+                  placeholder="0"
+                  value={serverForm.display_order}
+                  onChange={(e) => setServerForm({ ...serverForm, display_order: parseInt(e.target.value) || 0 })}
+                />
+              </div>
+              <div className="flex items-center gap-2 pt-6">
+                <Switch
+                  checked={serverForm.is_active}
+                  onCheckedChange={(checked) => setServerForm({ ...serverForm, is_active: checked })}
+                />
+                <Label className="text-sm">Active</Label>
+              </div>
             </div>
-            <div className="flex items-center gap-2 pt-6">
+            
+            {/* Ad-Block Toggle */}
+            <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium">Ad-Block</Label>
+                <p className="text-xs text-muted-foreground">
+                  Block popups and hide ad elements (iframe only)
+                </p>
+              </div>
               <Switch
-                checked={serverForm.is_active}
-                onCheckedChange={(checked) => setServerForm({ ...serverForm, is_active: checked })}
+                checked={serverForm.ad_block_enabled}
+                onCheckedChange={(checked) => setServerForm({ ...serverForm, ad_block_enabled: checked })}
               />
-              <Label className="text-sm">Active</Label>
             </div>
           </div>
 
