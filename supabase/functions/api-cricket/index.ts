@@ -315,6 +315,45 @@ Deno.serve(async (req) => {
         
         console.log(`Parsed ${batsmen.length} batsmen, ${bowlers.length} bowlers`);
         
+        // Calculate overs from bowlers data if not provided by API
+        let homeOvers = matchingEvent.event_home_overs || null;
+        let awayOvers = matchingEvent.event_away_overs || null;
+        
+        // If overs not available from API, try to calculate from scorecard
+        if (!homeOvers || !awayOvers) {
+          // Get unique innings
+          const inningsData: Record<string, { team: string, totalOvers: number }> = {};
+          
+          bowlers.forEach((bowler: any) => {
+            if (bowler.innings && bowler.overs) {
+              if (!inningsData[bowler.innings]) {
+                inningsData[bowler.innings] = { team: bowler.team, totalOvers: 0 };
+              }
+              // Parse overs (can be "4" or "4.3")
+              const overs = parseFloat(bowler.overs) || 0;
+              inningsData[bowler.innings].totalOvers += overs;
+            }
+          });
+          
+          // Assign overs to teams
+          Object.entries(inningsData).forEach(([innings, data]) => {
+            const teamLower = (data.team || '').toLowerCase();
+            const homeTeamLower = (matchingEvent.event_home_team || '').toLowerCase();
+            const awayTeamLower = (matchingEvent.event_away_team || '').toLowerCase();
+            
+            // Bowlers' team is the fielding team, so swap: if home team is bowling, away team is batting
+            if (teamLower.includes(homeTeamLower.split(' ')[0]) || homeTeamLower.includes(teamLower.split(' ')[0])) {
+              // Home team bowled, so away team batted these overs
+              if (!awayOvers) awayOvers = data.totalOvers.toFixed(1);
+            } else if (teamLower.includes(awayTeamLower.split(' ')[0]) || awayTeamLower.includes(teamLower.split(' ')[0])) {
+              // Away team bowled, so home team batted these overs
+              if (!homeOvers) homeOvers = data.totalOvers.toFixed(1);
+            }
+          });
+        }
+        
+        console.log(`Overs - Home: ${homeOvers}, Away: ${awayOvers}`);
+        
         return new Response(
           JSON.stringify({
             success: true,
@@ -326,8 +365,8 @@ Deno.serve(async (req) => {
               awayTeamLogo: matchingEvent.event_away_team_logo,
               homeScore: matchingEvent.event_home_final_result || '-',
               awayScore: matchingEvent.event_away_final_result || '-',
-              homeOvers: matchingEvent.event_home_overs || null,
-              awayOvers: matchingEvent.event_away_overs || null,
+              homeOvers: homeOvers,
+              awayOvers: awayOvers,
               homeRunRate: matchingEvent.event_home_rr,
               awayRunRate: matchingEvent.event_away_rr,
               status: matchingEvent.event_status,

@@ -454,7 +454,7 @@ const ApiCricketLiveScore = ({
                         {cleanScore(scoreData.homeScore)}
                       </span>
                       {homeOvers && (
-                        <span className="text-xs text-muted-foreground">({homeOvers})</span>
+                        <span className="text-xs text-muted-foreground">({homeOvers} ov)</span>
                       )}
                     </div>
                     {scoreData.homeRunRate && (
@@ -481,7 +481,7 @@ const ApiCricketLiveScore = ({
                         {cleanScore(scoreData.awayScore)}
                       </span>
                       {awayOvers && (
-                        <span className="text-xs text-muted-foreground">({awayOvers})</span>
+                        <span className="text-xs text-muted-foreground">({awayOvers} ov)</span>
                       )}
                     </div>
                     {scoreData.awayRunRate && (
