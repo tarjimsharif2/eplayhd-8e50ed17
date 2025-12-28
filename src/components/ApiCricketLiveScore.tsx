@@ -6,8 +6,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { useApiCricketScore, BatsmanData, BowlerData, FallOfWicketData, DidNotBatData } from '@/hooks/useApiCricketScore';
-import { RefreshCw, Radio, Clock, AlertCircle, Trophy, User, Target, ChevronDown, ChevronUp, AlertTriangle, UserX } from 'lucide-react';
+import { useApiCricketScore, BatsmanData, BowlerData } from '@/hooks/useApiCricketScore';
+import { RefreshCw, Clock, AlertCircle, Trophy, User, Target, ChevronDown, ChevronUp } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ApiCricketLiveScoreProps {
