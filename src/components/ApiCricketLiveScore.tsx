@@ -96,110 +96,15 @@ const ApiCricketLiveScore = ({
     const hasDetailedData = hasBattingData || hasBowlingData;
 
     return (
-      <ScrollArea className="max-h-[70vh]">
-        <div className="space-y-6 pr-4">
-          {/* Teams Header - Match logos with team names correctly */}
-          {(() => {
-            // Determine which logo belongs to which team by comparing names
-            const teamAMatchesHome = getTeamAMatchesHome();
-            
-            // Assign logos correctly based on team name matching
-            const homeLogo = teamAMatchesHome 
-              ? (teamALogo || scoreData.homeTeamLogo) 
-              : (teamBLogo || scoreData.homeTeamLogo);
-            const awayLogo = teamAMatchesHome 
-              ? (teamBLogo || scoreData.awayTeamLogo) 
-              : (teamALogo || scoreData.awayTeamLogo);
-
-            // Assign overs correctly based on team name matching  
-            const homeOvers = rawHomeOvers;
-            const awayOvers = rawAwayOvers;
-
-            return (
-              <div className="grid grid-cols-2 gap-4">
-                {/* Home Team */}
-                <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
-                  {homeLogo && (
-                    <img 
-                      src={homeLogo} 
-                      alt={scoreData.homeTeam} 
-                      className="w-16 h-16 object-contain" 
-                    />
-                  )}
-                  <span className="text-base font-semibold text-center">
-                    {scoreData.homeTeam}
-                  </span>
-                  <div className="text-center">
-                    <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-3xl font-bold text-primary">
-                        {cleanScore(scoreData.homeScore || '-')}
-                      </span>
-                      {homeOvers && (
-                        <span className="text-sm text-muted-foreground">({homeOvers} ov)</span>
-                      )}
-                    </div>
-                    {scoreData.homeRunRate && (
-                      <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Away Team */}
-                <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
-                  {awayLogo && (
-                    <img 
-                      src={awayLogo} 
-                      alt={scoreData.awayTeam} 
-                      className="w-16 h-16 object-contain" 
-                    />
-                  )}
-                  <span className="text-base font-semibold text-center">
-                    {scoreData.awayTeam}
-                  </span>
-                  <div className="text-center">
-                    <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-3xl font-bold text-primary">
-                        {cleanScore(scoreData.awayScore || '-')}
-                      </span>
-                      {awayOvers && (
-                        <span className="text-sm text-muted-foreground">({awayOvers} ov)</span>
-                      )}
-                    </div>
-                    {scoreData.awayRunRate && (
-                      <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })()}
-
-          {/* Match Info */}
-          <div className="space-y-3">
-            {scoreData.statusInfo && (
-              <div className="text-center p-3 bg-primary/10 rounded-lg">
-                <p className="text-sm font-medium">{scoreData.statusInfo}</p>
-              </div>
-            )}
-            
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              {scoreData.status && (
-                <Badge variant="outline">{scoreData.status}</Badge>
-              )}
-              {scoreData.eventType && (
-                <Badge variant="secondary">{scoreData.eventType}</Badge>
-              )}
-              {scoreData.eventLive && (
-                <Badge variant="destructive" className="animate-pulse">LIVE</Badge>
-              )}
-            </div>
-
+      <ScrollArea className="max-h-[60vh]">
+        <div className="space-y-4 pr-2">
+          {/* Venue & Toss Info */}
+          <div className="space-y-2">
             {scoreData.venue && (
               <p className="text-center text-sm text-muted-foreground">
                 Venue: {scoreData.venue}
               </p>
             )}
-
             {scoreData.toss && (
               <p className="text-center text-xs text-muted-foreground">
                 {scoreData.toss}
