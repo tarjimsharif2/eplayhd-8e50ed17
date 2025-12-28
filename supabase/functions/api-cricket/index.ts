@@ -401,7 +401,7 @@ Deno.serve(async (req) => {
         if (matchingEvent.extra && typeof matchingEvent.extra === 'object') {
           console.log('Extra field data:', JSON.stringify(matchingEvent.extra));
           
-          // Parse the extra field to get total overs per innings
+          // Parse the extra field to get total overs and extras per innings
           Object.entries(matchingEvent.extra).forEach(([inningsKey, inningsData]: [string, any]) => {
             if (Array.isArray(inningsData) && inningsData.length > 0) {
               const firstEntry = inningsData[0];
@@ -409,6 +409,28 @@ Deno.serve(async (req) => {
                 totalOvers: firstEntry.total_overs || null,
                 total: firstEntry.total || null,
               };
+              
+              // Also update/add extras from the extra field since it's more reliable
+              const teamName = inningsKey.replace(/ \d+ INN$/i, '').trim();
+              const extrasTotal = parseInt(firstEntry.total) || 0;
+              
+              if (extrasTotal > 0) {
+                // Find existing extras entry for this innings or add new one
+                const existingExtrasIdx = extras.findIndex(e => e.innings === inningsKey);
+                if (existingExtrasIdx >= 0) {
+                  extras[existingExtrasIdx].total = extrasTotal;
+                } else {
+                  extras.push({
+                    wides: 0,
+                    noballs: 0,
+                    byes: 0,
+                    legbyes: 0,
+                    total: extrasTotal,
+                    team: teamName,
+                    innings: inningsKey,
+                  });
+                }
+              }
             }
           });
         }

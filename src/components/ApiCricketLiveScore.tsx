@@ -300,6 +300,7 @@ const ApiCricketLiveScore = ({
                             // Get extras data from scoreData if available for this team/innings
                             const extrasData = scoreData?.extras?.find(e => 
                               e.innings === team.label || 
+                              (e.innings && team.name && e.innings.toLowerCase().includes(team.name.toLowerCase().split(' ')[0])) ||
                               e.team?.toLowerCase().includes(team.name.toLowerCase().split(' ')[0])
                             );
                             const extras = extrasData || { wides: 0, noballs: 0, byes: 0, legbyes: 0, total: 0 };
@@ -341,14 +342,16 @@ const ApiCricketLiveScore = ({
                                     ))}
                                   </TableBody>
                                   <TableFooter>
-                                    {/* Extras Row */}
-                                    <TableRow className="bg-muted/30">
-                                      <TableCell className="py-1.5 px-2 text-xs text-muted-foreground">
-                                        Extras
-                                      </TableCell>
-                                      <TableCell className="text-right text-xs py-1.5 px-1 font-medium">{extrasTotal}</TableCell>
-                                      <TableCell colSpan={4}></TableCell>
-                                    </TableRow>
+                                    {/* Extras Row - only show if there are extras */}
+                                    {extrasTotal > 0 && (
+                                      <TableRow className="bg-muted/30">
+                                        <TableCell className="py-1.5 px-2 text-xs text-muted-foreground">
+                                          Extras
+                                        </TableCell>
+                                        <TableCell className="text-right text-xs py-1.5 px-1 font-medium">{extrasTotal}</TableCell>
+                                        <TableCell colSpan={4}></TableCell>
+                                      </TableRow>
+                                    )}
                                     {/* Total Row */}
                                     <TableRow className="bg-primary/10 font-semibold">
                                       <TableCell className="py-2 px-2 text-xs">
