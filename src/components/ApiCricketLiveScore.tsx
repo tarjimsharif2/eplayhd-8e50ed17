@@ -344,7 +344,7 @@ const ApiCricketLiveScore = ({
                                     {/* Extras Row */}
                                     <TableRow className="bg-muted/30">
                                       <TableCell className="py-1.5 px-2 text-xs text-muted-foreground">
-                                        Extras (wd {extras.wides}, nb {extras.noballs}, b {extras.byes}, lb {extras.legbyes})
+                                        Extras
                                       </TableCell>
                                       <TableCell className="text-right text-xs py-1.5 px-1 font-medium">{extrasTotal}</TableCell>
                                       <TableCell colSpan={4}></TableCell>
