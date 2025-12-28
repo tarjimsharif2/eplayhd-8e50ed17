@@ -2741,13 +2741,12 @@ const Admin = () => {
                     <Input 
                       type="number"
                       min="30"
-                      max="600"
                       placeholder="120" 
                       value={siteSettingsForm.api_sync_interval_seconds} 
-                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, api_sync_interval_seconds: Math.max(30, Math.min(600, parseInt(e.target.value) || 120)) })} 
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, api_sync_interval_seconds: Math.max(30, parseInt(e.target.value) || 120) })} 
                     />
                     <p className="text-xs text-muted-foreground">
-                      How often to sync scores from API (minimum 30 seconds, maximum 600 seconds). Currently: {siteSettingsForm.api_sync_interval_seconds} seconds ({(siteSettingsForm.api_sync_interval_seconds / 60).toFixed(1)} minutes)
+                      How often to sync scores from API (minimum 30 seconds). Currently: {siteSettingsForm.api_sync_interval_seconds} seconds ({(siteSettingsForm.api_sync_interval_seconds / 60).toFixed(1)} minutes)
                     </p>
                   </div>
 
