@@ -1090,6 +1090,9 @@ const Admin = () => {
                 <TabsTrigger value="ads" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                   Ads
                 </TabsTrigger>
+                <TabsTrigger value="live-api" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Live Score API
+                </TabsTrigger>
                 <TabsTrigger value="settings" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                   Settings
                 </TabsTrigger>
@@ -2676,7 +2679,61 @@ const Admin = () => {
               <AdsSettingsManager />
             </TabsContent>
 
-            {/* Settings Tab */}
+            {/* Live Score API Tab */}
+            <TabsContent value="live-api" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Radio className="w-5 h-5 text-live" />
+                    Live Score API (api-cricket.com)
+                  </CardTitle>
+                  <CardDescription>Configure live cricket score display on match stream pages</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium">Enable API Cricket</Label>
+                      <p className="text-sm text-muted-foreground">Globally enable/disable live score display from api-cricket.com</p>
+                    </div>
+                    <Switch
+                      checked={siteSettingsForm.api_cricket_enabled}
+                      onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, api_cricket_enabled: checked })}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>API Cricket Key</Label>
+                    <Input 
+                      type="password"
+                      placeholder="Enter your API key from api-cricket.com" 
+                      value={siteSettingsForm.api_cricket_key} 
+                      onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, api_cricket_key: e.target.value })} 
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Get your API key from{' '}
+                      <a href="https://api-cricket.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                        api-cricket.com
+                      </a>
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
+                    <p className="text-xs text-muted-foreground">
+                      <strong>Note:</strong> Enable live scores per-match using the "Show Live Score" toggle in each match's edit dialog.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button variant="gradient" onClick={handleSaveSiteSettings} disabled={updateSiteSettings.isPending}>
+                      {updateSiteSettings.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                      <Save className="w-4 h-4 mr-2" />
+                      Save API Settings
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
             <TabsContent value="settings" className="space-y-6">
               {siteSettingsLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
@@ -2925,51 +2982,6 @@ const Admin = () => {
                           className="font-mono text-xs"
                         />
                         <p className="text-xs text-muted-foreground">Code will be injected before the closing &lt;/body&gt; tag. Use for chat widgets, tracking scripts, etc.</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  {/* API Cricket Settings (api-cricket.com) */}
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2">
-                        <Radio className="w-5 h-5 text-live" />
-                        Live Score API (api-cricket.com)
-                      </CardTitle>
-                      <CardDescription>Configure live cricket score display on match stream pages</CardDescription>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                      <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
-                        <div className="space-y-0.5">
-                          <Label className="text-base font-medium">Enable API Cricket</Label>
-                          <p className="text-sm text-muted-foreground">Globally enable/disable live score display from api-cricket.com</p>
-                        </div>
-                        <Switch
-                          checked={siteSettingsForm.api_cricket_enabled}
-                          onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, api_cricket_enabled: checked })}
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <Label>API Cricket Key</Label>
-                        <Input 
-                          type="password"
-                          placeholder="Enter your API key from api-cricket.com" 
-                          value={siteSettingsForm.api_cricket_key} 
-                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, api_cricket_key: e.target.value })} 
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Get your API key from{' '}
-                          <a href="https://api-cricket.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                            api-cricket.com
-                          </a>
-                        </p>
-                      </div>
-
-                      <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
-                        <p className="text-xs text-muted-foreground">
-                          <strong>Note:</strong> Enable live scores per-match using the "Show Live Score" toggle in each match's edit dialog.
-                        </p>
                       </div>
                     </CardContent>
                   </Card>
