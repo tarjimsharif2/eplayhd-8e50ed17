@@ -214,12 +214,27 @@ const ApiCricketLiveScore = ({
                         </div>
                         {team.batsmen.length > 0 ? (
                           (() => {
+                            // Separate batsmen who batted vs did not bat
+                            const batsmenWhoBatted = team.batsmen.filter(b => parseInt(b.balls) > 0 || parseInt(b.runs) > 0);
+                            const batsmenDidNotBat = team.batsmen.filter(b => parseInt(b.balls) === 0 && parseInt(b.runs) === 0);
+                            
+                            // Combine with any explicit DNB data
+                            const allDidNotBat = [
+                              ...batsmenDidNotBat.map(b => ({ player: b.player, team: b.team, innings: b.innings })),
+                              ...(team.didNotBat || [])
+                            ];
+                            // Remove duplicates
+                            const uniqueDidNotBat = allDidNotBat.filter((dnb, idx, arr) => 
+                              arr.findIndex(d => d.player === dnb.player) === idx
+                            );
+                            
                             // Calculate totals
-                            const totalRuns = team.batsmen.reduce((sum, b) => sum + (parseInt(b.runs) || 0), 0);
-                            const totalBalls = team.batsmen.reduce((sum, b) => sum + (parseInt(b.balls) || 0), 0);
-                            const totalFours = team.batsmen.reduce((sum, b) => sum + (parseInt(b.fours) || 0), 0);
-                            const totalSixes = team.batsmen.reduce((sum, b) => sum + (parseInt(b.sixes) || 0), 0);
-                            const wickets = team.batsmen.filter(b => b.how_out && b.how_out !== 'not out').length;
+                            const totalRuns = batsmenWhoBatted.reduce((sum, b) => sum + (parseInt(b.runs) || 0), 0);
+                            const totalBalls = batsmenWhoBatted.reduce((sum, b) => sum + (parseInt(b.balls) || 0), 0);
+                            const totalFours = batsmenWhoBatted.reduce((sum, b) => sum + (parseInt(b.fours) || 0), 0);
+                            const totalSixes = batsmenWhoBatted.reduce((sum, b) => sum + (parseInt(b.sixes) || 0), 0);
+                            const dismissedBatsmen = batsmenWhoBatted.filter(b => b.how_out && b.how_out !== 'not out');
+                            const wickets = dismissedBatsmen.length;
                             const overs = (totalBalls / 6).toFixed(1);
                             
                             // Get extras data from scoreData if available for this team/innings
@@ -232,6 +247,7 @@ const ApiCricketLiveScore = ({
                             const extrasTotal = extras.total || (extras.wides + extras.noballs + extras.byes + extras.legbyes);
 
                             return (
+                              <>
                               <div className="rounded-lg border overflow-x-auto">
                                 <Table>
                                   <TableHeader>
@@ -245,7 +261,7 @@ const ApiCricketLiveScore = ({
                                     </TableRow>
                                   </TableHeader>
                                   <TableBody>
-                                    {team.batsmen.map((batsman, bIdx) => (
+                                    {batsmenWhoBatted.map((batsman, bIdx) => (
                                       <TableRow key={bIdx}>
                                         <TableCell className="py-2 px-2">
                                           <div className="flex flex-col">
