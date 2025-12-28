@@ -180,218 +180,158 @@ const ApiCricketLiveScore = ({
             )}
           </div>
 
-          {/* Both Teams Scoreboard */}
+          {/* Team Selection Tabs with Batting & Bowling */}
           {hasDetailedData && (
-            <div className="space-y-6">
-              {/* Group batsmen and bowlers by team/innings */}
-              {(() => {
-                // Get unique innings
-                const inningsSet = new Set<string>();
-                scoreData.batsmen?.forEach(b => b.innings && inningsSet.add(b.innings));
-                scoreData.bowlers?.forEach(b => b.innings && inningsSet.add(b.innings));
-                const innings = Array.from(inningsSet);
+            (() => {
+              // Get unique innings/teams
+              const inningsSet = new Set<string>();
+              scoreData.batsmen?.forEach(b => b.innings && inningsSet.add(b.innings));
+              scoreData.bowlers?.forEach(b => b.innings && inningsSet.add(b.innings));
+              const innings = Array.from(inningsSet);
 
-                if (innings.length === 0) {
-                  // Fallback: group by team if no innings info
-                  const teams = [scoreData.homeTeam, scoreData.awayTeam];
-                  return teams.map((team, teamIndex) => {
-                    const teamBatsmen = scoreData.batsmen?.filter(b => 
-                      b.team?.toLowerCase().includes(team?.toLowerCase() || '') ||
-                      !b.team
-                    ) || [];
-                    const teamBowlers = scoreData.bowlers?.filter(b => 
-                      !b.team?.toLowerCase().includes(team?.toLowerCase() || '')
-                    ) || [];
-                    
-                    if (teamBatsmen.length === 0 && teamBowlers.length === 0) return null;
-
-                    return (
-                      <div key={teamIndex} className="space-y-3">
-                        <div className="flex items-center gap-2 pb-2 border-b">
-                          <span className="font-semibold text-sm">{team}</span>
-                        </div>
-                        <Tabs defaultValue="batting" className="w-full">
-                          <TabsList className="grid w-full grid-cols-2 h-9">
-                            <TabsTrigger value="batting" className="text-xs">Batting</TabsTrigger>
-                            <TabsTrigger value="bowling" className="text-xs">Bowling</TabsTrigger>
-                          </TabsList>
-                          <TabsContent value="batting" className="mt-2">
-                            {teamBatsmen.length > 0 ? (
-                              <div className="rounded-lg border overflow-x-auto">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow className="bg-muted/50">
-                                      <TableHead className="font-semibold text-xs whitespace-nowrap min-w-[100px]">Batter</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">R</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">B</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">4s</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">6s</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-10">SR</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {teamBatsmen.map((batsman, idx) => (
-                                      <TableRow key={idx}>
-                                        <TableCell className="py-2 px-2">
-                                          <div className="flex flex-col">
-                                            <span className="text-xs font-medium truncate max-w-[100px]">{batsman.player}</span>
-                                            {batsman.how_out && batsman.how_out !== 'not out' && (
-                                              <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{batsman.how_out}</span>
-                                            )}
-                                            {batsman.how_out === 'not out' && (
-                                              <span className="text-[10px] text-green-500">not out</span>
-                                            )}
-                                          </div>
-                                        </TableCell>
-                                        <TableCell className="text-right font-semibold text-xs py-2 px-1">{batsman.runs}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.balls}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.fours}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sixes}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sr}</TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            ) : (
-                              <div className="text-center py-4 text-muted-foreground text-xs">No batting data</div>
-                            )}
-                          </TabsContent>
-                          <TabsContent value="bowling" className="mt-2">
-                            {teamBowlers.length > 0 ? (
-                              <div className="rounded-lg border overflow-x-auto">
-                                <Table>
-                                  <TableHeader>
-                                    <TableRow className="bg-muted/50">
-                                      <TableHead className="font-semibold text-xs whitespace-nowrap min-w-[100px]">Bowler</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">O</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">M</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">R</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">W</TableHead>
-                                      <TableHead className="text-right font-semibold text-xs px-1 w-10">Econ</TableHead>
-                                    </TableRow>
-                                  </TableHeader>
-                                  <TableBody>
-                                    {teamBowlers.map((bowler, idx) => (
-                                      <TableRow key={idx}>
-                                        <TableCell className="text-xs font-medium py-2 px-2 truncate max-w-[100px]">{bowler.player}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.overs}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.maidens}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.runs}</TableCell>
-                                        <TableCell className="text-right font-semibold text-xs py-2 px-1">{bowler.wickets}</TableCell>
-                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.econ}</TableCell>
-                                      </TableRow>
-                                    ))}
-                                  </TableBody>
-                                </Table>
-                              </div>
-                            ) : (
-                              <div className="text-center py-4 text-muted-foreground text-xs">No bowling data</div>
-                            )}
-                          </TabsContent>
-                        </Tabs>
-                      </div>
-                    );
-                  });
+              // Build team data
+              const getTeamData = () => {
+                if (innings.length > 0) {
+                  return innings.map(inning => ({
+                    name: inning.replace(/ \d+ INN$/, ''),
+                    label: inning.match(/\d+ INN/)?.[0] || 'Innings',
+                    batsmen: scoreData.batsmen?.filter(b => b.innings === inning) || [],
+                    bowlers: scoreData.bowlers?.filter(b => b.innings === inning) || [],
+                  }));
                 }
+                // Fallback: use team names
+                return [
+                  {
+                    name: scoreData.homeTeam || 'Team A',
+                    label: '1st Innings',
+                    batsmen: scoreData.batsmen?.filter(b => 
+                      b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '') || !b.team
+                    ) || [],
+                    bowlers: scoreData.bowlers?.filter(b => 
+                      !b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '')
+                    ) || [],
+                  },
+                  {
+                    name: scoreData.awayTeam || 'Team B',
+                    label: '2nd Innings',
+                    batsmen: scoreData.batsmen?.filter(b => 
+                      b.team?.toLowerCase().includes(scoreData.awayTeam?.toLowerCase() || '')
+                    ) || [],
+                    bowlers: scoreData.bowlers?.filter(b => 
+                      b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '')
+                    ) || [],
+                  },
+                ].filter(t => t.batsmen.length > 0 || t.bowlers.length > 0);
+              };
 
-                // Group by innings
-                return innings.map((inning, inningIndex) => {
-                  const inningBatsmen = scoreData.batsmen?.filter(b => b.innings === inning) || [];
-                  const inningBowlers = scoreData.bowlers?.filter(b => b.innings === inning) || [];
-                  const teamName = inning.replace(/ \d+ INN$/, '');
+              const teams = getTeamData();
+              if (teams.length === 0) return null;
 
-                  return (
-                    <div key={inningIndex} className="space-y-3">
-                      <div className="flex items-center gap-2 pb-2 border-b">
-                        <span className="font-semibold text-sm">{teamName}</span>
-                        <Badge variant="outline" className="text-[10px]">{inning.match(/\d+ INN/)?.[0] || 'Innings'}</Badge>
+              return (
+                <Tabs defaultValue="team-0" className="w-full">
+                  <TabsList className="grid w-full h-10" style={{ gridTemplateColumns: `repeat(${teams.length}, 1fr)` }}>
+                    {teams.map((team, idx) => (
+                      <TabsTrigger key={idx} value={`team-${idx}`} className="text-xs px-2">
+                        <span className="truncate">{team.name}</span>
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+
+                  {teams.map((team, idx) => (
+                    <TabsContent key={idx} value={`team-${idx}`} className="mt-3 space-y-4">
+                      {/* Batting Section */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <User className="w-4 h-4 text-primary" />
+                          <span className="font-semibold text-sm">Batting</span>
+                          {team.label && (
+                            <Badge variant="outline" className="text-[10px]">{team.label}</Badge>
+                          )}
+                        </div>
+                        {team.batsmen.length > 0 ? (
+                          <div className="rounded-lg border overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                  <TableHead className="font-semibold text-xs whitespace-nowrap min-w-[100px]">Batter</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">R</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">B</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">4s</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">6s</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-10">SR</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {team.batsmen.map((batsman, bIdx) => (
+                                  <TableRow key={bIdx}>
+                                    <TableCell className="py-2 px-2">
+                                      <div className="flex flex-col">
+                                        <span className="text-xs font-medium truncate max-w-[100px]">{batsman.player}</span>
+                                        {batsman.how_out && batsman.how_out !== 'not out' && (
+                                          <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{batsman.how_out}</span>
+                                        )}
+                                        {batsman.how_out === 'not out' && (
+                                          <span className="text-[10px] text-green-500">not out</span>
+                                        )}
+                                      </div>
+                                    </TableCell>
+                                    <TableCell className="text-right font-semibold text-xs py-2 px-1">{batsman.runs}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.balls}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.fours}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sixes}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sr}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-muted-foreground text-xs border rounded-lg">No batting data</div>
+                        )}
                       </div>
-                      <Tabs defaultValue="batting" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2 h-9">
-                          <TabsTrigger value="batting" className="text-xs">Batting</TabsTrigger>
-                          <TabsTrigger value="bowling" className="text-xs">Bowling</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="batting" className="mt-2">
-                          {inningBatsmen.length > 0 ? (
-                            <div className="rounded-lg border overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="bg-muted/50">
-                                    <TableHead className="font-semibold text-xs whitespace-nowrap min-w-[100px]">Batter</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-8">R</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-8">B</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-8">4s</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-8">6s</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-10">SR</TableHead>
+
+                      {/* Bowling Section */}
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Target className="w-4 h-4 text-primary" />
+                          <span className="font-semibold text-sm">Bowling</span>
+                        </div>
+                        {team.bowlers.length > 0 ? (
+                          <div className="rounded-lg border overflow-x-auto">
+                            <Table>
+                              <TableHeader>
+                                <TableRow className="bg-muted/50">
+                                  <TableHead className="font-semibold text-xs whitespace-nowrap min-w-[100px]">Bowler</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">O</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">M</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">R</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">W</TableHead>
+                                  <TableHead className="text-right font-semibold text-xs px-1 w-10">Econ</TableHead>
+                                </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                {team.bowlers.map((bowler, bwIdx) => (
+                                  <TableRow key={bwIdx}>
+                                    <TableCell className="text-xs font-medium py-2 px-2 truncate max-w-[100px]">{bowler.player}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.overs}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.maidens}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.runs}</TableCell>
+                                    <TableCell className="text-right font-semibold text-xs py-2 px-1">{bowler.wickets}</TableCell>
+                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.econ}</TableCell>
                                   </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {inningBatsmen.map((batsman, idx) => (
-                                    <TableRow key={idx}>
-                                      <TableCell className="py-2 px-2">
-                                        <div className="flex flex-col">
-                                          <span className="text-xs font-medium truncate max-w-[100px]">{batsman.player}</span>
-                                          {batsman.how_out && batsman.how_out !== 'not out' && (
-                                            <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{batsman.how_out}</span>
-                                          )}
-                                          {batsman.how_out === 'not out' && (
-                                            <span className="text-[10px] text-green-500">not out</span>
-                                          )}
-                                        </div>
-                                      </TableCell>
-                                      <TableCell className="text-right font-semibold text-xs py-2 px-1">{batsman.runs}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.balls}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.fours}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sixes}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sr}</TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          ) : (
-                            <div className="text-center py-4 text-muted-foreground text-xs">No batting data</div>
-                          )}
-                        </TabsContent>
-                        <TabsContent value="bowling" className="mt-2">
-                          {inningBowlers.length > 0 ? (
-                            <div className="rounded-lg border overflow-x-auto">
-                              <Table>
-                                <TableHeader>
-                                  <TableRow className="bg-muted/50">
-                                    <TableHead className="font-semibold text-xs whitespace-nowrap min-w-[100px]">Bowler</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-8">O</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-8">M</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-8">R</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-8">W</TableHead>
-                                    <TableHead className="text-right font-semibold text-xs px-1 w-10">Econ</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {inningBowlers.map((bowler, idx) => (
-                                    <TableRow key={idx}>
-                                      <TableCell className="text-xs font-medium py-2 px-2 truncate max-w-[100px]">{bowler.player}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.overs}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.maidens}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.runs}</TableCell>
-                                      <TableCell className="text-right font-semibold text-xs py-2 px-1">{bowler.wickets}</TableCell>
-                                      <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{bowler.econ}</TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            </div>
-                          ) : (
-                            <div className="text-center py-4 text-muted-foreground text-xs">No bowling data</div>
-                          )}
-                        </TabsContent>
-                      </Tabs>
-                    </div>
-                  );
-                });
-              })()}
-            </div>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-muted-foreground text-xs border rounded-lg">No bowling data</div>
+                        )}
+                      </div>
+                    </TabsContent>
+                  ))}
+                </Tabs>
+              );
+            })()
           )}
 
           {!hasDetailedData && scoreData.fromDatabase && (
