@@ -1,12 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useApiCricketScore, BatsmanData, BowlerData } from '@/hooks/useApiCricketScore';
-import { RefreshCw, Radio, Clock, AlertCircle, ChevronRight, Trophy, User, Target } from 'lucide-react';
+import { RefreshCw, Radio, Clock, AlertCircle, Trophy, User, Target } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ApiCricketLiveScoreProps {
@@ -464,129 +463,16 @@ const ApiCricketLiveScore = ({
             </div>
           ) : scoreData ? (
             <div className="space-y-4">
-              {/* Team Scores - Match logos with team names correctly */}
-              {(() => {
-                // Determine which logo belongs to which team by comparing names
-                const homeTeamNameLower = scoreData.homeTeam?.toLowerCase() || '';
-                const awayTeamNameLower = scoreData.awayTeam?.toLowerCase() || '';
-                const teamANameLower = teamAName?.toLowerCase() || '';
-                
-                // Check if teamA matches homeTeam or awayTeam
-                const teamAMatchesHome = homeTeamNameLower.includes(teamANameLower.split(' ')[0]) || 
-                                          teamANameLower.includes(homeTeamNameLower.split(' ')[0]);
-                
-                // Assign logos correctly based on team name matching
-                const homeLogo = teamAMatchesHome 
-                  ? (teamALogo || scoreData.homeTeamLogo) 
-                  : (teamBLogo || scoreData.homeTeamLogo);
-                const awayLogo = teamAMatchesHome 
-                  ? (teamBLogo || scoreData.awayTeamLogo) 
-                  : (teamALogo || scoreData.awayTeamLogo);
+              {/* Full Scoreboard - Inline */}
+              {renderFullScoreboard()}
 
-                // Assign overs correctly
-                const homeOvers = rawHomeOvers;
-                const awayOvers = rawAwayOvers;
-
-                return (
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Home Team */}
-                    <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
-                      {homeLogo && (
-                        <img 
-                          src={homeLogo} 
-                          alt={scoreData.homeTeam} 
-                          className="w-10 h-10 object-contain" 
-                        />
-                      )}
-                      <span className="text-sm font-medium text-center truncate w-full">
-                        {scoreData.homeTeam}
-                      </span>
-                      <div className="text-center">
-                        <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-2xl font-bold text-primary">
-                            {cleanScore(scoreData.homeScore)}
-                          </span>
-                          {homeOvers && (
-                            <span className="text-xs text-muted-foreground">({homeOvers} ov)</span>
-                          )}
-                        </div>
-                        {scoreData.homeRunRate && (
-                          <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Away Team */}
-                    <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
-                      {awayLogo && (
-                        <img 
-                          src={awayLogo} 
-                          alt={scoreData.awayTeam} 
-                          className="w-10 h-10 object-contain" 
-                        />
-                      )}
-                      <span className="text-sm font-medium text-center truncate w-full">
-                        {scoreData.awayTeam}
-                      </span>
-                      <div className="text-center">
-                        <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-2xl font-bold text-primary">
-                            {cleanScore(scoreData.awayScore)}
-                          </span>
-                          {awayOvers && (
-                            <span className="text-xs text-muted-foreground">({awayOvers} ov)</span>
-                          )}
-                        </div>
-                        {scoreData.awayRunRate && (
-                          <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Match Status */}
-              <div className="text-center space-y-2">
-                {scoreData.statusInfo && (
-                  <p className="text-sm text-muted-foreground">{scoreData.statusInfo}</p>
-                )}
-                <div className="flex items-center justify-center gap-2 flex-wrap">
-                  {scoreData.status && (
-                    <Badge variant="outline" className="text-xs">
-                      {scoreData.status}
-                    </Badge>
-                  )}
-                  {scoreData.eventType && (
-                    <Badge variant="secondary" className="text-xs">
-                      {scoreData.eventType}
-                    </Badge>
-                  )}
+              {/* Last Updated */}
+              {scoreData.lastUpdated && (
+                <div className="flex items-center justify-center gap-1 text-xs text-muted-foreground pt-2 border-t border-border/30">
+                  <Clock className="w-3 h-3" />
+                  <span>Last updated: {new Date(scoreData.lastUpdated).toLocaleTimeString()}</span>
                 </div>
-              </div>
-
-              {/* View Full Scoreboard Button */}
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="outline" 
-                    className="w-full text-sm"
-                    size="sm"
-                  >
-                    View Full Scoreboard
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                      <Trophy className="w-5 h-5 text-primary" />
-                      Full Scoreboard
-                    </DialogTitle>
-                  </DialogHeader>
-                  {renderFullScoreboard()}
-                </DialogContent>
-              </Dialog>
+              )}
             </div>
           ) : null}
         </CardContent>
