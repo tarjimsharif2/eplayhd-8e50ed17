@@ -24,7 +24,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe, CloudDownload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
@@ -611,6 +611,53 @@ const Admin = () => {
       api_score_enabled: false,
       cricbuzz_match_id: '',
     });
+  };
+
+  // Sync match from CricAPI
+  const [syncingMatchId, setSyncingMatchId] = useState<string | null>(null);
+  
+  const handleSyncFromCricAPI = async (match: Match) => {
+    if (syncingMatchId) return;
+    
+    setSyncingMatchId(match.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('cricket-api', {
+        body: {
+          action: 'syncMatch',
+          matchId: match.id
+        }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data.success) {
+        toast({
+          title: "Sync failed",
+          description: data.error || "Failed to sync match data",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "Match synced",
+        description: `Status: ${data.data.status}, Score: ${data.data.score_a || 'N/A'} vs ${data.data.score_b || 'N/A'}`,
+      });
+      
+      // Refresh matches data
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast({
+        title: "Sync failed",
+        description: error.message || "Failed to sync from CricAPI",
+        variant: "destructive"
+      });
+    } finally {
+      setSyncingMatchId(null);
+    }
   };
 
   // Team handlers
@@ -1687,6 +1734,19 @@ const Admin = () => {
                                   </Button>
                                   <Button variant="ghost" size="icon" onClick={() => handleCopyMatch(match)} title="Duplicate match">
                                     <Copy className="w-4 h-4 text-primary" />
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleSyncFromCricAPI(match)} 
+                                    disabled={syncingMatchId === match.id}
+                                    title="Sync from CricAPI"
+                                  >
+                                    {syncingMatchId === match.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
+                                    ) : (
+                                      <CloudDownload className="w-4 h-4 text-blue-500" />
+                                    )}
                                   </Button>
                                   {match.page_type === 'page' && (
                                     <Button 
