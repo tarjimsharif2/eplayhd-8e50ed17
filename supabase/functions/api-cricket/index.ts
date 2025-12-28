@@ -221,6 +221,29 @@ Deno.serve(async (req) => {
       if (matchingEvent) {
         console.log(`Found matching event: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);
         
+        // Parse scorecard for batting/bowling details
+        let batsmen: any[] = [];
+        let bowlers: any[] = [];
+        
+        if (matchingEvent.scorecard && Array.isArray(matchingEvent.scorecard)) {
+          matchingEvent.scorecard.forEach((innings: any) => {
+            if (innings.batting && Array.isArray(innings.batting)) {
+              batsmen = [...batsmen, ...innings.batting.map((b: any) => ({
+                ...b,
+                team: innings.team,
+                innings: innings.innings,
+              }))];
+            }
+            if (innings.bowling && Array.isArray(innings.bowling)) {
+              bowlers = [...bowlers, ...innings.bowling.map((b: any) => ({
+                ...b,
+                team: innings.team,
+                innings: innings.innings,
+              }))];
+            }
+          });
+        }
+        
         return new Response(
           JSON.stringify({
             success: true,
@@ -242,6 +265,9 @@ Deno.serve(async (req) => {
               venue: matchingEvent.event_stadium,
               leagueName: matchingEvent.league_name,
               extra: matchingEvent.extra,
+              scorecard: matchingEvent.scorecard,
+              batsmen,
+              bowlers,
             }
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

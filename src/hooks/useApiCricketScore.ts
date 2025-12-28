@@ -2,6 +2,29 @@ import { useState, useEffect, useCallback } from 'react';
 import { usePublicSiteSettings } from './usePublicSiteSettings';
 import { supabase } from '@/integrations/supabase/client';
 
+export interface BatsmanData {
+  player: string;
+  runs: string;
+  balls: string;
+  fours: string;
+  sixes: string;
+  sr: string;
+  how_out: string;
+  team?: string;
+  innings?: string;
+}
+
+export interface BowlerData {
+  player: string;
+  overs: string;
+  maidens: string;
+  runs: string;
+  wickets: string;
+  econ: string;
+  team?: string;
+  innings?: string;
+}
+
 export interface ApiCricketScoreData {
   homeTeam: string;
   awayTeam: string;
@@ -20,6 +43,9 @@ export interface ApiCricketScoreData {
   leagueName?: string;
   lastUpdated: Date;
   fromDatabase?: boolean;
+  batsmen?: BatsmanData[];
+  bowlers?: BowlerData[];
+  scorecard?: any[];
 }
 
 interface UseApiCricketScoreOptions {
@@ -132,6 +158,9 @@ export const useApiCricketScore = ({
         leagueName: match.leagueName,
         lastUpdated: new Date(),
         fromDatabase: false,
+        batsmen: match.batsmen || [],
+        bowlers: match.bowlers || [],
+        scorecard: match.scorecard || [],
       } as ApiCricketScoreData;
     } catch (err) {
       console.error('Error fetching API Cricket score:', err);

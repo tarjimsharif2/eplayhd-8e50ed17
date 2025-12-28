@@ -2,8 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useApiCricketScore } from '@/hooks/useApiCricketScore';
-import { RefreshCw, Radio, Clock, AlertCircle, ChevronRight, Trophy } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { useApiCricketScore, BatsmanData, BowlerData } from '@/hooks/useApiCricketScore';
+import { RefreshCw, Radio, Clock, AlertCircle, ChevronRight, Trophy, User, Target } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ApiCricketLiveScoreProps {
@@ -76,110 +79,220 @@ const ApiCricketLiveScore = ({
       );
     }
 
+    const hasBattingData = scoreData.batsmen && scoreData.batsmen.length > 0;
+    const hasBowlingData = scoreData.bowlers && scoreData.bowlers.length > 0;
+    const hasDetailedData = hasBattingData || hasBowlingData;
+
     return (
-      <div className="space-y-6">
-        {/* Teams Header */}
-        <div className="grid grid-cols-2 gap-4">
-          {/* Home Team */}
-          <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
-            {(teamALogo || scoreData.homeTeamLogo) && (
-              <img 
-                src={teamALogo || scoreData.homeTeamLogo} 
-                alt={scoreData.homeTeam} 
-                className="w-16 h-16 object-contain" 
-              />
-            )}
-            <span className="text-base font-semibold text-center">
-              {scoreData.homeTeam}
-            </span>
-            <div className="text-center">
-              <span className="text-3xl font-bold text-primary">
-                {cleanScore(scoreData.homeScore || '-')}
+      <ScrollArea className="max-h-[70vh]">
+        <div className="space-y-6 pr-4">
+          {/* Teams Header */}
+          <div className="grid grid-cols-2 gap-4">
+            {/* Home Team */}
+            <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
+              {(teamALogo || scoreData.homeTeamLogo) && (
+                <img 
+                  src={teamALogo || scoreData.homeTeamLogo} 
+                  alt={scoreData.homeTeam} 
+                  className="w-16 h-16 object-contain" 
+                />
+              )}
+              <span className="text-base font-semibold text-center">
+                {scoreData.homeTeam}
               </span>
-              {(homeOvers || scoreData.homeRunRate) && (
-                <div className="flex flex-col gap-1 mt-1">
-                  {homeOvers && (
-                    <span className="text-sm text-muted-foreground">({homeOvers} ov)</span>
-                  )}
-                  {scoreData.homeRunRate && (
-                    <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
-                  )}
-                </div>
+              <div className="text-center">
+                <span className="text-3xl font-bold text-primary">
+                  {cleanScore(scoreData.homeScore || '-')}
+                </span>
+                {(homeOvers || scoreData.homeRunRate) && (
+                  <div className="flex flex-col gap-1 mt-1">
+                    {homeOvers && (
+                      <span className="text-sm text-muted-foreground">({homeOvers} ov)</span>
+                    )}
+                    {scoreData.homeRunRate && (
+                      <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Away Team */}
+            <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
+              {(teamBLogo || scoreData.awayTeamLogo) && (
+                <img 
+                  src={teamBLogo || scoreData.awayTeamLogo} 
+                  alt={scoreData.awayTeam} 
+                  className="w-16 h-16 object-contain" 
+                />
+              )}
+              <span className="text-base font-semibold text-center">
+                {scoreData.awayTeam}
+              </span>
+              <div className="text-center">
+                <span className="text-3xl font-bold text-primary">
+                  {cleanScore(scoreData.awayScore || '-')}
+                </span>
+                {(awayOvers || scoreData.awayRunRate) && (
+                  <div className="flex flex-col gap-1 mt-1">
+                    {awayOvers && (
+                      <span className="text-sm text-muted-foreground">({awayOvers} ov)</span>
+                    )}
+                    {scoreData.awayRunRate && (
+                      <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Match Info */}
+          <div className="space-y-3">
+            {scoreData.statusInfo && (
+              <div className="text-center p-3 bg-primary/10 rounded-lg">
+                <p className="text-sm font-medium">{scoreData.statusInfo}</p>
+              </div>
+            )}
+            
+            <div className="flex flex-wrap items-center justify-center gap-2">
+              {scoreData.status && (
+                <Badge variant="outline">{scoreData.status}</Badge>
+              )}
+              {scoreData.eventType && (
+                <Badge variant="secondary">{scoreData.eventType}</Badge>
+              )}
+              {scoreData.eventLive && (
+                <Badge variant="destructive" className="animate-pulse">LIVE</Badge>
               )}
             </div>
+
+            {scoreData.venue && (
+              <p className="text-center text-sm text-muted-foreground">
+                Venue: {scoreData.venue}
+              </p>
+            )}
+
+            {scoreData.toss && (
+              <p className="text-center text-xs text-muted-foreground">
+                {scoreData.toss}
+              </p>
+            )}
           </div>
 
-          {/* Away Team */}
-          <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
-            {(teamBLogo || scoreData.awayTeamLogo) && (
-              <img 
-                src={teamBLogo || scoreData.awayTeamLogo} 
-                alt={scoreData.awayTeam} 
-                className="w-16 h-16 object-contain" 
-              />
-            )}
-            <span className="text-base font-semibold text-center">
-              {scoreData.awayTeam}
-            </span>
-            <div className="text-center">
-              <span className="text-3xl font-bold text-primary">
-                {cleanScore(scoreData.awayScore || '-')}
-              </span>
-              {(awayOvers || scoreData.awayRunRate) && (
-                <div className="flex flex-col gap-1 mt-1">
-                  {awayOvers && (
-                    <span className="text-sm text-muted-foreground">({awayOvers} ov)</span>
-                  )}
-                  {scoreData.awayRunRate && (
-                    <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
-                  )}
-                </div>
-              )}
+          {/* Batting & Bowling Details */}
+          {hasDetailedData && (
+            <Tabs defaultValue="batting" className="w-full">
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="batting" className="flex items-center gap-2">
+                  <User className="w-4 h-4" />
+                  Batting
+                </TabsTrigger>
+                <TabsTrigger value="bowling" className="flex items-center gap-2">
+                  <Target className="w-4 h-4" />
+                  Bowling
+                </TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="batting" className="mt-4">
+                {hasBattingData ? (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="font-semibold">Batter</TableHead>
+                          <TableHead className="text-right font-semibold">R</TableHead>
+                          <TableHead className="text-right font-semibold">B</TableHead>
+                          <TableHead className="text-right font-semibold">4s</TableHead>
+                          <TableHead className="text-right font-semibold">6s</TableHead>
+                          <TableHead className="text-right font-semibold">SR</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {scoreData.batsmen?.map((batsman: BatsmanData, index: number) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium">
+                              <div className="flex flex-col">
+                                <span className="text-sm">{batsman.player}</span>
+                                {batsman.how_out && batsman.how_out !== 'not out' && (
+                                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                                    {batsman.how_out}
+                                  </span>
+                                )}
+                                {batsman.how_out === 'not out' && (
+                                  <Badge variant="outline" className="w-fit text-xs mt-0.5">not out</Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell className="text-right font-semibold">{batsman.runs}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{batsman.balls}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{batsman.fours}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{batsman.sixes}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{batsman.sr}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground text-sm">
+                    Batting data not available yet
+                  </div>
+                )}
+              </TabsContent>
+              
+              <TabsContent value="bowling" className="mt-4">
+                {hasBowlingData ? (
+                  <div className="rounded-lg border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="font-semibold">Bowler</TableHead>
+                          <TableHead className="text-right font-semibold">O</TableHead>
+                          <TableHead className="text-right font-semibold">M</TableHead>
+                          <TableHead className="text-right font-semibold">R</TableHead>
+                          <TableHead className="text-right font-semibold">W</TableHead>
+                          <TableHead className="text-right font-semibold">Econ</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {scoreData.bowlers?.map((bowler: BowlerData, index: number) => (
+                          <TableRow key={index}>
+                            <TableCell className="font-medium text-sm">{bowler.player}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{bowler.overs}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{bowler.maidens}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{bowler.runs}</TableCell>
+                            <TableCell className="text-right font-semibold">{bowler.wickets}</TableCell>
+                            <TableCell className="text-right text-muted-foreground">{bowler.econ}</TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground text-sm">
+                    Bowling data not available yet
+                  </div>
+                )}
+              </TabsContent>
+            </Tabs>
+          )}
+
+          {!hasDetailedData && (
+            <div className="text-center py-4 text-muted-foreground text-sm border rounded-lg bg-muted/20">
+              Detailed scorecard will be available during the match
             </div>
-          </div>
-        </div>
+          )}
 
-        {/* Match Info */}
-        <div className="space-y-3">
-          {scoreData.statusInfo && (
-            <div className="text-center p-3 bg-primary/10 rounded-lg">
-              <p className="text-sm font-medium">{scoreData.statusInfo}</p>
+          {/* Last Updated */}
+          {scoreData.lastUpdated && (
+            <div className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1">
+              <Clock className="w-3 h-3" />
+              Last updated: {scoreData.lastUpdated.toLocaleTimeString()}
             </div>
           )}
-          
-          <div className="flex flex-wrap items-center justify-center gap-2">
-            {scoreData.status && (
-              <Badge variant="outline">{scoreData.status}</Badge>
-            )}
-            {scoreData.eventType && (
-              <Badge variant="secondary">{scoreData.eventType}</Badge>
-            )}
-            {scoreData.eventLive && (
-              <Badge variant="destructive" className="animate-pulse">LIVE</Badge>
-            )}
-          </div>
-
-          {scoreData.venue && (
-            <p className="text-center text-sm text-muted-foreground">
-              Venue: {scoreData.venue}
-            </p>
-          )}
-
-          {scoreData.toss && (
-            <p className="text-center text-xs text-muted-foreground">
-              {scoreData.toss}
-            </p>
-          )}
         </div>
-
-        {/* Last Updated */}
-        {scoreData.lastUpdated && (
-          <div className="text-center text-xs text-muted-foreground flex items-center justify-center gap-1">
-            <Clock className="w-3 h-3" />
-            Last updated: {scoreData.lastUpdated.toLocaleTimeString()}
-          </div>
-        )}
-      </div>
+      </ScrollArea>
     );
   };
 
