@@ -101,18 +101,16 @@ const ApiCricketLiveScore = ({
                 {scoreData.homeTeam}
               </span>
               <div className="text-center">
-                <span className="text-3xl font-bold text-primary">
-                  {cleanScore(scoreData.homeScore || '-')}
-                </span>
-                {(homeOvers || scoreData.homeRunRate) && (
-                  <div className="flex flex-col gap-1 mt-1">
-                    {homeOvers && (
-                      <span className="text-sm text-muted-foreground">({homeOvers} ov)</span>
-                    )}
-                    {scoreData.homeRunRate && (
-                      <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
-                    )}
-                  </div>
+                <div className="flex items-baseline justify-center gap-1">
+                  <span className="text-3xl font-bold text-primary">
+                    {cleanScore(scoreData.homeScore || '-')}
+                  </span>
+                  {homeOvers && (
+                    <span className="text-sm text-muted-foreground">({homeOvers} ov)</span>
+                  )}
+                </div>
+                {scoreData.homeRunRate && (
+                  <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
                 )}
               </div>
             </div>
@@ -130,18 +128,16 @@ const ApiCricketLiveScore = ({
                 {scoreData.awayTeam}
               </span>
               <div className="text-center">
-                <span className="text-3xl font-bold text-primary">
-                  {cleanScore(scoreData.awayScore || '-')}
-                </span>
-                {(awayOvers || scoreData.awayRunRate) && (
-                  <div className="flex flex-col gap-1 mt-1">
-                    {awayOvers && (
-                      <span className="text-sm text-muted-foreground">({awayOvers} ov)</span>
-                    )}
-                    {scoreData.awayRunRate && (
-                      <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
-                    )}
-                  </div>
+                <div className="flex items-baseline justify-center gap-1">
+                  <span className="text-3xl font-bold text-primary">
+                    {cleanScore(scoreData.awayScore || '-')}
+                  </span>
+                  {awayOvers && (
+                    <span className="text-sm text-muted-foreground">({awayOvers} ov)</span>
+                  )}
+                </div>
+                {scoreData.awayRunRate && (
+                  <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
                 )}
               </div>
             </div>
@@ -414,18 +410,16 @@ const ApiCricketLiveScore = ({
                     {scoreData.homeTeam}
                   </span>
                   <div className="text-center">
-                    <span className="text-2xl font-bold text-primary">
-                      {cleanScore(scoreData.homeScore)}
-                    </span>
-                    {(homeOvers || scoreData.homeRunRate) && (
-                      <div className="flex flex-col items-center gap-0.5 mt-1">
-                        {homeOvers && (
-                          <span className="text-xs text-muted-foreground">({homeOvers} ov)</span>
-                        )}
-                        {scoreData.homeRunRate && (
-                          <span className="text-xs text-muted-foreground">(RR: {scoreData.homeRunRate})</span>
-                        )}
-                      </div>
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-2xl font-bold text-primary">
+                        {cleanScore(scoreData.homeScore)}
+                      </span>
+                      {homeOvers && (
+                        <span className="text-xs text-muted-foreground">({homeOvers})</span>
+                      )}
+                    </div>
+                    {scoreData.homeRunRate && (
+                      <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
                     )}
                   </div>
                 </div>
@@ -443,18 +437,16 @@ const ApiCricketLiveScore = ({
                     {scoreData.awayTeam}
                   </span>
                   <div className="text-center">
-                    <span className="text-2xl font-bold text-primary">
-                      {cleanScore(scoreData.awayScore)}
-                    </span>
-                    {(awayOvers || scoreData.awayRunRate) && (
-                      <div className="flex flex-col items-center gap-0.5 mt-1">
-                        {awayOvers && (
-                          <span className="text-xs text-muted-foreground">({awayOvers} ov)</span>
-                        )}
-                        {scoreData.awayRunRate && (
-                          <span className="text-xs text-muted-foreground">(RR: {scoreData.awayRunRate})</span>
-                        )}
-                      </div>
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-2xl font-bold text-primary">
+                        {cleanScore(scoreData.awayScore)}
+                      </span>
+                      {awayOvers && (
+                        <span className="text-xs text-muted-foreground">({awayOvers})</span>
+                      )}
+                    </div>
+                    {scoreData.awayRunRate && (
+                      <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
                     )}
                   </div>
                 </div>
