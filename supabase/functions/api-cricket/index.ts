@@ -294,8 +294,6 @@ Deno.serve(async (req) => {
         let batsmen: any[] = [];
         let bowlers: any[] = [];
         let extras: any[] = [];
-        let fallOfWickets: any[] = [];
-        let didNotBat: any[] = [];
         
         // Scorecard can be an object with innings keys (e.g., "Team 1 INN") or an array
         if (matchingEvent.scorecard) {
@@ -356,34 +354,6 @@ Deno.serve(async (req) => {
                       if (nbMatch) inningsExtras.noballs = parseInt(nbMatch[1]) || 0;
                       if (bMatch) inningsExtras.byes = parseInt(bMatch[1]) || 0;
                       if (lbMatch) inningsExtras.legbyes = parseInt(lbMatch[1]) || 0;
-                    }
-                  } else if (player.type === 'FOW' || player.player?.toLowerCase().includes('fall of wickets')) {
-                    // Parse fall of wickets
-                    if (player.status) {
-                      // FOW format can vary: "1-10 (Player Name, 2.3 ov)" or similar
-                      const fowMatch = player.status.match(/(\d+)-(\d+)\s*\(([^,]+),?\s*([\d.]+)?\s*ov?\)?/i);
-                      if (fowMatch) {
-                        fallOfWickets.push({
-                          wicketNumber: parseInt(fowMatch[1]) || 0,
-                          score: fowMatch[2] || '0',
-                          player: fowMatch[3]?.trim() || '',
-                          over: fowMatch[4] || '',
-                          team: inningsKey.replace(/ \d+ INN$/, ''),
-                          innings: inningsKey,
-                        });
-                      }
-                    }
-                  } else if (player.type === 'DNB' || player.player?.toLowerCase().includes('did not bat')) {
-                    // Parse did not bat players
-                    if (player.status) {
-                      const dnbPlayers = player.status.split(',').map((p: string) => p.trim()).filter((p: string) => p);
-                      dnbPlayers.forEach((dnbPlayer: string) => {
-                        didNotBat.push({
-                          player: dnbPlayer,
-                          team: inningsKey.replace(/ \d+ INN$/, ''),
-                          innings: inningsKey,
-                        });
-                      });
                     }
                   }
                 });
@@ -524,8 +494,6 @@ Deno.serve(async (req) => {
               batsmen,
               bowlers,
               extras,
-              fallOfWickets,
-              didNotBat,
             }
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

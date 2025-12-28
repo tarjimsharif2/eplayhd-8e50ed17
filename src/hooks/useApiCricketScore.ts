@@ -35,21 +35,6 @@ export interface ExtrasData {
   innings?: string;
 }
 
-export interface FallOfWicketData {
-  wicketNumber: number;
-  score: string;
-  over: string;
-  player: string;
-  team?: string;
-  innings?: string;
-}
-
-export interface DidNotBatData {
-  player: string;
-  team?: string;
-  innings?: string;
-}
-
 export interface ApiCricketScoreData {
   homeTeam: string;
   awayTeam: string;
@@ -74,8 +59,6 @@ export interface ApiCricketScoreData {
   bowlers?: BowlerData[];
   scorecard?: any[];
   extras?: ExtrasData[];
-  fallOfWickets?: FallOfWicketData[];
-  didNotBat?: DidNotBatData[];
 }
 
 interface UseApiCricketScoreOptions {
@@ -194,8 +177,6 @@ export const useApiCricketScore = ({
         bowlers: match.bowlers || [],
         scorecard: match.scorecard || [],
         extras: match.extras || [],
-        fallOfWickets: match.fallOfWickets || [],
-        didNotBat: match.didNotBat || [],
       } as ApiCricketScoreData;
     } catch (err) {
       console.error('Error fetching API Cricket score:', err);
