@@ -266,24 +266,24 @@ Deno.serve(async (req) => {
                 players.forEach((player: any) => {
                   if (player.type === 'Batsman') {
                     batsmen.push({
-                      name: player.player,
-                      runs: player.R,
-                      balls: player.B,
-                      fours: player['4s'],
-                      sixes: player['6s'],
-                      strikeRate: player.SR,
-                      status: player.status,
+                      player: player.player,
+                      runs: player.R || '0',
+                      balls: player.B || '0',
+                      fours: player['4s'] || '0',
+                      sixes: player['6s'] || '0',
+                      sr: player.SR || '0.00',
+                      how_out: player.status || 'not out',
                       team: inningsKey.replace(/ \d+ INN$/, ''),
                       innings: inningsKey,
                     });
                   } else if (player.type === 'Bowler') {
                     bowlers.push({
-                      name: player.player,
-                      overs: player.O,
-                      maidens: player.M,
-                      runs: player.R,
-                      wickets: player.W,
-                      economy: player.ER,
+                      player: player.player,
+                      overs: player.O || '0',
+                      maidens: player.M || '0',
+                      runs: player.R || '0',
+                      wickets: player.W || '0',
+                      econ: player.ER || '0.00',
                       team: inningsKey.replace(/ \d+ INN$/, ''),
                       innings: inningsKey,
                     });
