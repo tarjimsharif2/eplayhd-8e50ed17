@@ -3,7 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useApiCricketScore, BatsmanData, BowlerData } from '@/hooks/useApiCricketScore';
 import { RefreshCw, Radio, Clock, AlertCircle, ChevronRight, Trophy, User, Target } from 'lucide-react';
@@ -245,42 +245,66 @@ const ApiCricketLiveScore = ({
                           )}
                         </div>
                         {team.batsmen.length > 0 ? (
-                          <div className="rounded-lg border overflow-x-auto">
-                            <Table>
-                              <TableHeader>
-                                <TableRow className="bg-muted/50">
-                                  <TableHead className="font-semibold text-xs whitespace-nowrap min-w-[100px]">Batter</TableHead>
-                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">R</TableHead>
-                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">B</TableHead>
-                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">4s</TableHead>
-                                  <TableHead className="text-right font-semibold text-xs px-1 w-8">6s</TableHead>
-                                  <TableHead className="text-right font-semibold text-xs px-1 w-10">SR</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {team.batsmen.map((batsman, bIdx) => (
-                                  <TableRow key={bIdx}>
-                                    <TableCell className="py-2 px-2">
-                                      <div className="flex flex-col">
-                                        <span className="text-xs font-medium truncate max-w-[100px]">{batsman.player}</span>
-                                        {batsman.how_out && batsman.how_out !== 'not out' && (
-                                          <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{batsman.how_out}</span>
-                                        )}
-                                        {batsman.how_out === 'not out' && (
-                                          <span className="text-[10px] text-green-500">not out</span>
-                                        )}
-                                      </div>
-                                    </TableCell>
-                                    <TableCell className="text-right font-semibold text-xs py-2 px-1">{batsman.runs}</TableCell>
-                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.balls}</TableCell>
-                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.fours}</TableCell>
-                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sixes}</TableCell>
-                                    <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sr}</TableCell>
-                                  </TableRow>
-                                ))}
-                              </TableBody>
-                            </Table>
-                          </div>
+                          (() => {
+                            // Calculate totals
+                            const totalRuns = team.batsmen.reduce((sum, b) => sum + (parseInt(b.runs) || 0), 0);
+                            const totalBalls = team.batsmen.reduce((sum, b) => sum + (parseInt(b.balls) || 0), 0);
+                            const totalFours = team.batsmen.reduce((sum, b) => sum + (parseInt(b.fours) || 0), 0);
+                            const totalSixes = team.batsmen.reduce((sum, b) => sum + (parseInt(b.sixes) || 0), 0);
+                            const wickets = team.batsmen.filter(b => b.how_out && b.how_out !== 'not out').length;
+                            const overs = (totalBalls / 6).toFixed(1);
+
+                            return (
+                              <div className="rounded-lg border overflow-x-auto">
+                                <Table>
+                                  <TableHeader>
+                                    <TableRow className="bg-muted/50">
+                                      <TableHead className="font-semibold text-xs whitespace-nowrap min-w-[100px]">Batter</TableHead>
+                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">R</TableHead>
+                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">B</TableHead>
+                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">4s</TableHead>
+                                      <TableHead className="text-right font-semibold text-xs px-1 w-8">6s</TableHead>
+                                      <TableHead className="text-right font-semibold text-xs px-1 w-10">SR</TableHead>
+                                    </TableRow>
+                                  </TableHeader>
+                                  <TableBody>
+                                    {team.batsmen.map((batsman, bIdx) => (
+                                      <TableRow key={bIdx}>
+                                        <TableCell className="py-2 px-2">
+                                          <div className="flex flex-col">
+                                            <span className="text-xs font-medium truncate max-w-[100px]">{batsman.player}</span>
+                                            {batsman.how_out && batsman.how_out !== 'not out' && (
+                                              <span className="text-[10px] text-muted-foreground truncate max-w-[100px]">{batsman.how_out}</span>
+                                            )}
+                                            {batsman.how_out === 'not out' && (
+                                              <span className="text-[10px] text-green-500">not out</span>
+                                            )}
+                                          </div>
+                                        </TableCell>
+                                        <TableCell className="text-right font-semibold text-xs py-2 px-1">{batsman.runs}</TableCell>
+                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.balls}</TableCell>
+                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.fours}</TableCell>
+                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sixes}</TableCell>
+                                        <TableCell className="text-right text-muted-foreground text-xs py-2 px-1">{batsman.sr}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                  <TableFooter>
+                                    <TableRow className="bg-primary/10 font-semibold">
+                                      <TableCell className="py-2 px-2 text-xs">
+                                        Total ({wickets} wkts, {overs} ov)
+                                      </TableCell>
+                                      <TableCell className="text-right text-xs py-2 px-1 font-bold">{totalRuns}</TableCell>
+                                      <TableCell className="text-right text-xs py-2 px-1">{totalBalls}</TableCell>
+                                      <TableCell className="text-right text-xs py-2 px-1">{totalFours}</TableCell>
+                                      <TableCell className="text-right text-xs py-2 px-1">{totalSixes}</TableCell>
+                                      <TableCell className="text-right text-xs py-2 px-1"></TableCell>
+                                    </TableRow>
+                                  </TableFooter>
+                                </Table>
+                              </div>
+                            );
+                          })()
                         ) : (
                           <div className="text-center py-4 text-muted-foreground text-xs border rounded-lg">No batting data</div>
                         )}
