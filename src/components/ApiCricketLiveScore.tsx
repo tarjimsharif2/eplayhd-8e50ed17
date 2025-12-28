@@ -6,8 +6,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
-import { useApiCricketScore, BatsmanData, BowlerData } from '@/hooks/useApiCricketScore';
-import { RefreshCw, Radio, Clock, AlertCircle, Trophy, User, Target, ChevronDown, ChevronUp } from 'lucide-react';
+import { useApiCricketScore, BatsmanData, BowlerData, FallOfWicketData, DidNotBatData } from '@/hooks/useApiCricketScore';
+import { RefreshCw, Radio, Clock, AlertCircle, Trophy, User, Target, ChevronDown, ChevronUp, AlertTriangle, UserX } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface ApiCricketLiveScoreProps {
@@ -136,6 +136,8 @@ const ApiCricketLiveScore = ({
                       overs: overs || null,
                       batsmen: scoreData.batsmen?.filter(b => b.innings === inning) || [],
                       bowlers: scoreData.bowlers?.filter(b => b.innings === inning) || [],
+                      fallOfWickets: scoreData.fallOfWickets?.filter(f => f.innings === inning) || [],
+                      didNotBat: scoreData.didNotBat?.filter(d => d.innings === inning) || [],
                     };
                   });
                 }
@@ -152,6 +154,12 @@ const ApiCricketLiveScore = ({
                     bowlers: scoreData.bowlers?.filter(b => 
                       !b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '')
                     ) || [],
+                    fallOfWickets: scoreData.fallOfWickets?.filter(f => 
+                      f.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '')
+                    ) || [],
+                    didNotBat: scoreData.didNotBat?.filter(d => 
+                      d.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '')
+                    ) || [],
                   },
                   {
                     name: scoreData.awayTeam || 'Team B',
@@ -163,6 +171,12 @@ const ApiCricketLiveScore = ({
                     ) || [],
                     bowlers: scoreData.bowlers?.filter(b => 
                       b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '')
+                    ) || [],
+                    fallOfWickets: scoreData.fallOfWickets?.filter(f => 
+                      f.team?.toLowerCase().includes(scoreData.awayTeam?.toLowerCase() || '')
+                    ) || [],
+                    didNotBat: scoreData.didNotBat?.filter(d => 
+                      d.team?.toLowerCase().includes(scoreData.awayTeam?.toLowerCase() || '')
                     ) || [],
                   },
                 ].filter(t => t.batsmen.length > 0 || t.bowlers.length > 0);
@@ -298,6 +312,43 @@ const ApiCricketLiveScore = ({
                           <div className="text-center py-4 text-muted-foreground text-xs border rounded-lg">No bowling data</div>
                         )}
                       </div>
+
+                      {/* Did Not Bat Section */}
+                      {team.didNotBat && team.didNotBat.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <UserX className="w-4 h-4 text-muted-foreground" />
+                            <span className="font-semibold text-sm text-muted-foreground">Did Not Bat</span>
+                          </div>
+                          <div className="p-3 rounded-lg border bg-muted/20">
+                            <p className="text-xs text-muted-foreground">
+                              {team.didNotBat.map(d => d.player).join(', ')}
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Fall of Wickets Section */}
+                      {team.fallOfWickets && team.fallOfWickets.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4 text-orange-500" />
+                            <span className="font-semibold text-sm">Fall of Wickets</span>
+                          </div>
+                          <div className="p-3 rounded-lg border bg-muted/20">
+                            <div className="flex flex-wrap gap-2">
+                              {team.fallOfWickets.map((fow, fowIdx) => (
+                                <Badge key={fowIdx} variant="outline" className="text-xs">
+                                  {fow.wicketNumber}-{fow.score}
+                                  {fow.player && ` (${fow.player}`}
+                                  {fow.over && `, ${fow.over} ov`}
+                                  {fow.player && ')'}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </TabsContent>
                   ))}
                 </Tabs>
