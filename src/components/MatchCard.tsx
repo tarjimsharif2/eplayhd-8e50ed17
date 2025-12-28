@@ -313,7 +313,11 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                 )}
               </div>
               <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamA.name}</span>
-              {match.score_a && <span className="text-lg md:text-xl font-bold text-primary">{match.score_a}</span>}
+              {match.score_a && (
+                <div className="flex flex-col items-center">
+                  <span className="text-lg md:text-xl font-bold text-primary">{match.score_a}</span>
+                </div>
+              )}
             </div>
 
             {/* VS / Countdown / Match Minute */}
@@ -349,7 +353,11 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
                 )}
               </div>
               <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamB.name}</span>
-              {match.score_b && <span className="text-lg md:text-xl font-bold text-accent">{match.score_b}</span>}
+              {match.score_b && (
+                <div className="flex flex-col items-center">
+                  <span className="text-lg md:text-xl font-bold text-muted-foreground">{match.score_b}</span>
+                </div>
+              )}
             </div>
           </div>
 
