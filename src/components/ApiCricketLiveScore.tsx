@@ -87,62 +87,84 @@ const ApiCricketLiveScore = ({
     return (
       <ScrollArea className="max-h-[70vh]">
         <div className="space-y-6 pr-4">
-          {/* Teams Header */}
-          <div className="grid grid-cols-2 gap-4">
-            {/* Home Team */}
-            <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
-              {(teamALogo || scoreData.homeTeamLogo) && (
-                <img 
-                  src={teamALogo || scoreData.homeTeamLogo} 
-                  alt={scoreData.homeTeam} 
-                  className="w-16 h-16 object-contain" 
-                />
-              )}
-              <span className="text-base font-semibold text-center">
-                {scoreData.homeTeam}
-              </span>
-              <div className="text-center">
-                <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-3xl font-bold text-primary">
-                    {cleanScore(scoreData.homeScore || '-')}
-                  </span>
-                  {homeOvers && (
-                    <span className="text-sm text-muted-foreground">({homeOvers} ov)</span>
-                  )}
-                </div>
-                {scoreData.homeRunRate && (
-                  <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
-                )}
-              </div>
-            </div>
+          {/* Teams Header - Match logos with team names correctly */}
+          {(() => {
+            // Determine which logo belongs to which team by comparing names
+            const homeTeamNameLower = scoreData.homeTeam?.toLowerCase() || '';
+            const awayTeamNameLower = scoreData.awayTeam?.toLowerCase() || '';
+            const teamANameLower = teamAName?.toLowerCase() || '';
+            const teamBNameLower = teamBName?.toLowerCase() || '';
+            
+            // Check if teamA matches homeTeam or awayTeam
+            const teamAMatchesHome = homeTeamNameLower.includes(teamANameLower.split(' ')[0]) || 
+                                      teamANameLower.includes(homeTeamNameLower.split(' ')[0]);
+            
+            // Assign logos correctly based on team name matching
+            const homeLogo = teamAMatchesHome 
+              ? (teamALogo || scoreData.homeTeamLogo) 
+              : (teamBLogo || scoreData.homeTeamLogo);
+            const awayLogo = teamAMatchesHome 
+              ? (teamBLogo || scoreData.awayTeamLogo) 
+              : (teamALogo || scoreData.awayTeamLogo);
 
-            {/* Away Team */}
-            <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
-              {(teamBLogo || scoreData.awayTeamLogo) && (
-                <img 
-                  src={teamBLogo || scoreData.awayTeamLogo} 
-                  alt={scoreData.awayTeam} 
-                  className="w-16 h-16 object-contain" 
-                />
-              )}
-              <span className="text-base font-semibold text-center">
-                {scoreData.awayTeam}
-              </span>
-              <div className="text-center">
-                <div className="flex items-baseline justify-center gap-1">
-                  <span className="text-3xl font-bold text-primary">
-                    {cleanScore(scoreData.awayScore || '-')}
-                  </span>
-                  {awayOvers && (
-                    <span className="text-sm text-muted-foreground">({awayOvers} ov)</span>
+            return (
+              <div className="grid grid-cols-2 gap-4">
+                {/* Home Team */}
+                <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
+                  {homeLogo && (
+                    <img 
+                      src={homeLogo} 
+                      alt={scoreData.homeTeam} 
+                      className="w-16 h-16 object-contain" 
+                    />
                   )}
+                  <span className="text-base font-semibold text-center">
+                    {scoreData.homeTeam}
+                  </span>
+                  <div className="text-center">
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-3xl font-bold text-primary">
+                        {cleanScore(scoreData.homeScore || '-')}
+                      </span>
+                      {homeOvers && (
+                        <span className="text-sm text-muted-foreground">({homeOvers} ov)</span>
+                      )}
+                    </div>
+                    {scoreData.homeRunRate && (
+                      <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
+                    )}
+                  </div>
                 </div>
-                {scoreData.awayRunRate && (
-                  <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
-                )}
+
+                {/* Away Team */}
+                <div className="flex flex-col items-center gap-3 p-4 rounded-lg bg-muted/30">
+                  {awayLogo && (
+                    <img 
+                      src={awayLogo} 
+                      alt={scoreData.awayTeam} 
+                      className="w-16 h-16 object-contain" 
+                    />
+                  )}
+                  <span className="text-base font-semibold text-center">
+                    {scoreData.awayTeam}
+                  </span>
+                  <div className="text-center">
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-3xl font-bold text-primary">
+                        {cleanScore(scoreData.awayScore || '-')}
+                      </span>
+                      {awayOvers && (
+                        <span className="text-sm text-muted-foreground">({awayOvers} ov)</span>
+                      )}
+                    </div>
+                    {scoreData.awayRunRate && (
+                      <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
 
           {/* Match Info */}
           <div className="space-y-3">
@@ -451,62 +473,83 @@ const ApiCricketLiveScore = ({
             </div>
           ) : scoreData ? (
             <div className="space-y-4">
-              {/* Team Scores */}
-              <div className="grid grid-cols-2 gap-4">
-                {/* Home Team */}
-                <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
-                  {(teamALogo || scoreData.homeTeamLogo) && (
-                    <img 
-                      src={teamALogo || scoreData.homeTeamLogo} 
-                      alt={scoreData.homeTeam} 
-                      className="w-10 h-10 object-contain" 
-                    />
-                  )}
-                  <span className="text-sm font-medium text-center truncate w-full">
-                    {scoreData.homeTeam}
-                  </span>
-                  <div className="text-center">
-                    <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-2xl font-bold text-primary">
-                        {cleanScore(scoreData.homeScore)}
-                      </span>
-                      {homeOvers && (
-                        <span className="text-xs text-muted-foreground">({homeOvers} ov)</span>
-                      )}
-                    </div>
-                    {scoreData.homeRunRate && (
-                      <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
-                    )}
-                  </div>
-                </div>
+              {/* Team Scores - Match logos with team names correctly */}
+              {(() => {
+                // Determine which logo belongs to which team by comparing names
+                const homeTeamNameLower = scoreData.homeTeam?.toLowerCase() || '';
+                const awayTeamNameLower = scoreData.awayTeam?.toLowerCase() || '';
+                const teamANameLower = teamAName?.toLowerCase() || '';
+                
+                // Check if teamA matches homeTeam or awayTeam
+                const teamAMatchesHome = homeTeamNameLower.includes(teamANameLower.split(' ')[0]) || 
+                                          teamANameLower.includes(homeTeamNameLower.split(' ')[0]);
+                
+                // Assign logos correctly based on team name matching
+                const homeLogo = teamAMatchesHome 
+                  ? (teamALogo || scoreData.homeTeamLogo) 
+                  : (teamBLogo || scoreData.homeTeamLogo);
+                const awayLogo = teamAMatchesHome 
+                  ? (teamBLogo || scoreData.awayTeamLogo) 
+                  : (teamALogo || scoreData.awayTeamLogo);
 
-                {/* Away Team */}
-                <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
-                  {(teamBLogo || scoreData.awayTeamLogo) && (
-                    <img 
-                      src={teamBLogo || scoreData.awayTeamLogo} 
-                      alt={scoreData.awayTeam} 
-                      className="w-10 h-10 object-contain" 
-                    />
-                  )}
-                  <span className="text-sm font-medium text-center truncate w-full">
-                    {scoreData.awayTeam}
-                  </span>
-                  <div className="text-center">
-                    <div className="flex items-baseline justify-center gap-1">
-                      <span className="text-2xl font-bold text-primary">
-                        {cleanScore(scoreData.awayScore)}
-                      </span>
-                      {awayOvers && (
-                        <span className="text-xs text-muted-foreground">({awayOvers} ov)</span>
+                return (
+                  <div className="grid grid-cols-2 gap-4">
+                    {/* Home Team */}
+                    <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
+                      {homeLogo && (
+                        <img 
+                          src={homeLogo} 
+                          alt={scoreData.homeTeam} 
+                          className="w-10 h-10 object-contain" 
+                        />
                       )}
+                      <span className="text-sm font-medium text-center truncate w-full">
+                        {scoreData.homeTeam}
+                      </span>
+                      <div className="text-center">
+                        <div className="flex items-baseline justify-center gap-1">
+                          <span className="text-2xl font-bold text-primary">
+                            {cleanScore(scoreData.homeScore)}
+                          </span>
+                          {homeOvers && (
+                            <span className="text-xs text-muted-foreground">({homeOvers} ov)</span>
+                          )}
+                        </div>
+                        {scoreData.homeRunRate && (
+                          <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>
+                        )}
+                      </div>
                     </div>
-                    {scoreData.awayRunRate && (
-                      <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
-                    )}
+
+                    {/* Away Team */}
+                    <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
+                      {awayLogo && (
+                        <img 
+                          src={awayLogo} 
+                          alt={scoreData.awayTeam} 
+                          className="w-10 h-10 object-contain" 
+                        />
+                      )}
+                      <span className="text-sm font-medium text-center truncate w-full">
+                        {scoreData.awayTeam}
+                      </span>
+                      <div className="text-center">
+                        <div className="flex items-baseline justify-center gap-1">
+                          <span className="text-2xl font-bold text-primary">
+                            {cleanScore(scoreData.awayScore)}
+                          </span>
+                          {awayOvers && (
+                            <span className="text-xs text-muted-foreground">({awayOvers} ov)</span>
+                          )}
+                        </div>
+                        {scoreData.awayRunRate && (
+                          <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
+                );
+              })()}
 
               {/* Match Status */}
               <div className="text-center space-y-2">
