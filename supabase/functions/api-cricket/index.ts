@@ -104,10 +104,16 @@ Deno.serve(async (req) => {
     };
 
     // Helper to fetch events for a date range
-    const fetchEventsForDateRange = async (startDate: string, endDate: string) => {
-      const url = `https://apiv2.api-cricket.com/cricket/?method=get_events&APIkey=${apiKey}&date_start=${startDate}&date_stop=${endDate}`;
+    const fetchEventsForDateRange = async (startDate: string, endDate: string, eventKey?: string) => {
+      let url = `https://apiv2.api-cricket.com/cricket/?method=get_events&APIkey=${apiKey}&date_start=${startDate}&date_stop=${endDate}`;
       
-      console.log(`Fetching events from api-cricket.com for ${startDate} to ${endDate}`);
+      // If event_key is provided, add it to get full details for that specific event
+      if (eventKey) {
+        url += `&event_key=${eventKey}`;
+        console.log(`Fetching event details for event_key: ${eventKey}`);
+      } else {
+        console.log(`Fetching events from api-cricket.com for ${startDate} to ${endDate}`);
+      }
       
       const response = await fetchWithRetry(url, {
         method: 'GET',
@@ -129,6 +135,13 @@ Deno.serve(async (req) => {
       }
 
       return data.result || [];
+    };
+
+    // Helper to fetch event details by event_key for full scorecard data
+    const fetchEventDetails = async (eventKey: string, eventDate: string) => {
+      console.log(`Fetching detailed scorecard for event_key: ${eventKey}`);
+      const events = await fetchEventsForDateRange(eventDate, eventDate, eventKey);
+      return events.length > 0 ? events[0] : null;
     };
 
     // Helper to find matching event - searches today first, then past 7 days if not found
@@ -217,33 +230,90 @@ Deno.serve(async (req) => {
 
     if (action === 'getLiveScore') {
       // Search past 7 days for completed matches too
-      const matchingEvent = await findMatchingEvent(true);
+      let matchingEvent = await findMatchingEvent(true);
 
       if (matchingEvent) {
         console.log(`Found matching event: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);
+        console.log(`Event status: ${matchingEvent.event_status}, Event key: ${matchingEvent.event_key}`);
+        console.log(`Scorecard available: ${!!matchingEvent.scorecard}, Type: ${typeof matchingEvent.scorecard}`);
+        
+        // If no scorecard data in the initial response, fetch detailed event data
+        if (!matchingEvent.scorecard && matchingEvent.event_key && matchingEvent.event_date_start) {
+          console.log('No scorecard in initial response, fetching detailed event data...');
+          const detailedEvent = await fetchEventDetails(matchingEvent.event_key, matchingEvent.event_date_start);
+          if (detailedEvent) {
+            matchingEvent = detailedEvent;
+            console.log(`Detailed fetch - Scorecard available: ${!!matchingEvent.scorecard}`);
+          }
+        }
+        
+        if (matchingEvent.scorecard) {
+          console.log(`Scorecard keys: ${Object.keys(matchingEvent.scorecard).join(', ')}`);
+        }
         
         // Parse scorecard for batting/bowling details
         let batsmen: any[] = [];
         let bowlers: any[] = [];
         
-        if (matchingEvent.scorecard && Array.isArray(matchingEvent.scorecard)) {
-          matchingEvent.scorecard.forEach((innings: any) => {
-            if (innings.batting && Array.isArray(innings.batting)) {
-              batsmen = [...batsmen, ...innings.batting.map((b: any) => ({
-                ...b,
-                team: innings.team,
-                innings: innings.innings,
-              }))];
-            }
-            if (innings.bowling && Array.isArray(innings.bowling)) {
-              bowlers = [...bowlers, ...innings.bowling.map((b: any) => ({
-                ...b,
-                team: innings.team,
-                innings: innings.innings,
-              }))];
-            }
-          });
+        // Scorecard can be an object with innings keys (e.g., "Team 1 INN") or an array
+        if (matchingEvent.scorecard) {
+          const scorecardData = matchingEvent.scorecard;
+          
+          // Handle scorecard as object with innings keys
+          if (typeof scorecardData === 'object' && !Array.isArray(scorecardData)) {
+            Object.entries(scorecardData).forEach(([inningsKey, players]: [string, any]) => {
+              if (Array.isArray(players)) {
+                players.forEach((player: any) => {
+                  if (player.type === 'Batsman') {
+                    batsmen.push({
+                      name: player.player,
+                      runs: player.R,
+                      balls: player.B,
+                      fours: player['4s'],
+                      sixes: player['6s'],
+                      strikeRate: player.SR,
+                      status: player.status,
+                      team: inningsKey.replace(/ \d+ INN$/, ''),
+                      innings: inningsKey,
+                    });
+                  } else if (player.type === 'Bowler') {
+                    bowlers.push({
+                      name: player.player,
+                      overs: player.O,
+                      maidens: player.M,
+                      runs: player.R,
+                      wickets: player.W,
+                      economy: player.ER,
+                      team: inningsKey.replace(/ \d+ INN$/, ''),
+                      innings: inningsKey,
+                    });
+                  }
+                });
+              }
+            });
+          }
+          // Handle scorecard as array (legacy format)
+          else if (Array.isArray(scorecardData)) {
+            scorecardData.forEach((innings: any) => {
+              if (innings.batting && Array.isArray(innings.batting)) {
+                batsmen = [...batsmen, ...innings.batting.map((b: any) => ({
+                  ...b,
+                  team: innings.team,
+                  innings: innings.innings,
+                }))];
+              }
+              if (innings.bowling && Array.isArray(innings.bowling)) {
+                bowlers = [...bowlers, ...innings.bowling.map((b: any) => ({
+                  ...b,
+                  team: innings.team,
+                  innings: innings.innings,
+                }))];
+              }
+            });
+          }
         }
+        
+        console.log(`Parsed ${batsmen.length} batsmen, ${bowlers.length} bowlers`);
         
         return new Response(
           JSON.stringify({
