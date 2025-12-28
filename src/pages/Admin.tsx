@@ -54,7 +54,7 @@ const Admin = () => {
   // Check if user is admin
   const { data: isAdmin, isLoading: isAdminLoading } = useIsAdmin(user?.id);
 
-  // Data hooks
+  // Data hooks - MUST be called unconditionally before any returns
   const { data: matches, isLoading: matchesLoading } = useMatches();
   const { data: teams, isLoading: teamsLoading } = useTeams();
   const { data: tournaments, isLoading: tournamentsLoading } = useTournaments();
@@ -83,6 +83,7 @@ const Admin = () => {
   // Google Indexing hook
   const { submitMatchForIndexing, submitTournamentForIndexing } = useGoogleIndexing();
 
+  // ALL useState hooks must be called before any conditional returns
   const [matchDialogOpen, setMatchDialogOpen] = useState(false);
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [tournamentDialogOpen, setTournamentDialogOpen] = useState(false);
@@ -121,7 +122,6 @@ const Admin = () => {
   const [bulkDeleteTeamsDialogOpen, setBulkDeleteTeamsDialogOpen] = useState(false);
   const [bulkDeleteTournamentsDialogOpen, setBulkDeleteTournamentsDialogOpen] = useState(false);
   
-
   // Form states
   const [matchForm, setMatchForm] = useState({
     tournament_id: '' as string | null,
@@ -225,8 +225,9 @@ const Admin = () => {
   });
   
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
+  const [syncingMatchId, setSyncingMatchId] = useState<string | null>(null);
 
-  // Initialize site settings form when data is loaded
+  // ALL useEffect hooks must be called before any conditional returns
   useEffect(() => {
     if (siteSettings) {
       setSiteSettingsForm({
@@ -265,7 +266,7 @@ const Admin = () => {
     }
   }, [user, loading, navigate]);
 
-  // Show access denied if not admin
+  // NOW we can have conditional returns - after ALL hooks are called
   if (!loading && !isAdminLoading && user && !isAdmin) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -614,7 +615,6 @@ const Admin = () => {
   };
 
   // Sync match from CricAPI
-  const [syncingMatchId, setSyncingMatchId] = useState<string | null>(null);
   
   const handleSyncFromCricAPI = async (match: Match) => {
     if (syncingMatchId) return;
