@@ -185,6 +185,7 @@ Deno.serve(async (req) => {
           score_a: matchingEvent.event_home_final_result || null,
           score_b: matchingEvent.event_away_final_result || null,
           status: status,
+          last_api_sync: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq('id', matchId);

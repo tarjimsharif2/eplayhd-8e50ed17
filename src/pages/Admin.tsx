@@ -44,6 +44,7 @@ import { Table, FileText, Megaphone } from "lucide-react";
 import { useGoogleIndexing } from "@/hooks/useGoogleIndexing";
 import DynamicPagesManager from "@/components/DynamicPagesManager";
 import AdsSettingsManager from "@/components/AdsSettingsManager";
+import AutoScoreSyncManager from "@/components/AutoScoreSyncManager";
 
 
 const Admin = () => {
@@ -156,6 +157,7 @@ const Admin = () => {
     next_day_start: null as string | null,
     match_result: null as 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null,
     api_score_enabled: false,
+    auto_sync_enabled: false,
     cricbuzz_match_id: '' as string | null,
   });
 
@@ -415,6 +417,7 @@ const Admin = () => {
         next_day_start: matchForm.next_day_start || null,
         match_result: matchForm.match_result,
         api_score_enabled: matchForm.api_score_enabled,
+        auto_sync_enabled: matchForm.auto_sync_enabled,
         cricbuzz_match_id: matchForm.cricbuzz_match_id || null,
       };
       let matchId: string | undefined;
@@ -476,6 +479,7 @@ const Admin = () => {
       next_day_start: match.next_day_start || null,
       match_result: match.match_result,
       api_score_enabled: match.api_score_enabled !== false,
+      auto_sync_enabled: (match as any).auto_sync_enabled || false,
       cricbuzz_match_id: match.cricbuzz_match_id || '',
     });
     setMatchDialogOpen(true);
@@ -574,6 +578,7 @@ const Admin = () => {
       next_day_start: null,
       match_result: null,
       api_score_enabled: false,
+      auto_sync_enabled: false,
       cricbuzz_match_id: '',
     });
     setMatchDialogOpen(true);
@@ -615,6 +620,7 @@ const Admin = () => {
       next_day_start: null,
       match_result: null,
       api_score_enabled: false,
+      auto_sync_enabled: false,
       cricbuzz_match_id: '',
     });
   };
@@ -2740,6 +2746,20 @@ const Admin = () => {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Auto Score Sync Manager */}
+              {siteSettingsForm.api_cricket_enabled && (
+                <AutoScoreSyncManager 
+                  matches={matches?.map(m => ({
+                    ...m,
+                    team_a: m.team_a,
+                    team_b: m.team_b,
+                  })) || []} 
+                  onSyncComplete={() => {
+                    // Trigger matches refetch - the query will automatically refetch
+                  }}
+                />
+              )}
             </TabsContent>
 
             <TabsContent value="settings" className="space-y-6">

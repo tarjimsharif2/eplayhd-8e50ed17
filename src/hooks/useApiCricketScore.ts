@@ -19,18 +19,21 @@ export interface ApiCricketScoreData {
   venue?: string;
   leagueName?: string;
   lastUpdated: Date;
+  fromDatabase?: boolean;
 }
 
 interface UseApiCricketScoreOptions {
   teamAName: string;
   teamBName: string;
   enabled?: boolean;
+  matchId?: string;
 }
 
 export const useApiCricketScore = ({
   teamAName,
   teamBName,
   enabled = true,
+  matchId,
 }: UseApiCricketScoreOptions) => {
   const [scoreData, setScoreData] = useState<ApiCricketScoreData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -38,13 +41,52 @@ export const useApiCricketScore = ({
   
   const { data: siteSettings } = usePublicSiteSettings();
 
-  const fetchScore = useCallback(async () => {
-    if (!siteSettings?.api_cricket_enabled) {
-      return;
-    }
+  // Fetch scores from database (synced by admin)
+  const fetchFromDatabase = useCallback(async () => {
+    if (!matchId) return null;
 
-    setIsLoading(true);
-    setError(null);
+    try {
+      const { data: match, error: matchError } = await supabase
+        .from('matches')
+        .select(`
+          score_a,
+          score_b,
+          status,
+          last_api_sync,
+          team_a:teams!matches_team_a_id_fkey(name, short_name, logo_url),
+          team_b:teams!matches_team_b_id_fkey(name, short_name, logo_url)
+        `)
+        .eq('id', matchId)
+        .maybeSingle();
+
+      if (matchError || !match) return null;
+
+      // Only return if we have synced scores
+      if (!match.score_a && !match.score_b) return null;
+
+      return {
+        homeTeam: match.team_a?.name || teamAName,
+        awayTeam: match.team_b?.name || teamBName,
+        homeTeamLogo: match.team_a?.logo_url,
+        awayTeamLogo: match.team_b?.logo_url,
+        homeScore: match.score_a || '-',
+        awayScore: match.score_b || '-',
+        status: match.status === 'live' ? 'Live' : match.status === 'completed' ? 'Finished' : 'Upcoming',
+        eventLive: match.status === 'live',
+        lastUpdated: match.last_api_sync ? new Date(match.last_api_sync) : new Date(),
+        fromDatabase: true,
+      } as ApiCricketScoreData;
+    } catch (err) {
+      console.error('Error fetching from database:', err);
+      return null;
+    }
+  }, [matchId, teamAName, teamBName]);
+
+  // Fetch live scores from API (fallback or manual refresh)
+  const fetchFromApi = useCallback(async () => {
+    if (!siteSettings?.api_cricket_enabled) {
+      return null;
+    }
 
     try {
       const { data, error: fnError } = await supabase.functions.invoke('api-cricket', {
@@ -61,24 +103,18 @@ export const useApiCricketScore = ({
 
       if (!data?.success) {
         if (data?.error) {
-          // Don't show error for disabled API - just return null
           if (data.error.includes('disabled') || data.error.includes('not configured')) {
-            setScoreData(null);
-            return;
+            return null;
           }
           throw new Error(data.error);
         }
-        return;
+        return null;
       }
 
       const match = data.match;
+      if (!match) return null;
 
-      if (!match) {
-        setScoreData(null);
-        return;
-      }
-
-      setScoreData({
+      return {
         homeTeam: match.homeTeam,
         awayTeam: match.awayTeam,
         homeTeamLogo: match.homeTeamLogo,
@@ -95,34 +131,99 @@ export const useApiCricketScore = ({
         venue: match.venue,
         leagueName: match.leagueName,
         lastUpdated: new Date(),
-      });
+        fromDatabase: false,
+      } as ApiCricketScoreData;
     } catch (err) {
       console.error('Error fetching API Cricket score:', err);
+      throw err;
+    }
+  }, [siteSettings?.api_cricket_enabled, teamAName, teamBName]);
+
+  const fetchScore = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // First, try to get from database (admin-synced scores)
+      const dbData = await fetchFromDatabase();
+      if (dbData) {
+        setScoreData(dbData);
+        setIsLoading(false);
+        return;
+      }
+
+      // If no database scores and API is enabled, fetch from API
+      if (siteSettings?.api_cricket_enabled) {
+        const apiData = await fetchFromApi();
+        if (apiData) {
+          setScoreData(apiData);
+        } else {
+          setScoreData(null);
+        }
+      }
+    } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch score');
     } finally {
       setIsLoading(false);
     }
-  }, [siteSettings?.api_cricket_enabled, teamAName, teamBName]);
+  }, [fetchFromDatabase, fetchFromApi, siteSettings?.api_cricket_enabled]);
 
+  // Set up realtime subscription for match updates
   useEffect(() => {
-    if (!enabled || !siteSettings?.api_cricket_enabled) {
-      return;
-    }
+    if (!enabled || !matchId) return;
 
     // Initial fetch
     fetchScore();
 
-    // Poll every 30 seconds for live updates
-    const interval = setInterval(fetchScore, 30000);
+    // Subscribe to realtime updates for this match
+    const channel = supabase
+      .channel(`match-${matchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'matches',
+          filter: `id=eq.${matchId}`,
+        },
+        (payload) => {
+          // When match is updated (by admin sync), refresh the score
+          fetchScore();
+        }
+      )
+      .subscribe();
 
-    return () => clearInterval(interval);
-  }, [enabled, fetchScore, siteSettings?.api_cricket_enabled]);
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [enabled, matchId, fetchScore]);
+
+  // Manual refetch function (can force API call)
+  const refetch = useCallback(async (forceApi = false) => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      if (forceApi && siteSettings?.api_cricket_enabled) {
+        const apiData = await fetchFromApi();
+        if (apiData) {
+          setScoreData(apiData);
+        }
+      } else {
+        await fetchScore();
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch score');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [fetchScore, fetchFromApi, siteSettings?.api_cricket_enabled]);
 
   return {
     scoreData,
     isLoading,
     error,
-    refetch: fetchScore,
+    refetch,
     isEnabled: siteSettings?.api_cricket_enabled && enabled,
   };
 };

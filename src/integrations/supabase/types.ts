@@ -248,12 +248,14 @@ export type Database = {
       matches: {
         Row: {
           api_score_enabled: boolean | null
+          auto_sync_enabled: boolean | null
           created_at: string
           cricbuzz_match_id: string | null
           day_start_time: string | null
           id: string
           is_priority: boolean | null
           is_stumps: boolean | null
+          last_api_sync: string | null
           match_date: string
           match_duration_minutes: number | null
           match_end_time: string | null
@@ -285,12 +287,14 @@ export type Database = {
         }
         Insert: {
           api_score_enabled?: boolean | null
+          auto_sync_enabled?: boolean | null
           created_at?: string
           cricbuzz_match_id?: string | null
           day_start_time?: string | null
           id?: string
           is_priority?: boolean | null
           is_stumps?: boolean | null
+          last_api_sync?: string | null
           match_date: string
           match_duration_minutes?: number | null
           match_end_time?: string | null
@@ -322,12 +326,14 @@ export type Database = {
         }
         Update: {
           api_score_enabled?: boolean | null
+          auto_sync_enabled?: boolean | null
           created_at?: string
           cricbuzz_match_id?: string | null
           day_start_time?: string | null
           id?: string
           is_priority?: boolean | null
           is_stumps?: boolean | null
+          last_api_sync?: string | null
           match_date?: string
           match_duration_minutes?: number | null
           match_end_time?: string | null
