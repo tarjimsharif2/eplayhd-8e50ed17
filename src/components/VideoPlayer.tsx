@@ -537,29 +537,6 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
         referrerPolicy="unsafe-url"
       />
       
-      {/* Ad-block overlay - blocks clicks on common ad positions when active */}
-      {adBlockActive && (
-        <>
-          {/* Top banner ad blocker */}
-          <div 
-            className="absolute top-0 left-0 right-0 h-[90px] z-10 pointer-events-auto cursor-pointer"
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: 'transparent' }}
-          />
-          {/* Corner popup blockers */}
-          <div 
-            className="absolute bottom-0 right-0 w-[300px] h-[250px] z-10 pointer-events-auto"
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: 'transparent' }}
-          />
-          <div 
-            className="absolute bottom-0 left-0 w-[300px] h-[250px] z-10 pointer-events-auto"
-            onClick={(e) => e.stopPropagation()}
-            style={{ background: 'transparent' }}
-          />
-        </>
-      )}
-      
       {/* Controls overlay */}
       <div className="absolute bottom-2 right-2 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
         {/* Ad-block toggle */}
