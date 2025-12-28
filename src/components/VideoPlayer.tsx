@@ -441,6 +441,17 @@ const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHea
 
 const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayerProps) => {
   const [useDirectEmbed, setUseDirectEmbed] = useState(false);
+  const [adBlockActive, setAdBlockActive] = useState(adBlockEnabled);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+
+  // Apply ad-blocking overlay when enabled
+  useEffect(() => {
+    if (!adBlockActive || !iframeRef.current) return;
+
+    // We can't directly manipulate iframe content due to CORS, 
+    // but we can add an overlay that blocks clicks on typical ad positions
+    // and inject CSS to hide common ad elements through the proxy
+  }, [adBlockActive]);
 
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
@@ -463,11 +474,27 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
 
   // For iframe and embed types
   const needsProxy = hasCustomHeaders(headers) && !useDirectEmbed;
-  const iframeSrc = needsProxy ? buildIframeProxyUrl(url, headers) : url;
+  
+  // Build iframe URL with ad-block parameter if enabled
+  const buildIframeSrc = () => {
+    if (needsProxy) {
+      const proxyUrl = buildIframeProxyUrl(url, headers);
+      if (adBlockActive) {
+        const urlObj = new URL(proxyUrl);
+        urlObj.searchParams.set('adBlock', 'true');
+        return urlObj.toString();
+      }
+      return proxyUrl;
+    }
+    return url;
+  };
+  
+  const iframeSrc = buildIframeSrc();
 
   return (
-    <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden">
+    <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden group">
       <iframe
+        ref={iframeRef}
         src={iframeSrc}
         className="absolute inset-0 w-full h-full"
         allowFullScreen
@@ -476,16 +503,55 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
         referrerPolicy="unsafe-url"
       />
       
-      {/* Direct embed toggle for iframe streams with headers */}
-      {hasCustomHeaders(headers) && (type === 'iframe' || type === 'embed') && (
-        <button
-          onClick={() => setUseDirectEmbed(!useDirectEmbed)}
-          className="absolute bottom-2 right-2 z-10 px-2 py-1 text-xs bg-black/70 hover:bg-black/90 text-white rounded transition-colors"
-          title={useDirectEmbed ? "Using direct embed" : "Using proxy (click to try direct)"}
-        >
-          {useDirectEmbed ? "Direct" : "Proxy"}
-        </button>
+      {/* Ad-block overlay - blocks clicks on common ad positions when active */}
+      {adBlockActive && (
+        <>
+          {/* Top banner ad blocker */}
+          <div 
+            className="absolute top-0 left-0 right-0 h-[90px] z-10 pointer-events-auto cursor-pointer"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'transparent' }}
+          />
+          {/* Corner popup blockers */}
+          <div 
+            className="absolute bottom-0 right-0 w-[300px] h-[250px] z-10 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'transparent' }}
+          />
+          <div 
+            className="absolute bottom-0 left-0 w-[300px] h-[250px] z-10 pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: 'transparent' }}
+          />
+        </>
       )}
+      
+      {/* Controls overlay */}
+      <div className="absolute bottom-2 right-2 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {/* Ad-block toggle */}
+        <button
+          onClick={() => setAdBlockActive(!adBlockActive)}
+          className={`px-2 py-1 text-xs rounded transition-colors ${
+            adBlockActive 
+              ? 'bg-green-600/80 hover:bg-green-600 text-white' 
+              : 'bg-black/70 hover:bg-black/90 text-white'
+          }`}
+          title={adBlockActive ? "Ad-block enabled (click to disable)" : "Enable ad-block"}
+        >
+          {adBlockActive ? "🛡️ On" : "🛡️ Off"}
+        </button>
+        
+        {/* Direct embed toggle for iframe streams with headers */}
+        {hasCustomHeaders(headers) && (type === 'iframe' || type === 'embed') && (
+          <button
+            onClick={() => setUseDirectEmbed(!useDirectEmbed)}
+            className="px-2 py-1 text-xs bg-black/70 hover:bg-black/90 text-white rounded transition-colors"
+            title={useDirectEmbed ? "Using direct embed" : "Using proxy (click to try direct)"}
+          >
+            {useDirectEmbed ? "Direct" : "Proxy"}
+          </button>
+        )}
+      </div>
     </div>
   );
 };

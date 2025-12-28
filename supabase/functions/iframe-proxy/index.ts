@@ -112,6 +112,7 @@ serve(async (req) => {
     const origin = reqUrl.searchParams.get('origin');
     const userAgent = reqUrl.searchParams.get('userAgent');
     const cookie = reqUrl.searchParams.get('cookie');
+    const adBlock = reqUrl.searchParams.get('adBlock') === 'true';
 
     if (!url) {
       return new Response(JSON.stringify({ error: 'URL is required' }), {
@@ -128,7 +129,7 @@ serve(async (req) => {
       });
     }
 
-    console.log('Iframe proxy fetching:', url);
+    console.log('Iframe proxy fetching:', url, adBlock ? '(ad-block enabled)' : '');
 
     const requestHeaders: HeadersInit = {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
@@ -183,6 +184,93 @@ serve(async (req) => {
         } else if (html.includes('<html')) {
           html = html.replace(/<html([^>]*)>/i, `<html$1><head><base href="${baseHref}/"></head>`);
         }
+      }
+      
+      // Inject ad-blocking CSS and scripts if enabled
+      if (adBlock) {
+        const adBlockStyles = `
+          <style id="adblock-styles">
+            /* Hide common ad containers */
+            .ad, .ads, .advert, .advertisement, .ad-container, .ad-wrapper,
+            [class*="ad-"], [class*="ads-"], [class*="advert"], [id*="ad-"], [id*="ads-"],
+            .banner-ad, .top-ad, .bottom-ad, .sidebar-ad,
+            .popup, .popunder, .overlay-ad, .interstitial,
+            [class*="popup"], [class*="overlay"],
+            iframe[src*="ads"], iframe[src*="doubleclick"], iframe[src*="googlesyndication"],
+            iframe[src*="ad."], iframe[src*="adserver"],
+            div[class*="sponsor"], div[id*="sponsor"],
+            .sticky-ad, .fixed-ad, .floating-ad,
+            [data-ad], [data-ad-unit], [data-advertisement],
+            .close-button, .ad-close, [class*="close-btn"],
+            /* Common popup and ad overlay selectors */
+            .modal-backdrop, .modal-overlay,
+            div[style*="z-index: 9999"], div[style*="z-index:9999"],
+            div[style*="z-index: 99999"], div[style*="z-index:99999"],
+            div[style*="position: fixed"][style*="z-index"],
+            /* Hide specific ad networks */
+            [class*="google-ad"], [class*="adsense"],
+            [class*="taboola"], [class*="outbrain"],
+            .vjs-ad-playing .vjs-ad-container { display: none !important; }
+          </style>
+          <script>
+            (function() {
+              // Block window.open for popups
+              const originalOpen = window.open;
+              window.open = function() { 
+                console.log('Popup blocked by ad-block');
+                return null; 
+              };
+              
+              // Block common ad-related functions
+              window.adsbygoogle = window.adsbygoogle || [];
+              window.adsbygoogle.loaded = true;
+              
+              // Remove elements after load
+              document.addEventListener('DOMContentLoaded', function() {
+                const adSelectors = [
+                  '.ad', '.ads', '.advert', '[class*="ad-"]', '[id*="ad-"]',
+                  '.popup', '.overlay-ad', '[class*="popup"]', '.modal-backdrop'
+                ];
+                adSelectors.forEach(selector => {
+                  document.querySelectorAll(selector).forEach(el => {
+                    if (el.offsetWidth > 200 || el.offsetHeight > 200) {
+                      el.style.display = 'none';
+                    }
+                  });
+                });
+              });
+              
+              // Observe and hide dynamically added ads
+              const observer = new MutationObserver(function(mutations) {
+                mutations.forEach(function(mutation) {
+                  mutation.addedNodes.forEach(function(node) {
+                    if (node.nodeType === 1) {
+                      const className = (node.className || '').toString().toLowerCase();
+                      const id = (node.id || '').toLowerCase();
+                      if (className.includes('ad') || id.includes('ad') || 
+                          className.includes('popup') || className.includes('overlay')) {
+                        node.style.display = 'none';
+                      }
+                    }
+                  });
+                });
+              });
+              observer.observe(document.body || document.documentElement, { 
+                childList: true, 
+                subtree: true 
+              });
+            })();
+          </script>
+        `;
+        
+        // Inject ad-block code
+        if (html.includes('</head>')) {
+          html = html.replace('</head>', `${adBlockStyles}</head>`);
+        } else if (html.includes('<body')) {
+          html = html.replace(/<body([^>]*)>/i, `<head>${adBlockStyles}</head><body$1>`);
+        }
+        
+        console.log('Ad-block styles injected');
       }
       
       console.log('Successfully proxied with iframe URL rewriting');
