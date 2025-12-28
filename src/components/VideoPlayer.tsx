@@ -18,7 +18,7 @@ interface StreamHeaders {
 
 interface VideoPlayerProps {
   url: string;
-  type: 'iframe' | 'm3u8' | 'embed';
+  type: 'iframe' | 'm3u8' | 'embed' | 'iframe_to_m3u8';
   headers?: StreamHeaders;
   adBlockEnabled?: boolean;
 }
@@ -364,6 +364,81 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   );
 };
 
+// Component for iframe_to_m3u8 type that extracts and plays M3U8
+const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
+  const [extractedUrl, setExtractedUrl] = useState<string | null>(null);
+  const [isExtracting, setIsExtracting] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const extractM3U8 = async () => {
+      setIsExtracting(true);
+      setError(null);
+      
+      try {
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const extractUrl = new URL(`${supabaseUrl}/functions/v1/extract-m3u8`);
+        extractUrl.searchParams.set('url', url);
+        
+        if (headers?.referer) extractUrl.searchParams.set('referer', headers.referer);
+        if (headers?.origin) extractUrl.searchParams.set('origin', headers.origin);
+        if (headers?.userAgent) extractUrl.searchParams.set('userAgent', headers.userAgent);
+        if (headers?.cookie) extractUrl.searchParams.set('cookie', headers.cookie);
+
+        console.log('Extracting M3U8 from:', url);
+        
+        const response = await fetch(extractUrl.toString());
+        const data = await response.json();
+        
+        if (!response.ok) {
+          throw new Error(data.error || 'Failed to extract stream');
+        }
+        
+        if (data.streamUrls && data.streamUrls.length > 0) {
+          console.log('Found M3U8 URLs:', data.streamUrls);
+          setExtractedUrl(data.streamUrls[0]);
+        } else {
+          throw new Error('No M3U8 stream found in the page');
+        }
+      } catch (err) {
+        console.error('M3U8 extraction error:', err);
+        setError(err instanceof Error ? err.message : 'Failed to extract stream');
+      } finally {
+        setIsExtracting(false);
+      }
+    };
+
+    extractM3U8();
+  }, [url, headers]);
+
+  if (isExtracting) {
+    return (
+      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        <p className="text-muted-foreground text-sm">Extracting stream URL...</p>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="relative w-full h-full min-h-[200px] bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+        <AlertCircle className="w-10 h-10 text-destructive" />
+        <p className="text-destructive text-center px-4">{error}</p>
+        <p className="text-muted-foreground text-xs text-center px-4">
+          Try using the iframe type instead
+        </p>
+      </div>
+    );
+  }
+
+  if (extractedUrl) {
+    return <ClapprPlayer url={extractedUrl} headers={headers} />;
+  }
+
+  return null;
+};
+
 const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayerProps) => {
   const [useDirectEmbed, setUseDirectEmbed] = useState(false);
 
@@ -379,6 +454,11 @@ const VideoPlayer = ({ url, type, headers, adBlockEnabled = false }: VideoPlayer
   // For M3U8 streams, use Clappr player (with proxy if headers are set)
   if (type === 'm3u8') {
     return <ClapprPlayer url={url} headers={headers} />;
+  }
+
+  // For iframe_to_m3u8 type, extract and play M3U8
+  if (type === 'iframe_to_m3u8') {
+    return <IframeToM3U8Player url={url} headers={headers} />;
   }
 
   // For iframe and embed types

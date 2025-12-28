@@ -36,7 +36,7 @@ interface StreamingServersManagerProps {
 type ServerFormType = {
   server_name: string;
   server_url: string;
-  server_type: 'iframe' | 'm3u8' | 'embed';
+  server_type: 'iframe' | 'm3u8' | 'embed' | 'iframe_to_m3u8';
   display_order: number;
   is_active: boolean;
   referer_value: string;
@@ -312,6 +312,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       case 'm3u8': return 'bg-green-500/20 text-green-400 border-green-500/30';
       case 'iframe': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
       case 'embed': return 'bg-purple-500/20 text-purple-400 border-purple-500/30';
+      case 'iframe_to_m3u8': return 'bg-orange-500/20 text-orange-400 border-orange-500/30';
       default: return 'bg-muted text-muted-foreground';
     }
   };
@@ -333,7 +334,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
         <Label>Server Type *</Label>
         <Select 
           value={serverForm.server_type} 
-          onValueChange={(v: 'iframe' | 'm3u8' | 'embed') => setServerForm({ ...serverForm, server_type: v })}
+          onValueChange={(v: 'iframe' | 'm3u8' | 'embed' | 'iframe_to_m3u8') => setServerForm({ ...serverForm, server_type: v })}
         >
           <SelectTrigger>
             <SelectValue />
@@ -342,6 +343,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
             <SelectItem value="m3u8">M3U8 (HLS Stream)</SelectItem>
             <SelectItem value="iframe">iFrame Embed</SelectItem>
             <SelectItem value="embed">Custom Embed</SelectItem>
+            <SelectItem value="iframe_to_m3u8">iFrame → M3U8 (Extract Stream)</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -351,10 +353,17 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
         <Input
           placeholder={serverForm.server_type === 'm3u8' 
             ? 'https://example.com/stream.m3u8' 
+            : serverForm.server_type === 'iframe_to_m3u8'
+            ? 'https://example.com/embed/player (iframe URL to extract M3U8 from)'
             : 'https://example.com/embed/player'}
           value={serverForm.server_url}
           onChange={(e) => setServerForm({ ...serverForm, server_url: e.target.value })}
         />
+        {serverForm.server_type === 'iframe_to_m3u8' && (
+          <p className="text-xs text-muted-foreground">
+            The M3U8 stream URL will be extracted from this iframe page automatically
+          </p>
+        )}
       </div>
 
 
@@ -363,7 +372,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
         <Label className="text-sm font-medium flex items-center gap-2">
           Request Headers
           <Badge variant="outline" className="text-xs font-normal">
-            {serverForm.server_type === 'm3u8' ? 'Proxied' : 'Optional'}
+            {serverForm.server_type === 'm3u8' || serverForm.server_type === 'iframe_to_m3u8' ? 'Proxied' : 'Optional'}
           </Badge>
         </Label>
         <HeaderEditor
