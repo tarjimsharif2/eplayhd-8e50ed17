@@ -278,9 +278,11 @@ const ApiCricketLiveScore = ({
             </Tabs>
           )}
 
-          {!hasDetailedData && (
+          {!hasDetailedData && scoreData.fromDatabase && (
             <div className="text-center py-4 text-muted-foreground text-sm border rounded-lg bg-muted/20">
-              Detailed scorecard will be available during the match
+              {scoreData.status === 'Finished' 
+                ? 'Detailed scorecard is not available for this match'
+                : 'Detailed scorecard will be available during the match'}
             </div>
           )}
 

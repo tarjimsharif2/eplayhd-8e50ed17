@@ -216,7 +216,8 @@ Deno.serve(async (req) => {
     }
 
     if (action === 'getLiveScore') {
-      const matchingEvent = await findMatchingEvent(false);
+      // Search past 7 days for completed matches too
+      const matchingEvent = await findMatchingEvent(true);
 
       if (matchingEvent) {
         console.log(`Found matching event: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);

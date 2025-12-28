@@ -175,20 +175,38 @@ export const useApiCricketScore = ({
     try {
       // First, try to get from database (admin-synced scores)
       const dbData = await fetchFromDatabase();
+      
+      // If API is enabled, try to get detailed data (batting/bowling)
+      if (siteSettings?.api_cricket_enabled) {
+        try {
+          const apiData = await fetchFromApi();
+          if (apiData) {
+            // If we have both DB and API data, merge them (prefer DB scores, API details)
+            if (dbData) {
+              setScoreData({
+                ...apiData,
+                homeScore: dbData.homeScore || apiData.homeScore,
+                awayScore: dbData.awayScore || apiData.awayScore,
+                status: dbData.status,
+                eventLive: dbData.eventLive,
+                lastUpdated: dbData.lastUpdated,
+                fromDatabase: true,
+              });
+            } else {
+              setScoreData(apiData);
+            }
+            return;
+          }
+        } catch (apiErr) {
+          console.log('API fetch failed, using DB data if available');
+        }
+      }
+      
+      // Fallback to DB data only
       if (dbData) {
         setScoreData(dbData);
-        setIsLoading(false);
-        return;
-      }
-
-      // If no database scores and API is enabled, fetch from API
-      if (siteSettings?.api_cricket_enabled) {
-        const apiData = await fetchFromApi();
-        if (apiData) {
-          setScoreData(apiData);
-        } else {
-          setScoreData(null);
-        }
+      } else {
+        setScoreData(null);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch score');
