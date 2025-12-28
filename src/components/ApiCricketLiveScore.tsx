@@ -283,8 +283,11 @@ const ApiCricketLiveScore = ({
                               <Badge variant="outline" className="text-[10px]">{team.label}</Badge>
                             )}
                           </div>
-                          {team.score && (
+                          {team.score && !team.score.includes('(') && (
                             <span className="text-sm font-bold text-primary">{team.score}</span>
+                          )}
+                          {team.score && team.score.includes('(') && (
+                            <span className="text-sm font-bold text-primary">{team.score.split('(')[0].trim()}</span>
                           )}
                         </div>
                         {team.batsmen.length > 0 ? (
