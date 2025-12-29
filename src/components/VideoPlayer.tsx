@@ -86,6 +86,34 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   const [isMuted, setIsMuted] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const playerIdRef = useRef(`clappr-${Math.random().toString(36).substr(2, 9)}`);
+  const scrollPositionRef = useRef<number>(0);
+
+  // Handle fullscreen change to prevent scroll jump when ads are present
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        // Exiting fullscreen - restore scroll position after a small delay
+        // to allow the layout to settle (especially with ads)
+        const savedPosition = scrollPositionRef.current;
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            window.scrollTo(0, savedPosition);
+          }, 50);
+        });
+      } else {
+        // Entering fullscreen - save current scroll position
+        scrollPositionRef.current = window.scrollY;
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   const isPiPSupported = 'pictureInPictureEnabled' in document;
 
@@ -443,6 +471,33 @@ const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
   const [useDirectEmbed, setUseDirectEmbed] = useState(false);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const scrollPositionRef = useRef<number>(0);
+
+  // Handle fullscreen change to prevent scroll jump when ads are present
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement) {
+        // Exiting fullscreen - restore scroll position after a small delay
+        const savedPosition = scrollPositionRef.current;
+        requestAnimationFrame(() => {
+          setTimeout(() => {
+            window.scrollTo(0, savedPosition);
+          }, 50);
+        });
+      } else {
+        // Entering fullscreen - save current scroll position
+        scrollPositionRef.current = window.scrollY;
+      }
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
+  }, []);
 
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
