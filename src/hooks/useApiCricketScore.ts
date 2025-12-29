@@ -115,12 +115,13 @@ export const useApiCricketScore = ({
       // If we have detailed API scores, use them
       if (apiScores) {
         return {
-          homeTeam: apiScores.home_team || (match.team_a as any)?.name || teamAName,
-          awayTeam: apiScores.away_team || (match.team_b as any)?.name || teamBName,
+          homeTeam: apiScores.home_team || '',
+          awayTeam: apiScores.away_team || '',
           homeTeamLogo: (match.team_a as any)?.logo_url,
           awayTeamLogo: (match.team_b as any)?.logo_url,
-          homeScore: apiScores.home_score || match.score_a || '-',
-          awayScore: apiScores.away_score || match.score_b || '-',
+          // Use API scores directly - don't fallback to match scores to avoid duplication
+          homeScore: apiScores.home_score || '',
+          awayScore: apiScores.away_score || '',
           homeOvers: apiScores.home_overs,
           awayOvers: apiScores.away_overs,
           status: apiScores.status || (match.status === 'live' ? 'Live' : match.status === 'completed' ? 'Finished' : 'Upcoming'),

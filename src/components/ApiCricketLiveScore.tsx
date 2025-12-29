@@ -354,40 +354,25 @@ const ApiCricketLiveScore = ({
             <div className="space-y-4">
               {/* Compact Score Summary - Show correct scores based on team name matching */}
               {(() => {
-                // Debug log
-                console.log('Score matching debug:', {
-                  teamAName,
-                  teamBName,
-                  apiHomeTeam: scoreData.homeTeam,
-                  apiAwayTeam: scoreData.awayTeam,
-                  homeScore: scoreData.homeScore,
-                  awayScore: scoreData.awayScore,
-                });
-                
-                // Get scores for each team by directly matching team names
+                // Get scores for each team by directly matching team names from API
                 const getScoreForTeam = (teamName: string): { score: string; overs: string | null } => {
                   const teamLower = teamName?.toLowerCase().trim() || '';
                   const apiHomeLower = scoreData.homeTeam?.toLowerCase().trim() || '';
                   const apiAwayLower = scoreData.awayTeam?.toLowerCase().trim() || '';
                   
-                  // Get first word of each
+                  // Get first word of each for matching
                   const teamFirst = teamLower.split(' ')[0];
                   const homeFirst = apiHomeLower.split(' ')[0];
                   const awayFirst = apiAwayLower.split(' ')[0];
                   
-                  console.log(`Matching "${teamName}": teamFirst="${teamFirst}", homeFirst="${homeFirst}", awayFirst="${awayFirst}"`);
-                  
                   // Match by first word
                   if (teamFirst === homeFirst) {
-                    console.log(`  -> Matched HOME: ${scoreData.homeScore}`);
                     return { score: scoreData.homeScore || '', overs: rawHomeOvers };
                   }
                   if (teamFirst === awayFirst) {
-                    console.log(`  -> Matched AWAY: ${scoreData.awayScore}`);
                     return { score: scoreData.awayScore || '', overs: rawAwayOvers };
                   }
                   
-                  console.log(`  -> No match found`);
                   return { score: '', overs: null };
                 };
 
