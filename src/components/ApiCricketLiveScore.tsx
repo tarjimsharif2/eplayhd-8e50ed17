@@ -352,20 +352,70 @@ const ApiCricketLiveScore = ({
             </div>
           ) : scoreData ? (
             <div className="space-y-4">
-              {/* Compact Score Summary - Show correct scores based on team name matching */}
+              {/* Compact Score Summary - Show correct scores based on team name matching from batsmen/bowlers data */}
               {(() => {
-                // Get scores for each team by directly matching team names from API
-                const getScoreForTeam = (teamName: string): { score: string; overs: string | null } => {
+                // Extract unique team names from batsmen/bowlers data for accurate matching
+                const getTeamNamesFromScorecard = (): string[] => {
+                  const teams = new Set<string>();
+                  if (scoreData.batsmen) {
+                    scoreData.batsmen.forEach(b => {
+                      if (b.team) teams.add(b.team);
+                    });
+                  }
+                  if (scoreData.bowlers) {
+                    scoreData.bowlers.forEach(b => {
+                      if (b.team) teams.add(b.team);
+                    });
+                  }
+                  return Array.from(teams);
+                };
+
+                // Find best matching team name from scorecard
+                const findBestMatch = (teamName: string, scorecardTeams: string[]): string | null => {
                   const teamLower = teamName?.toLowerCase().trim() || '';
-                  const apiHomeLower = scoreData.homeTeam?.toLowerCase().trim() || '';
-                  const apiAwayLower = scoreData.awayTeam?.toLowerCase().trim() || '';
-                  
-                  // Get first word of each for matching
                   const teamFirst = teamLower.split(' ')[0];
-                  const homeFirst = apiHomeLower.split(' ')[0];
-                  const awayFirst = apiAwayLower.split(' ')[0];
                   
-                  // Match by first word
+                  for (const apiTeam of scorecardTeams) {
+                    const apiLower = apiTeam.toLowerCase().trim();
+                    const apiFirst = apiLower.split(' ')[0];
+                    
+                    // Match by first word
+                    if (teamFirst === apiFirst) return apiTeam;
+                    // Match if one contains the other
+                    if (apiLower.includes(teamFirst) || teamLower.includes(apiFirst)) return apiTeam;
+                  }
+                  return null;
+                };
+
+                // Get score for a team from innings data
+                const getScoreFromInnings = (teamName: string, scorecardTeams: string[]): { score: string; overs: string | null } => {
+                  const matchedTeam = findBestMatch(teamName, scorecardTeams);
+                  
+                  if (matchedTeam && scoreData.batsmen && scoreData.batsmen.length > 0) {
+                    // Find batsmen for this team and extract innings info
+                    const teamBatsmen = scoreData.batsmen.filter(b => b.team === matchedTeam);
+                    if (teamBatsmen.length > 0 && teamBatsmen[0].innings) {
+                      const inningsName = teamBatsmen[0].innings;
+                      // Check if this matches home or away from API
+                      const homeTeamLower = scoreData.homeTeam?.toLowerCase() || '';
+                      const awayTeamLower = scoreData.awayTeam?.toLowerCase() || '';
+                      const matchedLower = matchedTeam.toLowerCase();
+                      
+                      if (matchedLower.includes(homeTeamLower.split(' ')[0]) || homeTeamLower.includes(matchedLower.split(' ')[0])) {
+                        return { score: scoreData.homeScore || '', overs: rawHomeOvers };
+                      }
+                      if (matchedLower.includes(awayTeamLower.split(' ')[0]) || awayTeamLower.includes(matchedLower.split(' ')[0])) {
+                        return { score: scoreData.awayScore || '', overs: rawAwayOvers };
+                      }
+                    }
+                  }
+                  
+                  // Fallback: try matching with home/away team names directly
+                  const teamLower = teamName?.toLowerCase().trim() || '';
+                  const teamFirst = teamLower.split(' ')[0];
+                  const homeFirst = (scoreData.homeTeam?.toLowerCase() || '').split(' ')[0];
+                  const awayFirst = (scoreData.awayTeam?.toLowerCase() || '').split(' ')[0];
+                  
                   if (teamFirst === homeFirst) {
                     return { score: scoreData.homeScore || '', overs: rawHomeOvers };
                   }
@@ -376,8 +426,9 @@ const ApiCricketLiveScore = ({
                   return { score: '', overs: null };
                 };
 
-                const teamAScore = getScoreForTeam(teamAName);
-                const teamBScore = getScoreForTeam(teamBName);
+                const scorecardTeams = getTeamNamesFromScorecard();
+                const teamAScore = getScoreFromInnings(teamAName, scorecardTeams);
+                const teamBScore = getScoreFromInnings(teamBName, scorecardTeams);
 
                 return (
                   <div className="grid grid-cols-2 gap-3">
