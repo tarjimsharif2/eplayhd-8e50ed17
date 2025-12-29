@@ -362,12 +362,40 @@ Deno.serve(async (req) => {
         continue;
       }
 
+      // Map API home/away scores to correct team_a/team_b based on team name matching
+      const apiHomeNormalized = normalizeTeamName(detailedEvent.event_home_team || '');
+      const apiAwayNormalized = normalizeTeamName(detailedEvent.event_away_team || '');
+      
+      // Check if API's home team matches our team_a or team_b
+      const homeMatchesTeamA = apiHomeNormalized.includes(teamANormalized) || teamANormalized.includes(apiHomeNormalized);
+      const homeMatchesTeamB = apiHomeNormalized.includes(teamBNormalized) || teamBNormalized.includes(apiHomeNormalized);
+      
+      let scoreForTeamA: string | null;
+      let scoreForTeamB: string | null;
+      
+      if (homeMatchesTeamA) {
+        // API home = our team_a, API away = our team_b
+        scoreForTeamA = homeScore;
+        scoreForTeamB = awayScore;
+        console.log(`[sync-api-scores] Mapping: API home (${detailedEvent.event_home_team}) = team_a (${teamAName})`);
+      } else if (homeMatchesTeamB) {
+        // API home = our team_b, API away = our team_a
+        scoreForTeamA = awayScore;
+        scoreForTeamB = homeScore;
+        console.log(`[sync-api-scores] Mapping: API home (${detailedEvent.event_home_team}) = team_b (${teamBName}), swapping scores`);
+      } else {
+        // Fallback: just use the order as-is
+        scoreForTeamA = homeScore;
+        scoreForTeamB = awayScore;
+        console.log(`[sync-api-scores] Fallback mapping: home->score_a, away->score_b`);
+      }
+
       // Also update the main matches table
       const { error: matchUpdateError } = await supabase
         .from('matches')
         .update({
-          score_a: homeScore,
-          score_b: awayScore,
+          score_a: scoreForTeamA,
+          score_b: scoreForTeamB,
           status: matchStatus,
           last_api_sync: new Date().toISOString(),
         })
