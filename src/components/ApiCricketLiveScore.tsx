@@ -58,15 +58,23 @@ const ApiCricketLiveScore = ({
     return null;
   }
 
+  // Format overs to show only one decimal place
+  const formatOvers = (overs: string | number | null | undefined): string | null => {
+    if (overs === null || overs === undefined || overs === '') return null;
+    const num = typeof overs === 'string' ? parseFloat(overs) : overs;
+    if (isNaN(num)) return null;
+    return num.toFixed(1);
+  };
+
   // Parse score to extract overs - format is typically "180/4" or "180/4 (20 ov)"
   const parseScoreOvers = (score: string) => {
     const oversMatch = score.match(/\((\d+\.?\d*)\s*ov\)/);
-    return oversMatch ? oversMatch[1] : null;
+    return oversMatch ? formatOvers(oversMatch[1]) : null;
   };
 
-  // Get raw overs - first from API field, then try parsing from score
-  const rawHomeOvers = scoreData?.homeOvers || (scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null);
-  const rawAwayOvers = scoreData?.awayOvers || (scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null);
+  // Get raw overs - first from API field, then try parsing from score (formatted to 1 decimal)
+  const rawHomeOvers = formatOvers(scoreData?.homeOvers) || (scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null);
+  const rawAwayOvers = formatOvers(scoreData?.awayOvers) || (scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null);
 
   // Clean score to just show runs/wickets
   const cleanScore = (score: string) => {
