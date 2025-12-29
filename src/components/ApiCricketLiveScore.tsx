@@ -352,47 +352,39 @@ const ApiCricketLiveScore = ({
             </div>
           ) : scoreData ? (
             <div className="space-y-4">
-              {/* Compact Score Summary - Always show Team A and Team B with matched scores */}
+              {/* Compact Score Summary - Show correct scores based on team name matching */}
               {(() => {
-                // Normalize team names for comparison
-                const normalizeTeamName = (name: string) => name?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
-                
-                const teamANorm = normalizeTeamName(teamAName);
-                const teamBNorm = normalizeTeamName(teamBName);
-                const apiHomeNorm = normalizeTeamName(scoreData.homeTeam || '');
-                const apiAwayNorm = normalizeTeamName(scoreData.awayTeam || '');
-                
-                // Check if teamA matches API's home team
-                const teamAMatchesApiHome = apiHomeNorm.includes(teamANorm.substring(0, 6)) || 
-                                             teamANorm.includes(apiHomeNorm.substring(0, 6));
-                const teamAMatchesApiAway = apiAwayNorm.includes(teamANorm.substring(0, 6)) || 
-                                             teamANorm.includes(apiAwayNorm.substring(0, 6));
-                
-                // Determine scores for Team A and Team B based on matching
-                let scoreForTeamA: string = '';
-                let scoreForTeamB: string = '';
-                let oversForTeamA: string | null = null;
-                let oversForTeamB: string | null = null;
-                
-                if (teamAMatchesApiHome) {
-                  // Team A = API home, Team B = API away
-                  scoreForTeamA = scoreData.homeScore || '';
-                  scoreForTeamB = scoreData.awayScore || '';
-                  oversForTeamA = rawHomeOvers;
-                  oversForTeamB = rawAwayOvers;
-                } else if (teamAMatchesApiAway) {
-                  // Team A = API away, Team B = API home
-                  scoreForTeamA = scoreData.awayScore || '';
-                  scoreForTeamB = scoreData.homeScore || '';
-                  oversForTeamA = rawAwayOvers;
-                  oversForTeamB = rawHomeOvers;
-                } else {
-                  // Fallback - use home for A, away for B
-                  scoreForTeamA = scoreData.homeScore || '';
-                  scoreForTeamB = scoreData.awayScore || '';
-                  oversForTeamA = rawHomeOvers;
-                  oversForTeamB = rawAwayOvers;
-                }
+                // Helper function to find score for a specific team name
+                const findScoreForTeam = (teamName: string) => {
+                  const normalize = (name: string) => name?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+                  const teamNorm = normalize(teamName);
+                  const apiHomeNorm = normalize(scoreData.homeTeam || '');
+                  const apiAwayNorm = normalize(scoreData.awayTeam || '');
+                  
+                  // Direct match check - if the team name contains or is contained by API team name
+                  const matchesHome = teamNorm.includes(apiHomeNorm) || apiHomeNorm.includes(teamNorm) ||
+                                      teamNorm.split('').filter((c, i) => apiHomeNorm[i] === c).length > teamNorm.length * 0.6;
+                  const matchesAway = teamNorm.includes(apiAwayNorm) || apiAwayNorm.includes(teamNorm) ||
+                                      teamNorm.split('').filter((c, i) => apiAwayNorm[i] === c).length > teamNorm.length * 0.6;
+                  
+                  // Also check first word match (e.g., "Rangpur" matches "Rangpur Riders")
+                  const teamFirstWord = teamName?.toLowerCase().split(' ')[0] || '';
+                  const homeFirstWord = scoreData.homeTeam?.toLowerCase().split(' ')[0] || '';
+                  const awayFirstWord = scoreData.awayTeam?.toLowerCase().split(' ')[0] || '';
+                  
+                  const firstWordMatchesHome = teamFirstWord === homeFirstWord;
+                  const firstWordMatchesAway = teamFirstWord === awayFirstWord;
+                  
+                  if (matchesHome || firstWordMatchesHome) {
+                    return { score: scoreData.homeScore || '', overs: rawHomeOvers };
+                  } else if (matchesAway || firstWordMatchesAway) {
+                    return { score: scoreData.awayScore || '', overs: rawAwayOvers };
+                  }
+                  return { score: '', overs: null };
+                };
+
+                const teamAData = findScoreForTeam(teamAName);
+                const teamBData = findScoreForTeam(teamBName);
 
                 return (
                   <div className="grid grid-cols-2 gap-3">
@@ -404,8 +396,8 @@ const ApiCricketLiveScore = ({
                       <span className="text-sm font-medium text-center truncate w-full">{teamAName}</span>
                       <div className="text-center">
                         <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-2xl font-bold text-primary">{cleanScore(scoreForTeamA) || '-'}</span>
-                          {oversForTeamA && <span className="text-xs text-muted-foreground">({oversForTeamA} ov)</span>}
+                          <span className="text-2xl font-bold text-primary">{cleanScore(teamAData.score) || '-'}</span>
+                          {teamAData.overs && <span className="text-xs text-muted-foreground">({teamAData.overs} ov)</span>}
                         </div>
                       </div>
                     </div>
@@ -417,8 +409,8 @@ const ApiCricketLiveScore = ({
                       <span className="text-sm font-medium text-center truncate w-full">{teamBName}</span>
                       <div className="text-center">
                         <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-2xl font-bold text-primary">{cleanScore(scoreForTeamB) || '-'}</span>
-                          {oversForTeamB && <span className="text-xs text-muted-foreground">({oversForTeamB} ov)</span>}
+                          <span className="text-2xl font-bold text-primary">{cleanScore(teamBData.score) || '-'}</span>
+                          {teamBData.overs && <span className="text-xs text-muted-foreground">({teamBData.overs} ov)</span>}
                         </div>
                       </div>
                     </div>
