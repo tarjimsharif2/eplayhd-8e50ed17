@@ -45,6 +45,7 @@ import { useGoogleIndexing } from "@/hooks/useGoogleIndexing";
 import DynamicPagesManager from "@/components/DynamicPagesManager";
 import AdsSettingsManager from "@/components/AdsSettingsManager";
 import AutoScoreSyncManager from "@/components/AutoScoreSyncManager";
+import { useStreamingServerCounts } from "@/hooks/useStreamingServerCounts";
 
 
 const Admin = () => {
@@ -62,6 +63,7 @@ const Admin = () => {
   const { data: banners, isLoading: bannersLoading } = useBanners();
   const { data: sports, isLoading: sportsLoading } = useSports();
   const { data: siteSettings, isLoading: siteSettingsLoading } = useSiteSettings();
+  const { data: serverCounts } = useStreamingServerCounts();
   const updateSiteSettings = useUpdateSiteSettings();
 
   // Mutation hooks
@@ -1990,10 +1992,15 @@ const Admin = () => {
                                   setSelectedMatchForStreaming(match);
                                   setStreamingDialogOpen(true);
                                 }}
-                                className="flex-1 sm:flex-none text-xs sm:text-sm"
+                                className="flex-1 sm:flex-none text-xs sm:text-sm relative"
                               >
                                 <Tv className="w-3 h-3 sm:w-4 sm:h-4 mr-1" />
                                 Servers
+                                {serverCounts && serverCounts[match.id] > 0 && (
+                                  <span className="absolute -top-1.5 -right-1.5 bg-green-500 text-white text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center">
+                                    {serverCounts[match.id]}
+                                  </span>
+                                )}
                               </Button>
                               {match.sport?.name?.toLowerCase() === 'cricket' && (
                                 <Button 
