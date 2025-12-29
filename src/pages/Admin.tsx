@@ -144,6 +144,7 @@ const Admin = () => {
     match_label: '',
     sport_id: '' as string | null,
     page_type: 'redirect' as string,
+    slug: '',
     seo_title: '',
     seo_description: '',
     seo_keywords: '',
@@ -399,7 +400,7 @@ const Admin = () => {
         match_label: matchForm.match_label || null,
         sport_id: matchForm.sport_id || null,
         page_type: matchForm.page_type,
-        slug: matchForm.page_type === 'page' ? (editingMatch?.slug || generateSlug(teamAName, teamBName)) : null,
+        slug: matchForm.page_type === 'page' ? (matchForm.slug || editingMatch?.slug || generateSlug(teamAName, teamBName)) : null,
         seo_title: matchForm.seo_title || null,
         seo_description: matchForm.seo_description || null,
         seo_keywords: matchForm.seo_keywords || null,
@@ -468,6 +469,7 @@ const Admin = () => {
       match_label: match.match_label || '',
       sport_id: match.sport_id || '',
       page_type: match.page_type || 'redirect',
+      slug: match.slug || '',
       seo_title: match.seo_title || '',
       seo_description: match.seo_description || '',
       seo_keywords: match.seo_keywords || '',
@@ -567,6 +569,7 @@ const Admin = () => {
       match_label: match.match_label || '',
       sport_id: match.sport_id || '',
       page_type: match.page_type || 'redirect',
+      slug: '',
       seo_title: match.seo_title || '',
       seo_description: match.seo_description || '',
       seo_keywords: match.seo_keywords || '',
@@ -609,6 +612,7 @@ const Admin = () => {
       match_label: '',
       sport_id: '',
       page_type: 'redirect',
+      slug: '',
       seo_title: '',
       seo_description: '',
       seo_keywords: '',
@@ -1418,6 +1422,24 @@ const Admin = () => {
                         </div>
                       ) : (
                         <>
+                          <div className="space-y-2">
+                            <Label className="flex items-center gap-2">
+                              <Globe className="w-4 h-4" />
+                              Custom URL Slug (optional)
+                            </Label>
+                            <Input 
+                              placeholder="e.g., team-a-vs-team-b-live" 
+                              value={matchForm.slug} 
+                              onChange={(e) => {
+                                // Sanitize slug: lowercase, replace spaces with dashes, remove special chars
+                                const sanitized = e.target.value.toLowerCase()
+                                  .replace(/\s+/g, '-')
+                                  .replace(/[^a-z0-9-]/g, '');
+                                setMatchForm({ ...matchForm, slug: sanitized });
+                              }} 
+                            />
+                            <p className="text-xs text-muted-foreground">Leave empty to auto-generate from team names. Must be unique.</p>
+                          </div>
                           <div className="space-y-2">
                             <Label>SEO Title (optional)</Label>
                             <Input 
