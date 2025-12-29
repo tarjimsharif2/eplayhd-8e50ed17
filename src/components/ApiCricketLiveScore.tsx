@@ -352,44 +352,74 @@ const ApiCricketLiveScore = ({
             </div>
           ) : scoreData ? (
             <div className="space-y-4">
-              {/* Compact Score Summary */}
+              {/* Compact Score Summary - Always show Team A and Team B with matched scores */}
               {(() => {
-                const teamAMatchesHome = getTeamAMatchesHome();
-                const homeLogo = teamAMatchesHome 
-                  ? (teamALogo || scoreData.homeTeamLogo) 
-                  : (teamBLogo || scoreData.homeTeamLogo);
-                const awayLogo = teamAMatchesHome 
-                  ? (teamBLogo || scoreData.awayTeamLogo) 
-                  : (teamALogo || scoreData.awayTeamLogo);
+                // Normalize team names for comparison
+                const normalizeTeamName = (name: string) => name?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+                
+                const teamANorm = normalizeTeamName(teamAName);
+                const teamBNorm = normalizeTeamName(teamBName);
+                const apiHomeNorm = normalizeTeamName(scoreData.homeTeam || '');
+                const apiAwayNorm = normalizeTeamName(scoreData.awayTeam || '');
+                
+                // Check if teamA matches API's home team
+                const teamAMatchesApiHome = apiHomeNorm.includes(teamANorm.substring(0, 6)) || 
+                                             teamANorm.includes(apiHomeNorm.substring(0, 6));
+                const teamAMatchesApiAway = apiAwayNorm.includes(teamANorm.substring(0, 6)) || 
+                                             teamANorm.includes(apiAwayNorm.substring(0, 6));
+                
+                // Determine scores for Team A and Team B based on matching
+                let scoreForTeamA: string = '';
+                let scoreForTeamB: string = '';
+                let oversForTeamA: string | null = null;
+                let oversForTeamB: string | null = null;
+                
+                if (teamAMatchesApiHome) {
+                  // Team A = API home, Team B = API away
+                  scoreForTeamA = scoreData.homeScore || '';
+                  scoreForTeamB = scoreData.awayScore || '';
+                  oversForTeamA = rawHomeOvers;
+                  oversForTeamB = rawAwayOvers;
+                } else if (teamAMatchesApiAway) {
+                  // Team A = API away, Team B = API home
+                  scoreForTeamA = scoreData.awayScore || '';
+                  scoreForTeamB = scoreData.homeScore || '';
+                  oversForTeamA = rawAwayOvers;
+                  oversForTeamB = rawHomeOvers;
+                } else {
+                  // Fallback - use home for A, away for B
+                  scoreForTeamA = scoreData.homeScore || '';
+                  scoreForTeamB = scoreData.awayScore || '';
+                  oversForTeamA = rawHomeOvers;
+                  oversForTeamB = rawAwayOvers;
+                }
 
                 return (
                   <div className="grid grid-cols-2 gap-3">
-                    {/* Home Team */}
+                    {/* Team A */}
                     <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
-                      {homeLogo && (
-                        <img src={homeLogo} alt={scoreData.homeTeam} className="w-10 h-10 object-contain" />
+                      {teamALogo && (
+                        <img src={teamALogo} alt={teamAName} className="w-10 h-10 object-contain" />
                       )}
-                      <span className="text-sm font-medium text-center truncate w-full">{scoreData.homeTeam}</span>
+                      <span className="text-sm font-medium text-center truncate w-full">{teamAName}</span>
                       <div className="text-center">
                         <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-2xl font-bold text-primary">{cleanScore(scoreData.homeScore)}</span>
-                          {rawHomeOvers && <span className="text-xs text-muted-foreground">({rawHomeOvers} ov)</span>}
+                          <span className="text-2xl font-bold text-primary">{cleanScore(scoreForTeamA) || '-'}</span>
+                          {oversForTeamA && <span className="text-xs text-muted-foreground">({oversForTeamA} ov)</span>}
                         </div>
-                        {scoreData.homeRunRate && <span className="text-xs text-muted-foreground">RR: {scoreData.homeRunRate}</span>}
                       </div>
                     </div>
-                    {/* Away Team */}
+                    {/* Team B */}
                     <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
-                      {awayLogo && (
-                        <img src={awayLogo} alt={scoreData.awayTeam} className="w-10 h-10 object-contain" />
+                      {teamBLogo && (
+                        <img src={teamBLogo} alt={teamBName} className="w-10 h-10 object-contain" />
                       )}
-                      <span className="text-sm font-medium text-center truncate w-full">{scoreData.awayTeam}</span>
+                      <span className="text-sm font-medium text-center truncate w-full">{teamBName}</span>
                       <div className="text-center">
                         <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-2xl font-bold text-primary">{cleanScore(scoreData.awayScore)}</span>
-                          {rawAwayOvers && <span className="text-xs text-muted-foreground">({rawAwayOvers} ov)</span>}
+                          <span className="text-2xl font-bold text-primary">{cleanScore(scoreForTeamB) || '-'}</span>
+                          {oversForTeamB && <span className="text-xs text-muted-foreground">({oversForTeamB} ov)</span>}
                         </div>
-                        {scoreData.awayRunRate && <span className="text-xs text-muted-foreground">RR: {scoreData.awayRunRate}</span>}
                       </div>
                     </div>
                   </div>
