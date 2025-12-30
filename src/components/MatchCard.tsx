@@ -168,6 +168,8 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
     switch (status) {
       case 'live': return 'live';
       case 'completed': return 'completed';
+      case 'abandoned': return 'abandoned';
+      case 'postponed': return 'postponed';
       default: return 'upcoming';
     }
   };
@@ -177,6 +179,8 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
     switch (status) {
       case 'live': return 'Live';
       case 'completed': return 'Completed';
+      case 'abandoned': return 'Abandoned';
+      case 'postponed': return 'Postponed';
       default: return 'Upcoming';
     }
   };
