@@ -64,13 +64,11 @@ const ApiCricketLiveScore = ({
     return oversMatch ? oversMatch[1] : null;
   };
 
-  // NEW APPROACH: Calculate scores/overs directly from batsmen data per innings
-  // This avoids relying on home/away which can be mapped incorrectly
+  // Calculate innings stats: runs from batsmen, overs from bowlers
   interface InningsStats {
     inningsName: string;
     teamName: string;
     totalRuns: number;
-    totalBalls: number;
     wickets: number;
     overs: string;
     score: string;
@@ -88,12 +86,10 @@ const ApiCricketLiveScore = ({
       
       // Calculate total runs from batsmen
       let totalRuns = 0;
-      let totalBalls = 0;
       let wickets = 0;
       
       inningsBatsmen.forEach(b => {
         totalRuns += parseInt(b.runs) || 0;
-        totalBalls += parseInt(b.balls) || 0;
         if (b.how_out && b.how_out.toLowerCase() !== 'not out') {
           wickets++;
         }
@@ -105,10 +101,23 @@ const ApiCricketLiveScore = ({
         totalRuns += inningsExtras.total || 0;
       }
       
-      // Calculate overs from total balls
+      // Calculate overs from BOWLERS data (accurate for no-balls, wides)
+      // Bowlers in this innings are the ones who bowled WHILE this team was batting
+      const inningsBowlers = scoreData?.bowlers?.filter(b => b.innings === inningsName) || [];
+      let totalBalls = 0;
+      
+      inningsBowlers.forEach(b => {
+        const overs = parseFloat(b.overs) || 0;
+        const fullOvers = Math.floor(overs);
+        const balls = Math.round((overs - fullOvers) * 10);
+        totalBalls += (fullOvers * 6) + balls;
+      });
+      
       const fullOvers = Math.floor(totalBalls / 6);
       const remainingBalls = totalBalls % 6;
-      const oversStr = remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`;
+      const oversStr = totalBalls > 0 
+        ? (remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`)
+        : null;
       
       // Format score as "runs/wickets"
       const scoreStr = `${totalRuns}/${wickets}`;
@@ -117,9 +126,8 @@ const ApiCricketLiveScore = ({
         inningsName,
         teamName,
         totalRuns,
-        totalBalls,
         wickets,
-        overs: oversStr,
+        overs: oversStr || '0',
         score: scoreStr,
       });
     }
@@ -144,9 +152,9 @@ const ApiCricketLiveScore = ({
           teamFirst.includes(inningsFirst) ||
           inningsTeamLower.includes(teamNameLower) ||
           teamNameLower.includes(inningsTeamLower)) {
-        // Only return if we have actual data (balls > 0)
-        if (stats.totalBalls > 0) {
-          return { score: stats.score, overs: stats.overs };
+        // Only return if we have actual runs data
+        if (stats.totalRuns > 0 || stats.wickets > 0) {
+          return { score: stats.score, overs: stats.overs !== '0' ? stats.overs : null };
         }
       }
     }
@@ -154,11 +162,10 @@ const ApiCricketLiveScore = ({
     return { score: null, overs: null };
   };
 
-  // Get home/away scores - prioritize calculated from batsmen, fallback to API
+  // Get home/away scores - prioritize calculated, fallback to API
   const homeCalc = getTeamScoreFromInnings(scoreData?.homeTeam || '');
   const awayCalc = getTeamScoreFromInnings(scoreData?.awayTeam || '');
   
-  // Use calculated values if available, otherwise fallback to API data
   const rawHomeOvers = homeCalc.overs || (scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null) || scoreData?.homeOvers;
   const rawAwayOvers = awayCalc.overs || (scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null) || scoreData?.awayOvers;
 

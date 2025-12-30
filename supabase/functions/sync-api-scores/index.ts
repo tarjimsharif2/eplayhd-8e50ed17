@@ -75,10 +75,7 @@ Deno.serve(async (req) => {
     
     console.log(`[sync-api-scores] Sync interval configured: ${syncIntervalSeconds} seconds`);
 
-    // Get matches that need syncing:
-    // 1. Status is 'live' - always sync
-    // 2. Status is 'upcoming' and match starts within 5 minutes
-    // 3. Exclude 'completed' matches
+    // Get matches that need syncing
     const now = new Date();
     const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
     
@@ -115,22 +112,19 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Filter matches that should be synced based on status and interval
+    // Filter matches that should be synced
     const matchesToSync = matches.filter(match => {
-      // Check if enough time has passed since last sync
       if (match.last_api_sync) {
         const lastSyncTime = new Date(match.last_api_sync).getTime();
         const timeSinceLastSync = now.getTime() - lastSyncTime;
         if (timeSinceLastSync < syncIntervalSeconds * 1000) {
-          console.log(`[sync-api-scores] Skipping match ${match.id} - synced ${Math.round(timeSinceLastSync / 1000)}s ago (interval: ${syncIntervalSeconds}s)`);
+          console.log(`[sync-api-scores] Skipping match ${match.id} - synced ${Math.round(timeSinceLastSync / 1000)}s ago`);
           return false;
         }
       }
       
-      // Always sync live matches (if interval passed)
       if (match.status === 'live') return true;
       
-      // For upcoming matches, check if within 5 minutes of start
       if (match.status === 'upcoming') {
         let matchDateTime: Date | null = null;
         
@@ -227,7 +221,7 @@ Deno.serve(async (req) => {
 
       console.log(`[sync-api-scores] Found match: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);
 
-      // If we have event_key, fetch detailed scorecard
+      // Fetch detailed scorecard
       let detailedEvent = matchingEvent;
       if (matchingEvent.event_key && !matchingEvent.scorecard) {
         const detailUrl = `https://apiv2.api-cricket.com/cricket/?method=get_events&APIkey=${apiKey}&date_start=${matchingEvent.event_date_start || today}&date_stop=${matchingEvent.event_date_start || today}&event_key=${matchingEvent.event_key}`;
@@ -306,15 +300,13 @@ Deno.serve(async (req) => {
         });
       }
 
-      // NEW APPROACH: Calculate scores and overs directly from batsmen data per innings
-      // This avoids relying on home/away which can be mapped incorrectly
+      // Calculate scores from batsmen and overs from bowlers per innings
       interface InningsStats {
         inningsName: string;
         teamName: string;
         totalRuns: number;
-        totalBalls: number;
         wickets: number;
-        overs: string;
+        overs: string | null;
         score: string;
       }
       
@@ -327,45 +319,53 @@ Deno.serve(async (req) => {
         
         // Calculate total runs from batsmen
         let totalRuns = 0;
-        let totalBalls = 0;
         let wickets = 0;
         
         inningsBatsmen.forEach(b => {
           totalRuns += parseInt(b.runs) || 0;
-          totalBalls += parseInt(b.balls) || 0;
           if (b.how_out && b.how_out.toLowerCase() !== 'not out') {
             wickets++;
           }
         });
         
-        // Add extras if available
+        // Add extras
         const inningsExtras = extras.find(e => e.innings === inningsName);
         if (inningsExtras) {
           totalRuns += inningsExtras.total || 0;
         }
         
-        // Calculate overs from total balls
+        // Calculate overs from BOWLERS data (accurate for no-balls, wides)
+        const inningsBowlers = bowlers.filter(b => b.innings === inningsName);
+        let totalBalls = 0;
+        
+        inningsBowlers.forEach(b => {
+          const overs = parseFloat(b.overs) || 0;
+          const fullOvers = Math.floor(overs);
+          const balls = Math.round((overs - fullOvers) * 10);
+          totalBalls += (fullOvers * 6) + balls;
+        });
+        
         const fullOvers = Math.floor(totalBalls / 6);
         const remainingBalls = totalBalls % 6;
-        const oversStr = remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`;
+        const oversStr = totalBalls > 0 
+          ? (remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`)
+          : null;
         
-        // Format score as "runs/wickets"
         const scoreStr = `${totalRuns}/${wickets}`;
         
-        console.log(`[sync-api-scores] Innings ${inningsName}: ${scoreStr} (${oversStr} ov) - ${inningsBatsmen.length} batsmen, ${totalBalls} balls`);
+        console.log(`[sync-api-scores] Innings ${inningsName}: ${scoreStr} (${oversStr || 'N/A'} ov) from ${inningsBatsmen.length} batsmen, ${inningsBowlers.length} bowlers`);
         
         inningsStats.push({
           inningsName,
           teamName,
           totalRuns,
-          totalBalls,
           wickets,
           overs: oversStr,
           score: scoreStr,
         });
       }
 
-      // Map innings to home/away teams based on team name matching
+      // Map innings to home/away teams
       const homeTeamLower = (detailedEvent.event_home_team || '').toLowerCase().trim();
       const awayTeamLower = (detailedEvent.event_away_team || '').toLowerCase().trim();
       const homeFirst = homeTeamLower.split(' ')[0];
@@ -383,28 +383,24 @@ Deno.serve(async (req) => {
         // Match to home team
         if (inningsFirst === homeFirst || 
             inningsTeamLower.includes(homeFirst) || 
-            homeFirst.includes(inningsFirst) ||
-            inningsTeamLower.includes(homeTeamLower) ||
-            homeTeamLower.includes(inningsTeamLower)) {
-          if (!homeScore || stats.totalBalls > 0) {
-            homeScore = `${stats.score} (${stats.overs} ov)`;
+            homeFirst.includes(inningsFirst)) {
+          if (!homeScore || stats.totalRuns > 0) {
+            homeScore = stats.overs ? `${stats.score} (${stats.overs} ov)` : stats.score;
             homeOvers = stats.overs;
           }
         }
         // Match to away team
         else if (inningsFirst === awayFirst || 
                  inningsTeamLower.includes(awayFirst) || 
-                 awayFirst.includes(inningsFirst) ||
-                 inningsTeamLower.includes(awayTeamLower) ||
-                 awayTeamLower.includes(inningsTeamLower)) {
-          if (!awayScore || stats.totalBalls > 0) {
-            awayScore = `${stats.score} (${stats.overs} ov)`;
+                 awayFirst.includes(inningsFirst)) {
+          if (!awayScore || stats.totalRuns > 0) {
+            awayScore = stats.overs ? `${stats.score} (${stats.overs} ov)` : stats.score;
             awayOvers = stats.overs;
           }
         }
       }
 
-      // Fallback to API data if no batsmen data (match just started)
+      // Fallback to API data if no batsmen data
       if (!homeScore && detailedEvent.event_home_final_result) {
         homeScore = detailedEvent.event_home_final_result;
       }
@@ -412,7 +408,7 @@ Deno.serve(async (req) => {
         awayScore = detailedEvent.event_away_final_result;
       }
 
-      console.log(`[sync-api-scores] Final scores: home=${homeScore}, away=${awayScore}`);
+      console.log(`[sync-api-scores] Final: home=${homeScore}, away=${awayScore}`);
 
       // Determine match status
       let matchStatus: 'upcoming' | 'live' | 'completed' = 'upcoming';
@@ -452,13 +448,13 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Update last_api_sync on matches table
+      // Update last_api_sync
       await supabase
         .from('matches')
         .update({ last_api_sync: new Date().toISOString() })
         .eq('id', match.id);
 
-      // Also update match status if it changed
+      // Update match status if changed
       if (match.status !== matchStatus) {
         await supabase
           .from('matches')
