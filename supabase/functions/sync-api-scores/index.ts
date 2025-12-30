@@ -307,6 +307,22 @@ Deno.serve(async (req) => {
           : `${calculatedOvers}`;
       };
 
+      // Validate if overs makes sense for the score
+      const isOversValid = (score: string | null, overs: string | null): boolean => {
+        if (!score || !overs) return true;
+        
+        const oversNum = parseFloat(overs);
+        const runsMatch = score.match(/^(\d+)/);
+        const runs = runsMatch ? parseInt(runsMatch[1]) : 0;
+        
+        // If runs > 50 but overs < 1, something is wrong
+        if (runs > 50 && oversNum < 1) return false;
+        // If runs > 100 but overs < 5, something is wrong  
+        if (runs > 100 && oversNum < 5) return false;
+        
+        return true;
+      };
+
       // Get innings names for each team from batsmen data
       const homeTeamLower = (detailedEvent.event_home_team || '').toLowerCase().trim();
       const awayTeamLower = (detailedEvent.event_away_team || '').toLowerCase().trim();
@@ -355,7 +371,7 @@ Deno.serve(async (req) => {
         });
       }
       
-      // Calculate overs from bowlers if extra field doesn't have it or for validation
+      // Calculate overs from bowlers if extra field doesn't have it
       // Bowlers bowling in an innings means they were bowling while that team was batting
       if (homeInningsName) {
         const calculatedHomeOvers = calculateOversFromBowlers(homeInningsName);
@@ -370,16 +386,27 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Format scores with overs
-      let homeScore = detailedEvent.event_home_final_result || null;
-      let awayScore = detailedEvent.event_away_final_result || null;
+      // Get raw scores without overs
+      const homeScoreRaw = detailedEvent.event_home_final_result || null;
+      const awayScoreRaw = detailedEvent.event_away_final_result || null;
+
+      // Validate overs - if invalid, don't include overs in score string
+      const validHomeOvers = isOversValid(homeScoreRaw, homeOvers) ? homeOvers : null;
+      const validAwayOvers = isOversValid(awayScoreRaw, awayOvers) ? awayOvers : null;
+
+      // Format scores with validated overs
+      let homeScore = homeScoreRaw;
+      let awayScore = awayScoreRaw;
       
-      if (homeScore && homeOvers) {
-        homeScore = `${homeScore} (${homeOvers} ov)`;
+      if (homeScore && validHomeOvers) {
+        homeScore = `${homeScore} (${validHomeOvers} ov)`;
       }
-      if (awayScore && awayOvers) {
-        awayScore = `${awayScore} (${awayOvers} ov)`;
+      if (awayScore && validAwayOvers) {
+        awayScore = `${awayScore} (${validAwayOvers} ov)`;
       }
+
+      console.log(`[sync-api-scores] Overs validation: home=${homeOvers}(valid:${!!validHomeOvers}), away=${awayOvers}(valid:${!!validAwayOvers})`);
+
 
       // Determine match status
       let matchStatus: 'upcoming' | 'live' | 'completed' = 'upcoming';
