@@ -35,6 +35,28 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
   throw lastError || new Error('Failed to fetch after retries');
 }
 
+// Normalize team name for matching
+const normalizeTeamName = (name: string) => 
+  name?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+
+// Match team name with more flexibility
+const teamsMatch = (name1: string, name2: string): boolean => {
+  const n1 = normalizeTeamName(name1);
+  const n2 = normalizeTeamName(name2);
+  
+  if (n1 === n2) return true;
+  if (n1.includes(n2) || n2.includes(n1)) return true;
+  
+  // Check first word match
+  const first1 = n1.split(/\s+/)[0];
+  const first2 = n2.split(/\s+/)[0];
+  if (first1.length >= 3 && first2.length >= 3 && (first1.includes(first2) || first2.includes(first1))) {
+    return true;
+  }
+  
+  return false;
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -150,9 +172,6 @@ Deno.serve(async (req) => {
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    const normalizeTeamName = (name: string) => 
-      name?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
 
     // Fetch events from API
     const today = new Date().toISOString().split('T')[0];
@@ -307,7 +326,7 @@ Deno.serve(async (req) => {
         totalRuns: number;
         wickets: number;
         overs: string | null;
-        score: string;
+        scoreWithOvers: string;
       }
       
       const inningsStats: InningsStats[] = [];
@@ -334,7 +353,7 @@ Deno.serve(async (req) => {
           totalRuns += inningsExtras.total || 0;
         }
         
-        // Calculate overs from BOWLERS data (accurate for no-balls, wides)
+        // Calculate overs from BOWLERS data
         const inningsBowlers = bowlers.filter(b => b.innings === inningsName);
         let totalBalls = 0;
         
@@ -352,8 +371,9 @@ Deno.serve(async (req) => {
           : null;
         
         const scoreStr = `${totalRuns}/${wickets}`;
+        const scoreWithOvers = oversStr ? `${scoreStr} (${oversStr} ov)` : scoreStr;
         
-        console.log(`[sync-api-scores] Innings ${inningsName}: ${scoreStr} (${oversStr || 'N/A'} ov) from ${inningsBatsmen.length} batsmen, ${inningsBowlers.length} bowlers`);
+        console.log(`[sync-api-scores] Innings "${inningsName}": ${scoreWithOvers} from ${inningsBatsmen.length} batsmen, ${inningsBowlers.length} bowlers`);
         
         inningsStats.push({
           inningsName,
@@ -361,15 +381,39 @@ Deno.serve(async (req) => {
           totalRuns,
           wickets,
           overs: oversStr,
-          score: scoreStr,
+          scoreWithOvers,
         });
       }
 
-      // Map innings to home/away teams
+      // NOW: Match innings to teamA/teamB directly (not home/away)
+      // This is the key fix - use teamA/teamB names from our database
+      let scoreA: string | null = null;
+      let scoreB: string | null = null;
+      let oversA: string | null = null;
+      let oversB: string | null = null;
+      
+      for (const stats of inningsStats) {
+        // Check if this innings belongs to teamA
+        if (teamsMatch(stats.teamName, teamAName)) {
+          if (!scoreA || stats.totalRuns > 0) {
+            scoreA = stats.scoreWithOvers;
+            oversA = stats.overs;
+            console.log(`[sync-api-scores] Matched "${stats.teamName}" -> teamA "${teamAName}": ${scoreA}`);
+          }
+        }
+        // Check if this innings belongs to teamB
+        else if (teamsMatch(stats.teamName, teamBName)) {
+          if (!scoreB || stats.totalRuns > 0) {
+            scoreB = stats.scoreWithOvers;
+            oversB = stats.overs;
+            console.log(`[sync-api-scores] Matched "${stats.teamName}" -> teamB "${teamBName}": ${scoreB}`);
+          }
+        }
+      }
+
+      // Also map to home/away for the API scores table
       const homeTeamLower = (detailedEvent.event_home_team || '').toLowerCase().trim();
       const awayTeamLower = (detailedEvent.event_away_team || '').toLowerCase().trim();
-      const homeFirst = homeTeamLower.split(' ')[0];
-      const awayFirst = awayTeamLower.split(' ')[0];
       
       let homeScore: string | null = null;
       let homeOvers: string | null = null;
@@ -377,26 +421,12 @@ Deno.serve(async (req) => {
       let awayOvers: string | null = null;
       
       for (const stats of inningsStats) {
-        const inningsTeamLower = stats.teamName.toLowerCase().trim();
-        const inningsFirst = inningsTeamLower.split(' ')[0];
-        
-        // Match to home team
-        if (inningsFirst === homeFirst || 
-            inningsTeamLower.includes(homeFirst) || 
-            homeFirst.includes(inningsFirst)) {
-          if (!homeScore || stats.totalRuns > 0) {
-            homeScore = stats.overs ? `${stats.score} (${stats.overs} ov)` : stats.score;
-            homeOvers = stats.overs;
-          }
-        }
-        // Match to away team
-        else if (inningsFirst === awayFirst || 
-                 inningsTeamLower.includes(awayFirst) || 
-                 awayFirst.includes(inningsFirst)) {
-          if (!awayScore || stats.totalRuns > 0) {
-            awayScore = stats.overs ? `${stats.score} (${stats.overs} ov)` : stats.score;
-            awayOvers = stats.overs;
-          }
+        if (teamsMatch(stats.teamName, homeTeamLower)) {
+          homeScore = stats.scoreWithOvers;
+          homeOvers = stats.overs;
+        } else if (teamsMatch(stats.teamName, awayTeamLower)) {
+          awayScore = stats.scoreWithOvers;
+          awayOvers = stats.overs;
         }
       }
 
@@ -408,7 +438,7 @@ Deno.serve(async (req) => {
         awayScore = detailedEvent.event_away_final_result;
       }
 
-      console.log(`[sync-api-scores] Final: home=${homeScore}, away=${awayScore}`);
+      console.log(`[sync-api-scores] Final scores: scoreA=${scoreA}, scoreB=${scoreB} | home=${homeScore}, away=${awayScore}`);
 
       // Determine match status
       let matchStatus: 'upcoming' | 'live' | 'completed' = 'upcoming';
@@ -448,19 +478,19 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // Update last_api_sync
+      // UPDATE matches table with correct teamA/teamB scores
+      const matchUpdate: any = { 
+        last_api_sync: new Date().toISOString(),
+      };
+      
+      if (scoreA) matchUpdate.score_a = scoreA;
+      if (scoreB) matchUpdate.score_b = scoreB;
+      if (match.status !== matchStatus) matchUpdate.status = matchStatus;
+
       await supabase
         .from('matches')
-        .update({ last_api_sync: new Date().toISOString() })
+        .update(matchUpdate)
         .eq('id', match.id);
-
-      // Update match status if changed
-      if (match.status !== matchStatus) {
-        await supabase
-          .from('matches')
-          .update({ status: matchStatus })
-          .eq('id', match.id);
-      }
 
       console.log(`[sync-api-scores] Synced match: ${teamAName} vs ${teamBName}`);
       syncedCount++;
