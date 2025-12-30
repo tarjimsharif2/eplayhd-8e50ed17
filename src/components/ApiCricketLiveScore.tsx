@@ -64,106 +64,103 @@ const ApiCricketLiveScore = ({
     return oversMatch ? oversMatch[1] : null;
   };
 
-  // Calculate total overs from bowlers' data for a specific team/innings
-  // Bowlers bowling in an innings means they were bowling WHILE that team was batting
-  const calculateOversFromBowlers = (teamName: string) => {
-    if (!scoreData?.bowlers || scoreData.bowlers.length === 0) return null;
+  // NEW APPROACH: Calculate scores/overs directly from batsmen data per innings
+  // This avoids relying on home/away which can be mapped incorrectly
+  interface InningsStats {
+    inningsName: string;
+    teamName: string;
+    totalRuns: number;
+    totalBalls: number;
+    wickets: number;
+    overs: string;
+    score: string;
+  }
+
+  const calculateInningsStats = (): InningsStats[] => {
+    if (!scoreData?.batsmen || scoreData.batsmen.length === 0) return [];
     
-    const teamNameLower = teamName?.toLowerCase().trim() || '';
-    const teamFirstWord = teamNameLower.split(' ')[0];
+    const stats: InningsStats[] = [];
+    const uniqueInnings = [...new Set(scoreData.batsmen.map(b => b.innings).filter(Boolean))];
     
-    // Find the innings name where this team was batting
-    // The innings name contains the batting team's name (e.g., "Sunrisers Eastern Cape 1 INN")
-    let targetInnings: string | null = null;
-    
-    // Get unique innings from batsmen or bowlers
-    const allInnings = new Set<string>();
-    scoreData.batsmen?.forEach(b => b.innings && allInnings.add(b.innings));
-    scoreData.bowlers?.forEach(b => b.innings && allInnings.add(b.innings));
-    
-    for (const innings of allInnings) {
-      const inningsTeam = innings.replace(/ \d+ INN$/i, '').toLowerCase().trim();
-      const inningsFirst = inningsTeam.split(' ')[0];
+    for (const inningsName of uniqueInnings) {
+      const inningsBatsmen = scoreData.batsmen.filter(b => b.innings === inningsName);
+      const teamName = inningsName.replace(/ \d+ INN$/i, '').trim();
       
-      if (inningsFirst === teamFirstWord || inningsTeam.includes(teamFirstWord) || teamFirstWord.includes(inningsFirst)) {
-        targetInnings = innings;
-        break;
+      // Calculate total runs from batsmen
+      let totalRuns = 0;
+      let totalBalls = 0;
+      let wickets = 0;
+      
+      inningsBatsmen.forEach(b => {
+        totalRuns += parseInt(b.runs) || 0;
+        totalBalls += parseInt(b.balls) || 0;
+        if (b.how_out && b.how_out.toLowerCase() !== 'not out') {
+          wickets++;
+        }
+      });
+      
+      // Add extras if available
+      const inningsExtras = scoreData?.extras?.find(e => e.innings === inningsName);
+      if (inningsExtras) {
+        totalRuns += inningsExtras.total || 0;
+      }
+      
+      // Calculate overs from total balls
+      const fullOvers = Math.floor(totalBalls / 6);
+      const remainingBalls = totalBalls % 6;
+      const oversStr = remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`;
+      
+      // Format score as "runs/wickets"
+      const scoreStr = `${totalRuns}/${wickets}`;
+      
+      stats.push({
+        inningsName,
+        teamName,
+        totalRuns,
+        totalBalls,
+        wickets,
+        overs: oversStr,
+        score: scoreStr,
+      });
+    }
+    
+    return stats;
+  };
+
+  // Get calculated innings stats
+  const inningsStats = calculateInningsStats();
+
+  // Get score and overs for a team using innings data
+  const getTeamScoreFromInnings = (teamName: string): { score: string | null; overs: string | null } => {
+    const teamNameLower = teamName?.toLowerCase().trim() || '';
+    const teamFirst = teamNameLower.split(' ')[0];
+    
+    for (const stats of inningsStats) {
+      const inningsTeamLower = stats.teamName.toLowerCase().trim();
+      const inningsFirst = inningsTeamLower.split(' ')[0];
+      
+      if (inningsFirst === teamFirst || 
+          inningsTeamLower.includes(teamFirst) || 
+          teamFirst.includes(inningsFirst) ||
+          inningsTeamLower.includes(teamNameLower) ||
+          teamNameLower.includes(inningsTeamLower)) {
+        // Only return if we have actual data (balls > 0)
+        if (stats.totalBalls > 0) {
+          return { score: stats.score, overs: stats.overs };
+        }
       }
     }
     
-    if (!targetInnings) return null;
-    
-    // Find bowlers who bowled in this innings (they bowled while this team was batting)
-    const inningsBowlers = scoreData.bowlers.filter(b => b.innings === targetInnings);
-    
-    if (inningsBowlers.length === 0) return null;
-    
-    // Calculate total overs from bowlers
-    let totalBalls = 0;
-    inningsBowlers.forEach(b => {
-      const overs = parseFloat(b.overs) || 0;
-      const fullOvers = Math.floor(overs);
-      const balls = Math.round((overs - fullOvers) * 10);
-      totalBalls += (fullOvers * 6) + balls;
-    });
-    
-    const calculatedOvers = Math.floor(totalBalls / 6);
-    const remainingBalls = totalBalls % 6;
-    
-    return remainingBalls > 0 
-      ? `${calculatedOvers}.${remainingBalls}` 
-      : `${calculatedOvers}`;
+    return { score: null, overs: null };
   };
 
-  // Validate if the overs value makes sense for the score
-  // If score is high but overs is very low, the data is likely incorrect
-  const isOversValid = (score: string | null | undefined, overs: string | null | undefined): boolean => {
-    if (!score || !overs) return true;
-    
-    const oversNum = parseFloat(overs);
-    // Extract runs from score (e.g., "140" from "140 (0.2 ov)" or "188/6")
-    const runsMatch = score.match(/^(\d+)/);
-    const runs = runsMatch ? parseInt(runsMatch[1]) : 0;
-    
-    // If runs > 50 but overs < 1, something is wrong
-    if (runs > 50 && oversNum < 1) return false;
-    // If runs > 100 but overs < 5, something is wrong
-    if (runs > 100 && oversNum < 5) return false;
-    
-    return true;
-  };
-
-  // Get overs: prioritize calculated from bowlers, then API field, then parsed from score
-  // Also validate that the overs make sense for the score
-  const getOversForTeam = (teamName: string, apiOvers: string | null | undefined, score: string | null | undefined) => {
-    // First try to calculate from bowlers data (most accurate)
-    const calculatedOvers = calculateOversFromBowlers(teamName);
-    if (calculatedOvers && isOversValid(score, calculatedOvers)) {
-      return calculatedOvers;
-    }
-    
-    // Check if API overs is valid
-    if (apiOvers && isOversValid(score, apiOvers)) {
-      return apiOvers;
-    }
-    
-    // Try to parse from score string and validate
-    if (score) {
-      const parsedOvers = parseScoreOvers(score);
-      if (parsedOvers && isOversValid(score, parsedOvers)) {
-        return parsedOvers;
-      }
-    }
-    
-    // If no valid overs found, try calculated first, then api, then parsed (without validation)
-    if (calculatedOvers) return calculatedOvers;
-    if (apiOvers) return apiOvers;
-    if (score) return parseScoreOvers(score);
-    
-    return null;
-  };
-  const rawHomeOvers = getOversForTeam(scoreData?.homeTeam || '', scoreData?.homeOvers, scoreData?.homeScore);
-  const rawAwayOvers = getOversForTeam(scoreData?.awayTeam || '', scoreData?.awayOvers, scoreData?.awayScore);
+  // Get home/away scores - prioritize calculated from batsmen, fallback to API
+  const homeCalc = getTeamScoreFromInnings(scoreData?.homeTeam || '');
+  const awayCalc = getTeamScoreFromInnings(scoreData?.awayTeam || '');
+  
+  // Use calculated values if available, otherwise fallback to API data
+  const rawHomeOvers = homeCalc.overs || (scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null) || scoreData?.homeOvers;
+  const rawAwayOvers = awayCalc.overs || (scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null) || scoreData?.awayOvers;
 
   // Clean score to just show runs/wickets
   const cleanScore = (score: string) => {

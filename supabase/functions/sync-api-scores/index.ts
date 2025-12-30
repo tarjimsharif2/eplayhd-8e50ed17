@@ -287,126 +287,132 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Calculate overs from bowlers data for accuracy
-      const calculateOversFromBowlers = (teamInningsName: string): string | null => {
-        const teamBowlers = bowlers.filter(b => b.innings === teamInningsName);
-        if (teamBowlers.length === 0) return null;
-        
-        let totalBalls = 0;
-        teamBowlers.forEach(b => {
-          const overs = parseFloat(b.overs) || 0;
-          const fullOvers = Math.floor(overs);
-          const balls = Math.round((overs - fullOvers) * 10);
-          totalBalls += (fullOvers * 6) + balls;
-        });
-        
-        const calculatedOvers = Math.floor(totalBalls / 6);
-        const remainingBalls = totalBalls % 6;
-        return remainingBalls > 0 
-          ? `${calculatedOvers}.${remainingBalls}` 
-          : `${calculatedOvers}`;
-      };
-
-      // Validate if overs makes sense for the score
-      const isOversValid = (score: string | null, overs: string | null): boolean => {
-        if (!score || !overs) return true;
-        
-        const oversNum = parseFloat(overs);
-        const runsMatch = score.match(/^(\d+)/);
-        const runs = runsMatch ? parseInt(runsMatch[1]) : 0;
-        
-        // If runs > 50 but overs < 1, something is wrong
-        if (runs > 50 && oversNum < 1) return false;
-        // If runs > 100 but overs < 5, something is wrong  
-        if (runs > 100 && oversNum < 5) return false;
-        
-        return true;
-      };
-
-      // Get innings names for each team from batsmen data
-      const homeTeamLower = (detailedEvent.event_home_team || '').toLowerCase().trim();
-      const awayTeamLower = (detailedEvent.event_away_team || '').toLowerCase().trim();
-      
-      let homeInningsName: string | null = null;
-      let awayInningsName: string | null = null;
-      
-      // Find innings names from batsmen
-      const uniqueInnings = [...new Set(batsmen.map(b => b.innings).filter(Boolean))];
-      for (const innings of uniqueInnings) {
-        const inningsTeam = innings.replace(/ \d+ INN$/i, '').toLowerCase().trim();
-        const homeFirst = homeTeamLower.split(' ')[0];
-        const awayFirst = awayTeamLower.split(' ')[0];
-        const inningsFirst = inningsTeam.split(' ')[0];
-        
-        if (inningsFirst === homeFirst || homeFirst.includes(inningsFirst) || inningsFirst.includes(homeFirst)) {
-          if (!homeInningsName) homeInningsName = innings;
-        } else if (inningsFirst === awayFirst || awayFirst.includes(inningsFirst) || inningsFirst.includes(awayFirst)) {
-          if (!awayInningsName) awayInningsName = innings;
-        }
-      }
-
-      // Extract overs from extra field first
-      let homeOvers: string | null = null;
-      let awayOvers: string | null = null;
-      
+      // Parse extras data
       if (detailedEvent.extra && typeof detailedEvent.extra === 'object') {
-        Object.entries(detailedEvent.extra).forEach(([inningsKey, inningsData]: [string, any]) => {
-          if (Array.isArray(inningsData) && inningsData.length > 0) {
-            const firstEntry = inningsData[0];
-            const inningsTeam = inningsKey.replace(/ \d+ INN$/i, '').toLowerCase().trim();
-            const inningsFirst = inningsTeam.split(' ')[0];
-            const homeFirst = homeTeamLower.split(' ')[0];
-            const awayFirst = awayTeamLower.split(' ')[0];
-            
-            if (inningsFirst === homeFirst || homeFirst.includes(inningsFirst) || inningsFirst.includes(homeFirst)) {
-              if (!homeOvers && firstEntry.total_overs) {
-                homeOvers = firstEntry.total_overs;
-              }
-            } else if (inningsFirst === awayFirst || awayFirst.includes(inningsFirst) || inningsFirst.includes(awayFirst)) {
-              if (!awayOvers && firstEntry.total_overs) {
-                awayOvers = firstEntry.total_overs;
-              }
-            }
+        Object.entries(detailedEvent.extra).forEach(([inningsKey, extrasData]: [string, any]) => {
+          if (Array.isArray(extrasData) && extrasData.length > 0) {
+            const firstEntry = extrasData[0];
+            extras.push({
+              innings: inningsKey,
+              team: inningsKey.replace(/ \d+ INN$/, ''),
+              wides: parseInt(firstEntry.wides) || 0,
+              noballs: parseInt(firstEntry.noballs) || 0,
+              byes: parseInt(firstEntry.byes) || 0,
+              legbyes: parseInt(firstEntry.legbyes) || 0,
+              total: parseInt(firstEntry.extras_total) || 0,
+              total_overs: firstEntry.total_overs || null,
+            });
           }
         });
       }
+
+      // NEW APPROACH: Calculate scores and overs directly from batsmen data per innings
+      // This avoids relying on home/away which can be mapped incorrectly
+      interface InningsStats {
+        inningsName: string;
+        teamName: string;
+        totalRuns: number;
+        totalBalls: number;
+        wickets: number;
+        overs: string;
+        score: string;
+      }
       
-      // Calculate overs from bowlers if extra field doesn't have it
-      // Bowlers bowling in an innings means they were bowling while that team was batting
-      if (homeInningsName) {
-        const calculatedHomeOvers = calculateOversFromBowlers(homeInningsName);
-        if (calculatedHomeOvers) {
-          homeOvers = calculatedHomeOvers;
+      const inningsStats: InningsStats[] = [];
+      const uniqueInnings = [...new Set(batsmen.map(b => b.innings).filter(Boolean))];
+      
+      for (const inningsName of uniqueInnings) {
+        const inningsBatsmen = batsmen.filter(b => b.innings === inningsName);
+        const teamName = inningsName.replace(/ \d+ INN$/i, '').trim();
+        
+        // Calculate total runs from batsmen
+        let totalRuns = 0;
+        let totalBalls = 0;
+        let wickets = 0;
+        
+        inningsBatsmen.forEach(b => {
+          totalRuns += parseInt(b.runs) || 0;
+          totalBalls += parseInt(b.balls) || 0;
+          if (b.how_out && b.how_out.toLowerCase() !== 'not out') {
+            wickets++;
+          }
+        });
+        
+        // Add extras if available
+        const inningsExtras = extras.find(e => e.innings === inningsName);
+        if (inningsExtras) {
+          totalRuns += inningsExtras.total || 0;
+        }
+        
+        // Calculate overs from total balls
+        const fullOvers = Math.floor(totalBalls / 6);
+        const remainingBalls = totalBalls % 6;
+        const oversStr = remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`;
+        
+        // Format score as "runs/wickets"
+        const scoreStr = `${totalRuns}/${wickets}`;
+        
+        console.log(`[sync-api-scores] Innings ${inningsName}: ${scoreStr} (${oversStr} ov) - ${inningsBatsmen.length} batsmen, ${totalBalls} balls`);
+        
+        inningsStats.push({
+          inningsName,
+          teamName,
+          totalRuns,
+          totalBalls,
+          wickets,
+          overs: oversStr,
+          score: scoreStr,
+        });
+      }
+
+      // Map innings to home/away teams based on team name matching
+      const homeTeamLower = (detailedEvent.event_home_team || '').toLowerCase().trim();
+      const awayTeamLower = (detailedEvent.event_away_team || '').toLowerCase().trim();
+      const homeFirst = homeTeamLower.split(' ')[0];
+      const awayFirst = awayTeamLower.split(' ')[0];
+      
+      let homeScore: string | null = null;
+      let homeOvers: string | null = null;
+      let awayScore: string | null = null;
+      let awayOvers: string | null = null;
+      
+      for (const stats of inningsStats) {
+        const inningsTeamLower = stats.teamName.toLowerCase().trim();
+        const inningsFirst = inningsTeamLower.split(' ')[0];
+        
+        // Match to home team
+        if (inningsFirst === homeFirst || 
+            inningsTeamLower.includes(homeFirst) || 
+            homeFirst.includes(inningsFirst) ||
+            inningsTeamLower.includes(homeTeamLower) ||
+            homeTeamLower.includes(inningsTeamLower)) {
+          if (!homeScore || stats.totalBalls > 0) {
+            homeScore = `${stats.score} (${stats.overs} ov)`;
+            homeOvers = stats.overs;
+          }
+        }
+        // Match to away team
+        else if (inningsFirst === awayFirst || 
+                 inningsTeamLower.includes(awayFirst) || 
+                 awayFirst.includes(inningsFirst) ||
+                 inningsTeamLower.includes(awayTeamLower) ||
+                 awayTeamLower.includes(inningsTeamLower)) {
+          if (!awayScore || stats.totalBalls > 0) {
+            awayScore = `${stats.score} (${stats.overs} ov)`;
+            awayOvers = stats.overs;
+          }
         }
       }
-      if (awayInningsName) {
-        const calculatedAwayOvers = calculateOversFromBowlers(awayInningsName);
-        if (calculatedAwayOvers) {
-          awayOvers = calculatedAwayOvers;
-        }
+
+      // Fallback to API data if no batsmen data (match just started)
+      if (!homeScore && detailedEvent.event_home_final_result) {
+        homeScore = detailedEvent.event_home_final_result;
+      }
+      if (!awayScore && detailedEvent.event_away_final_result) {
+        awayScore = detailedEvent.event_away_final_result;
       }
 
-      // Get raw scores without overs
-      const homeScoreRaw = detailedEvent.event_home_final_result || null;
-      const awayScoreRaw = detailedEvent.event_away_final_result || null;
-
-      // Validate overs - if invalid, don't include overs in score string
-      const validHomeOvers = isOversValid(homeScoreRaw, homeOvers) ? homeOvers : null;
-      const validAwayOvers = isOversValid(awayScoreRaw, awayOvers) ? awayOvers : null;
-
-      // Format scores with validated overs
-      let homeScore = homeScoreRaw;
-      let awayScore = awayScoreRaw;
-      
-      if (homeScore && validHomeOvers) {
-        homeScore = `${homeScore} (${validHomeOvers} ov)`;
-      }
-      if (awayScore && validAwayOvers) {
-        awayScore = `${awayScore} (${validAwayOvers} ov)`;
-      }
-
-      console.log(`[sync-api-scores] Overs validation: home=${homeOvers}(valid:${!!validHomeOvers}), away=${awayOvers}(valid:${!!validAwayOvers})`);
-
+      console.log(`[sync-api-scores] Final scores: home=${homeScore}, away=${awayScore}`);
 
       // Determine match status
       let matchStatus: 'upcoming' | 'live' | 'completed' = 'upcoming';
@@ -442,65 +448,26 @@ Deno.serve(async (req) => {
         });
 
       if (upsertError) {
-        console.error(`[sync-api-scores] Error upserting scores for match ${match.id}:`, upsertError);
+        console.error(`[sync-api-scores] Error upserting score for match ${match.id}:`, upsertError);
         continue;
       }
 
-      // Map API home/away scores to correct team_a/team_b based on team name matching
-      // Use first word matching for more accurate results
-      const getFirstWord = (name: string) => name?.toLowerCase().trim().split(' ')[0] || '';
-      
-      const teamAFirstWord = getFirstWord(teamAName);
-      const teamBFirstWord = getFirstWord(teamBName);
-      const apiHomeFirstWord = getFirstWord(detailedEvent.event_home_team || '');
-      const apiAwayFirstWord = getFirstWord(detailedEvent.event_away_team || '');
-      
-      console.log(`[sync-api-scores] Team matching: teamA="${teamAName}" (${teamAFirstWord}), teamB="${teamBName}" (${teamBFirstWord})`);
-      console.log(`[sync-api-scores] API teams: home="${detailedEvent.event_home_team}" (${apiHomeFirstWord}), away="${detailedEvent.event_away_team}" (${apiAwayFirstWord})`);
-      
-      let scoreForTeamA: string | null;
-      let scoreForTeamB: string | null;
-      
-      // Match teamA to either API home or away
-      if (teamAFirstWord === apiHomeFirstWord) {
-        // Team A matches API's home team
-        scoreForTeamA = homeScore;
-        scoreForTeamB = awayScore;
-        console.log(`[sync-api-scores] Result: teamA matches API home → score_a=${homeScore}, score_b=${awayScore}`);
-      } else if (teamAFirstWord === apiAwayFirstWord) {
-        // Team A matches API's away team
-        scoreForTeamA = awayScore;
-        scoreForTeamB = homeScore;
-        console.log(`[sync-api-scores] Result: teamA matches API away → score_a=${awayScore}, score_b=${homeScore}`);
-      } else if (teamBFirstWord === apiHomeFirstWord) {
-        // Team B matches API's home team (so Team A = API away)
-        scoreForTeamA = awayScore;
-        scoreForTeamB = homeScore;
-        console.log(`[sync-api-scores] Result: teamB matches API home → score_a=${awayScore}, score_b=${homeScore}`);
-      } else {
-        // Fallback: just use the order as-is
-        scoreForTeamA = homeScore;
-        scoreForTeamB = awayScore;
-        console.log(`[sync-api-scores] Fallback: no first-word match → score_a=${homeScore}, score_b=${awayScore}`);
-      }
-
-      // Also update the main matches table
-      const { error: matchUpdateError } = await supabase
+      // Update last_api_sync on matches table
+      await supabase
         .from('matches')
-        .update({
-          score_a: scoreForTeamA,
-          score_b: scoreForTeamB,
-          status: matchStatus,
-          last_api_sync: new Date().toISOString(),
-        })
+        .update({ last_api_sync: new Date().toISOString() })
         .eq('id', match.id);
 
-      if (matchUpdateError) {
-        console.error(`[sync-api-scores] Error updating match ${match.id}:`, matchUpdateError);
+      // Also update match status if it changed
+      if (match.status !== matchStatus) {
+        await supabase
+          .from('matches')
+          .update({ status: matchStatus })
+          .eq('id', match.id);
       }
 
-      syncedCount++;
       console.log(`[sync-api-scores] Synced match: ${teamAName} vs ${teamBName}`);
+      syncedCount++;
     }
 
     console.log(`[sync-api-scores] Sync complete. ${syncedCount} matches synced.`);
@@ -511,9 +478,9 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('[sync-api-scores] Error:', error);
+    console.error('[sync-api-scores] Unexpected error:', error);
     return new Response(
-      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ success: false, error: 'Unexpected error occurred' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
