@@ -64,9 +64,36 @@ const ApiCricketLiveScore = ({
     return oversMatch ? oversMatch[1] : null;
   };
 
-  // Get raw overs - first from API field, then try parsing from score
-  const rawHomeOvers = scoreData?.homeOvers || (scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null);
-  const rawAwayOvers = scoreData?.awayOvers || (scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null);
+  // Validate if overs are reasonable (at least 1 run per ball on average for completed matches)
+  const validateOvers = (overs: string | null | undefined, score: string | undefined): string | null => {
+    if (!overs) return null;
+    
+    // Extract runs from score like "188/6" or "140"
+    const runsMatch = score?.match(/^(\d+)/);
+    if (!runsMatch) return overs;
+    
+    const runs = parseInt(runsMatch[1], 10);
+    const oversNum = parseFloat(overs);
+    
+    // If runs per over is unreasonably high (>36 runs per over), the overs data is likely wrong
+    // In such cases, try to extract overs from the score string itself
+    if (oversNum > 0 && runs / oversNum > 36) {
+      const embeddedOvers = parseScoreOvers(score || '');
+      if (embeddedOvers) {
+        return embeddedOvers;
+      }
+    }
+    
+    return overs;
+  };
+
+  // Get raw overs - prefer embedded overs from score string, then API field
+  const scoreHomeOvers = scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null;
+  const scoreAwayOvers = scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null;
+  
+  // Use embedded overs first (more reliable), then API field, but validate them
+  const rawHomeOvers = scoreHomeOvers || validateOvers(scoreData?.homeOvers, scoreData?.homeScore);
+  const rawAwayOvers = scoreAwayOvers || validateOvers(scoreData?.awayOvers, scoreData?.awayScore);
 
   // Clean score to just show runs/wickets
   const cleanScore = (score: string) => {

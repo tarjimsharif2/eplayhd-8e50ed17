@@ -185,15 +185,35 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
     return name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
   };
 
+  // Validate if overs are reasonable (at least 1 run per ball on average)
+  const validateOvers = (overs: string | null, score: string): string | null => {
+    if (!overs) return null;
+    
+    // Extract runs from score like "188/6" or "140"
+    const runsMatch = score.match(/^(\d+)/);
+    if (!runsMatch) return overs;
+    
+    const runs = parseInt(runsMatch[1], 10);
+    const oversNum = parseFloat(overs);
+    
+    // If runs per over is unreasonably high (>36 runs per over), the overs data is likely wrong
+    if (oversNum > 0 && runs / oversNum > 36) {
+      return null; // Don't show invalid overs
+    }
+    
+    return overs;
+  };
+
   // Parse score to extract runs/wickets and overs
   const parseScore = (score: string | null) => {
     if (!score) return null;
     // Match patterns like "179/4 (20 ov)" or "179/4 (20.3 ov)" or just "179/4"
     const oversMatch = score.match(/\((\d+\.?\d*)\s*ov\)/i);
     const cleanScore = score.replace(/\s*\(\d+\.?\d*\s*ov\)/i, '').trim();
+    const overs = oversMatch ? oversMatch[1] : null;
     return {
       score: cleanScore,
-      overs: oversMatch ? oversMatch[1] : null
+      overs: validateOvers(overs, cleanScore)
     };
   };
 
