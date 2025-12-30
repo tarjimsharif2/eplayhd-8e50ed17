@@ -60,11 +60,38 @@ const ApiCricketLiveScore = ({
 
   // Parse score to extract overs - format is typically "180/4" or "180/4 (20 ov)"
   const parseScoreOvers = (score: string) => {
-    const oversMatch = score.match(/\((\d+\.?\d*)\s*ov\)/);
+    const oversMatch = score?.match(/\((\d+\.?\d*)\s*ov\)/);
     return oversMatch ? oversMatch[1] : null;
   };
 
+  // Normalize team name for matching
+  const normalizeTeamName = (name: string): string => {
+    return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+  };
+
+  // Check if two team names match
+  const teamsMatch = (name1: string, name2: string): boolean => {
+    const n1 = normalizeTeamName(name1);
+    const n2 = normalizeTeamName(name2);
+    
+    if (!n1 || !n2) return false;
+    if (n1 === n2) return true;
+    if (n1.includes(n2) || n2.includes(n1)) return true;
+    
+    // Check first word match
+    const first1 = n1.split(' ')[0];
+    const first2 = n2.split(' ')[0];
+    if (first1.length >= 3 && first2.length >= 3) {
+      if (first1 === first2 || first1.includes(first2) || first2.includes(first1)) {
+        return true;
+      }
+    }
+    
+    return false;
+  };
+
   // Calculate innings stats: runs from batsmen, overs from bowlers
+  // Team names come from the innings key (e.g., "Sydney Thunder 1 INN")
   interface InningsStats {
     inningsName: string;
     teamName: string;
@@ -82,6 +109,7 @@ const ApiCricketLiveScore = ({
     
     for (const inningsName of uniqueInnings) {
       const inningsBatsmen = scoreData.batsmen.filter(b => b.innings === inningsName);
+      // Team name is extracted from the innings key (e.g., "Sydney Thunder 1 INN" -> "Sydney Thunder")
       const teamName = inningsName.replace(/ \d+ INN$/i, '').trim();
       
       // Calculate total runs from batsmen
@@ -101,8 +129,7 @@ const ApiCricketLiveScore = ({
         totalRuns += inningsExtras.total || 0;
       }
       
-      // Calculate overs from BOWLERS data (accurate for no-balls, wides)
-      // Bowlers in this innings are the ones who bowled WHILE this team was batting
+      // Calculate overs from BOWLERS data for this innings
       const inningsBowlers = scoreData?.bowlers?.filter(b => b.innings === inningsName) || [];
       let totalBalls = 0;
       
@@ -138,49 +165,35 @@ const ApiCricketLiveScore = ({
   // Get calculated innings stats
   const inningsStats = calculateInningsStats();
 
-  // Get score and overs for a team using innings data
-  const getTeamScoreFromInnings = (teamName: string): { score: string | null; overs: string | null } => {
-    const teamNameLower = teamName?.toLowerCase().trim() || '';
-    const teamFirst = teamNameLower.split(' ')[0];
+  // Get score for a team by matching team name with innings team name from scorecard
+  // NOT using home/away at all - direct match with player data
+  const getTeamScoreFromInnings = (teamName: string): { score: string | null; overs: string | null; allScores: string[] } => {
+    const allScores: string[] = [];
+    let latestScore: string | null = null;
+    let latestOvers: string | null = null;
     
     for (const stats of inningsStats) {
-      const inningsTeamLower = stats.teamName.toLowerCase().trim();
-      const inningsFirst = inningsTeamLower.split(' ')[0];
-      
-      if (inningsFirst === teamFirst || 
-          inningsTeamLower.includes(teamFirst) || 
-          teamFirst.includes(inningsFirst) ||
-          inningsTeamLower.includes(teamNameLower) ||
-          teamNameLower.includes(inningsTeamLower)) {
-        // Only return if we have actual runs data
+      // Match using team name from innings (e.g., "Sydney Thunder" from "Sydney Thunder 1 INN")
+      if (teamsMatch(stats.teamName, teamName)) {
+        allScores.push(stats.score + (stats.overs !== '0' ? ` (${stats.overs} ov)` : ''));
+        // Use the innings with actual data
         if (stats.totalRuns > 0 || stats.wickets > 0) {
-          return { score: stats.score, overs: stats.overs !== '0' ? stats.overs : null };
+          latestScore = stats.score;
+          latestOvers = stats.overs !== '0' ? stats.overs : null;
         }
       }
     }
     
-    return { score: null, overs: null };
+    return { score: latestScore, overs: latestOvers, allScores };
   };
 
-  // Get home/away scores - prioritize calculated, fallback to API
-  const homeCalc = getTeamScoreFromInnings(scoreData?.homeTeam || '');
-  const awayCalc = getTeamScoreFromInnings(scoreData?.awayTeam || '');
-  
-  const rawHomeOvers = homeCalc.overs || (scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null) || scoreData?.homeOvers;
-  const rawAwayOvers = awayCalc.overs || (scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null) || scoreData?.awayOvers;
+  // Get scores for display - calculated from batsmen data, matched by team name
+  const teamACalc = getTeamScoreFromInnings(teamAName);
+  const teamBCalc = getTeamScoreFromInnings(teamBName);
 
   // Clean score to just show runs/wickets
   const cleanScore = (score: string) => {
-    return score.replace(/\s*\(\d+\.?\d*\s*ov\)/, '').trim();
-  };
-
-  // Helper function to determine if teamA matches the API's home team
-  const getTeamAMatchesHome = () => {
-    if (!scoreData) return true;
-    const homeTeamNameLower = scoreData.homeTeam?.toLowerCase() || '';
-    const teamANameLower = teamAName?.toLowerCase() || '';
-    return homeTeamNameLower.includes(teamANameLower.split(' ')[0]) || 
-           teamANameLower.includes(homeTeamNameLower.split(' ')[0]);
+    return score?.replace(/\s*\(\d+\.?\d*\s*ov\)/, '').trim() || '';
   };
 
   const renderFullScoreboard = () => {
@@ -221,53 +234,53 @@ const ApiCricketLiveScore = ({
               scoreData.bowlers?.forEach(b => b.innings && inningsSet.add(b.innings));
               const innings = Array.from(inningsSet);
 
-              // Build team data with scores
+              // Build team data with scores - use innings data directly
               const getTeamData = () => {
                 if (innings.length > 0) {
                   return innings.map((inning, i) => {
-                    const teamName = inning.replace(/ \d+ INN$/, '');
-                    // Try to match team score and overs
-                    const isHomeTeam = teamName.toLowerCase().includes(scoreData.homeTeam?.toLowerCase().split(' ')[0] || '');
-                    const score = isHomeTeam ? scoreData.homeScore : scoreData.awayScore;
-                    const overs = isHomeTeam ? rawHomeOvers : rawAwayOvers;
+                    const teamName = inning.replace(/ \d+ INN$/i, '').trim();
+                    
+                    // Calculate score and overs from batsmen/bowlers for this innings
+                    const inningsBatsmen = scoreData.batsmen?.filter(b => b.innings === inning) || [];
+                    const inningsBowlers = scoreData.bowlers?.filter(b => b.innings === inning) || [];
+                    
+                    // Calculate runs from batsmen + extras
+                    let totalRuns = inningsBatsmen.reduce((sum, b) => sum + (parseInt(b.runs) || 0), 0);
+                    const wickets = inningsBatsmen.filter(b => b.how_out && b.how_out.toLowerCase() !== 'not out').length;
+                    
+                    const inningsExtras = scoreData.extras?.find(e => e.innings === inning);
+                    if (inningsExtras) {
+                      totalRuns += inningsExtras.total || 0;
+                    }
+                    
+                    // Calculate overs from bowlers
+                    let totalBalls = 0;
+                    inningsBowlers.forEach(b => {
+                      const overs = parseFloat(b.overs) || 0;
+                      const fullOvers = Math.floor(overs);
+                      const balls = Math.round((overs - fullOvers) * 10);
+                      totalBalls += (fullOvers * 6) + balls;
+                    });
+                    
+                    const fullOvers = Math.floor(totalBalls / 6);
+                    const remainingBalls = totalBalls % 6;
+                    const oversStr = totalBalls > 0 
+                      ? (remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`)
+                      : null;
+                    
                     return {
                       name: teamName,
                       label: inning.match(/\d+ INN/)?.[0] || 'Innings',
-                      score: score || '',
-                      overs: overs || null,
-                      batsmen: scoreData.batsmen?.filter(b => b.innings === inning) || [],
-                      bowlers: scoreData.bowlers?.filter(b => b.innings === inning) || [],
+                      score: `${totalRuns}/${wickets}`,
+                      overs: oversStr,
+                      batsmen: inningsBatsmen,
+                      bowlers: inningsBowlers,
                     };
                   });
                 }
-                // Fallback: use team names
-                return [
-                  {
-                    name: scoreData.homeTeam || 'Team A',
-                    label: '1st Innings',
-                    score: scoreData.homeScore || '',
-                    overs: rawHomeOvers || null,
-                    batsmen: scoreData.batsmen?.filter(b => 
-                      b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '') || !b.team
-                    ) || [],
-                    bowlers: scoreData.bowlers?.filter(b => 
-                      !b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '')
-                    ) || [],
-                  },
-                  {
-                    name: scoreData.awayTeam || 'Team B',
-                    label: '2nd Innings',
-                    score: scoreData.awayScore || '',
-                    overs: rawAwayOvers || null,
-                    batsmen: scoreData.batsmen?.filter(b => 
-                      b.team?.toLowerCase().includes(scoreData.awayTeam?.toLowerCase() || '')
-                    ) || [],
-                    bowlers: scoreData.bowlers?.filter(b => 
-                      b.team?.toLowerCase().includes(scoreData.homeTeam?.toLowerCase() || '')
-                    ) || [],
-                  },
-                ].filter(t => t.batsmen.length > 0 || t.bowlers.length > 0);
+                return [];
               };
+
 
               const teams = getTeamData();
               if (teams.length === 0) return null;
@@ -453,115 +466,35 @@ const ApiCricketLiveScore = ({
             </div>
           ) : scoreData ? (
             <div className="space-y-4">
-              {/* Compact Score Summary - Show correct scores based on team name matching from batsmen/bowlers data */}
-              {(() => {
-                // Extract unique team names from batsmen/bowlers data for accurate matching
-                const getTeamNamesFromScorecard = (): string[] => {
-                  const teams = new Set<string>();
-                  if (scoreData.batsmen) {
-                    scoreData.batsmen.forEach(b => {
-                      if (b.team) teams.add(b.team);
-                    });
-                  }
-                  if (scoreData.bowlers) {
-                    scoreData.bowlers.forEach(b => {
-                      if (b.team) teams.add(b.team);
-                    });
-                  }
-                  return Array.from(teams);
-                };
-
-                // Find best matching team name from scorecard
-                const findBestMatch = (teamName: string, scorecardTeams: string[]): string | null => {
-                  const teamLower = teamName?.toLowerCase().trim() || '';
-                  const teamFirst = teamLower.split(' ')[0];
-                  
-                  for (const apiTeam of scorecardTeams) {
-                    const apiLower = apiTeam.toLowerCase().trim();
-                    const apiFirst = apiLower.split(' ')[0];
-                    
-                    // Match by first word
-                    if (teamFirst === apiFirst) return apiTeam;
-                    // Match if one contains the other
-                    if (apiLower.includes(teamFirst) || teamLower.includes(apiFirst)) return apiTeam;
-                  }
-                  return null;
-                };
-
-                // Get score for a team from innings data
-                const getScoreFromInnings = (teamName: string, scorecardTeams: string[]): { score: string; overs: string | null } => {
-                  const matchedTeam = findBestMatch(teamName, scorecardTeams);
-                  
-                  if (matchedTeam && scoreData.batsmen && scoreData.batsmen.length > 0) {
-                    // Find batsmen for this team and extract innings info
-                    const teamBatsmen = scoreData.batsmen.filter(b => b.team === matchedTeam);
-                    if (teamBatsmen.length > 0 && teamBatsmen[0].innings) {
-                      const inningsName = teamBatsmen[0].innings;
-                      // Check if this matches home or away from API
-                      const homeTeamLower = scoreData.homeTeam?.toLowerCase() || '';
-                      const awayTeamLower = scoreData.awayTeam?.toLowerCase() || '';
-                      const matchedLower = matchedTeam.toLowerCase();
-                      
-                      if (matchedLower.includes(homeTeamLower.split(' ')[0]) || homeTeamLower.includes(matchedLower.split(' ')[0])) {
-                        return { score: scoreData.homeScore || '', overs: rawHomeOvers };
-                      }
-                      if (matchedLower.includes(awayTeamLower.split(' ')[0]) || awayTeamLower.includes(matchedLower.split(' ')[0])) {
-                        return { score: scoreData.awayScore || '', overs: rawAwayOvers };
-                      }
-                    }
-                  }
-                  
-                  // Fallback: try matching with home/away team names directly
-                  const teamLower = teamName?.toLowerCase().trim() || '';
-                  const teamFirst = teamLower.split(' ')[0];
-                  const homeFirst = (scoreData.homeTeam?.toLowerCase() || '').split(' ')[0];
-                  const awayFirst = (scoreData.awayTeam?.toLowerCase() || '').split(' ')[0];
-                  
-                  if (teamFirst === homeFirst) {
-                    return { score: scoreData.homeScore || '', overs: rawHomeOvers };
-                  }
-                  if (teamFirst === awayFirst) {
-                    return { score: scoreData.awayScore || '', overs: rawAwayOvers };
-                  }
-                  
-                  return { score: '', overs: null };
-                };
-
-                const scorecardTeams = getTeamNamesFromScorecard();
-                const teamAScore = getScoreFromInnings(teamAName, scorecardTeams);
-                const teamBScore = getScoreFromInnings(teamBName, scorecardTeams);
-
-                return (
-                  <div className="grid grid-cols-2 gap-3">
-                    {/* Team A */}
-                    <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
-                      {teamALogo && (
-                        <img src={teamALogo} alt={teamAName} className="w-10 h-10 object-contain" />
-                      )}
-                      <span className="text-sm font-medium text-center truncate w-full">{teamAName}</span>
-                      <div className="text-center">
-                        <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-2xl font-bold text-primary">{cleanScore(teamAScore.score) || '-'}</span>
-                          {teamAScore.overs && <span className="text-xs text-muted-foreground">({teamAScore.overs} ov)</span>}
-                        </div>
-                      </div>
-                    </div>
-                    {/* Team B */}
-                    <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
-                      {teamBLogo && (
-                        <img src={teamBLogo} alt={teamBName} className="w-10 h-10 object-contain" />
-                      )}
-                      <span className="text-sm font-medium text-center truncate w-full">{teamBName}</span>
-                      <div className="text-center">
-                        <div className="flex items-baseline justify-center gap-1">
-                          <span className="text-2xl font-bold text-primary">{cleanScore(teamBScore.score) || '-'}</span>
-                          {teamBScore.overs && <span className="text-xs text-muted-foreground">({teamBScore.overs} ov)</span>}
-                        </div>
-                      </div>
+              {/* Compact Score Summary - Use calculated scores from innings data */}
+              <div className="grid grid-cols-2 gap-3">
+                {/* Team A */}
+                <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
+                  {teamALogo && (
+                    <img src={teamALogo} alt={teamAName} className="w-10 h-10 object-contain" />
+                  )}
+                  <span className="text-sm font-medium text-center truncate w-full">{teamAName}</span>
+                  <div className="text-center">
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-2xl font-bold text-primary">{teamACalc.score || '-'}</span>
+                      {teamACalc.overs && <span className="text-xs text-muted-foreground">({teamACalc.overs} ov)</span>}
                     </div>
                   </div>
-                );
-              })()}
+                </div>
+                {/* Team B */}
+                <div className="flex flex-col items-center gap-2 p-3 rounded-lg bg-muted/30 border border-border/30">
+                  {teamBLogo && (
+                    <img src={teamBLogo} alt={teamBName} className="w-10 h-10 object-contain" />
+                  )}
+                  <span className="text-sm font-medium text-center truncate w-full">{teamBName}</span>
+                  <div className="text-center">
+                    <div className="flex items-baseline justify-center gap-1">
+                      <span className="text-2xl font-bold text-primary">{teamBCalc.score || '-'}</span>
+                      {teamBCalc.overs && <span className="text-xs text-muted-foreground">({teamBCalc.overs} ov)</span>}
+                    </div>
+                  </div>
+                </div>
+              </div>
 
               {/* Match Status */}
               {scoreData.statusInfo && (

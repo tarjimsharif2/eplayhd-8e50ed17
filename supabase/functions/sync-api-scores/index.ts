@@ -35,23 +35,41 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
   throw lastError || new Error('Failed to fetch after retries');
 }
 
-// Normalize team name for matching
-const normalizeTeamName = (name: string) => 
-  name?.toLowerCase().replace(/[^a-z0-9]/g, '') || '';
+// Normalize team name for matching - remove special chars and lowercase
+const normalizeTeamName = (name: string): string => {
+  return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+};
 
-// Match team name with more flexibility
+// Extract first meaningful word(s) from team name
+const getTeamKeywords = (name: string): string[] => {
+  const normalized = normalizeTeamName(name);
+  const words = normalized.split(/\s+/).filter(w => w.length >= 3);
+  return words;
+};
+
+// Flexible team name matching
 const teamsMatch = (name1: string, name2: string): boolean => {
   const n1 = normalizeTeamName(name1);
   const n2 = normalizeTeamName(name2);
   
+  if (!n1 || !n2) return false;
+  
+  // Exact match
   if (n1 === n2) return true;
+  
+  // One contains the other
   if (n1.includes(n2) || n2.includes(n1)) return true;
   
-  // Check first word match
-  const first1 = n1.split(/\s+/)[0];
-  const first2 = n2.split(/\s+/)[0];
-  if (first1.length >= 3 && first2.length >= 3 && (first1.includes(first2) || first2.includes(first1))) {
-    return true;
+  // First word match (e.g., "Sydney" from "Sydney Thunder")
+  const words1 = getTeamKeywords(name1);
+  const words2 = getTeamKeywords(name2);
+  
+  for (const w1 of words1) {
+    for (const w2 of words2) {
+      if (w1 === w2 || (w1.length >= 4 && w2.length >= 4 && (w1.includes(w2) || w2.includes(w1)))) {
+        return true;
+      }
+    }
   }
   
   return false;
@@ -217,20 +235,21 @@ Deno.serve(async (req) => {
       const teamB = (match.team_b as unknown as { name: string; short_name: string }) || null;
       const teamAName = teamA?.name || '';
       const teamBName = teamB?.name || '';
-      const teamANormalized = normalizeTeamName(teamAName);
-      const teamBNormalized = normalizeTeamName(teamBName);
+      const teamAShort = teamA?.short_name || '';
+      const teamBShort = teamB?.short_name || '';
 
       // Find matching event
       const matchingEvent = events.find((event: any) => {
-        const homeNormalized = normalizeTeamName(event.event_home_team);
-        const awayNormalized = normalizeTeamName(event.event_away_team);
+        const homeTeam = event.event_home_team || '';
+        const awayTeam = event.event_away_team || '';
         
-        return (
-          (homeNormalized.includes(teamANormalized) || teamANormalized.includes(homeNormalized) ||
-           homeNormalized.includes(teamBNormalized) || teamBNormalized.includes(homeNormalized)) &&
-          (awayNormalized.includes(teamANormalized) || teamANormalized.includes(awayNormalized) ||
-           awayNormalized.includes(teamBNormalized) || teamBNormalized.includes(awayNormalized))
-        );
+        // Check if both our teams are found in the event
+        const teamAMatches = teamsMatch(teamAName, homeTeam) || teamsMatch(teamAName, awayTeam) ||
+                           teamsMatch(teamAShort, homeTeam) || teamsMatch(teamAShort, awayTeam);
+        const teamBMatches = teamsMatch(teamBName, homeTeam) || teamsMatch(teamBName, awayTeam) ||
+                           teamsMatch(teamBShort, homeTeam) || teamsMatch(teamBShort, awayTeam);
+        
+        return teamAMatches && teamBMatches;
       });
 
       if (!matchingEvent) {
@@ -262,14 +281,21 @@ Deno.serve(async (req) => {
         }
       }
 
-      // Parse scorecard data
+      // Parse scorecard data - collect ALL data with proper team/innings info
       let batsmen: any[] = [];
       let bowlers: any[] = [];
       let extras: any[] = [];
       
+      // Track unique innings and their team names from the scorecard
+      const inningsTeamMap: Map<string, string> = new Map();
+      
       if (detailedEvent.scorecard && typeof detailedEvent.scorecard === 'object') {
         Object.entries(detailedEvent.scorecard).forEach(([inningsKey, players]: [string, any]) => {
           if (Array.isArray(players)) {
+            // Extract team name from innings key (e.g., "Sydney Thunder 1 INN" -> "Sydney Thunder")
+            const inningsTeamName = inningsKey.replace(/ \d+ INN$/i, '').trim();
+            inningsTeamMap.set(inningsKey, inningsTeamName);
+            
             players.forEach((player: any) => {
               if (player.type === 'Batsman') {
                 batsmen.push({
@@ -280,7 +306,7 @@ Deno.serve(async (req) => {
                   sixes: player['6s'] || '0',
                   sr: player.SR || '0.00',
                   how_out: player.status || 'not out',
-                  team: inningsKey.replace(/ \d+ INN$/, ''),
+                  team: inningsTeamName,
                   innings: inningsKey,
                 });
               } else if (player.type === 'Bowler') {
@@ -291,7 +317,7 @@ Deno.serve(async (req) => {
                   runs: player.R || '0',
                   wickets: player.W || '0',
                   econ: player.ER || '0.00',
-                  team: inningsKey.replace(/ \d+ INN$/, ''),
+                  team: inningsTeamName,
                   innings: inningsKey,
                 });
               }
@@ -303,11 +329,12 @@ Deno.serve(async (req) => {
       // Parse extras data
       if (detailedEvent.extra && typeof detailedEvent.extra === 'object') {
         Object.entries(detailedEvent.extra).forEach(([inningsKey, extrasData]: [string, any]) => {
+          const inningsTeamName = inningsKey.replace(/ \d+ INN$/i, '').trim();
           if (Array.isArray(extrasData) && extrasData.length > 0) {
             const firstEntry = extrasData[0];
             extras.push({
               innings: inningsKey,
-              team: inningsKey.replace(/ \d+ INN$/, ''),
+              team: inningsTeamName,
               wides: parseInt(firstEntry.wides) || 0,
               noballs: parseInt(firstEntry.noballs) || 0,
               byes: parseInt(firstEntry.byes) || 0,
@@ -318,6 +345,9 @@ Deno.serve(async (req) => {
           }
         });
       }
+
+      console.log(`[sync-api-scores] Parsed ${batsmen.length} batsmen, ${bowlers.length} bowlers from scorecard`);
+      console.log(`[sync-api-scores] Innings found: ${[...inningsTeamMap.entries()].map(([k, v]) => `${k}="${v}"`).join(', ')}`);
 
       // Calculate scores from batsmen and overs from bowlers per innings
       interface InningsStats {
@@ -330,11 +360,11 @@ Deno.serve(async (req) => {
       }
       
       const inningsStats: InningsStats[] = [];
-      const uniqueInnings = [...new Set(batsmen.map(b => b.innings).filter(Boolean))];
+      const uniqueInnings = [...inningsTeamMap.keys()];
       
       for (const inningsName of uniqueInnings) {
+        const teamName = inningsTeamMap.get(inningsName) || '';
         const inningsBatsmen = batsmen.filter(b => b.innings === inningsName);
-        const teamName = inningsName.replace(/ \d+ INN$/i, '').trim();
         
         // Calculate total runs from batsmen
         let totalRuns = 0;
@@ -347,13 +377,15 @@ Deno.serve(async (req) => {
           }
         });
         
-        // Add extras
+        // Add extras for this innings
         const inningsExtras = extras.find(e => e.innings === inningsName);
         if (inningsExtras) {
           totalRuns += inningsExtras.total || 0;
         }
         
-        // Calculate overs from BOWLERS data
+        // Calculate overs from BOWLERS data for THIS innings
+        // Note: bowlers in an innings are bowling AGAINST the batting team
+        // So we need to find bowlers from the OTHER innings that bowled against this batting team
         const inningsBowlers = bowlers.filter(b => b.innings === inningsName);
         let totalBalls = 0;
         
@@ -373,7 +405,7 @@ Deno.serve(async (req) => {
         const scoreStr = `${totalRuns}/${wickets}`;
         const scoreWithOvers = oversStr ? `${scoreStr} (${oversStr} ov)` : scoreStr;
         
-        console.log(`[sync-api-scores] Innings "${inningsName}": ${scoreWithOvers} from ${inningsBatsmen.length} batsmen, ${inningsBowlers.length} bowlers`);
+        console.log(`[sync-api-scores] Innings "${inningsName}" (team: "${teamName}"): ${scoreWithOvers} from ${inningsBatsmen.length} batsmen, ${inningsBowlers.length} bowlers`);
         
         inningsStats.push({
           inningsName,
@@ -385,60 +417,77 @@ Deno.serve(async (req) => {
         });
       }
 
-      // NOW: Match innings to teamA/teamB directly (not home/away)
-      // This is the key fix - use teamA/teamB names from our database
+      // NOW: Match innings to teamA/teamB directly based on team names from scorecard
+      // NOT using home/away at all
       let scoreA: string | null = null;
       let scoreB: string | null = null;
       let oversA: string | null = null;
       let oversB: string | null = null;
       
+      // Track all scores for each team (for Test matches with multiple innings)
+      const teamAScores: string[] = [];
+      const teamBScores: string[] = [];
+      
       for (const stats of inningsStats) {
         // Check if this innings belongs to teamA
-        if (teamsMatch(stats.teamName, teamAName)) {
-          if (!scoreA || stats.totalRuns > 0) {
+        if (teamsMatch(stats.teamName, teamAName) || teamsMatch(stats.teamName, teamAShort)) {
+          teamAScores.push(stats.scoreWithOvers);
+          // Use latest/last innings with actual data
+          if (stats.totalRuns > 0 || stats.wickets > 0) {
             scoreA = stats.scoreWithOvers;
             oversA = stats.overs;
-            console.log(`[sync-api-scores] Matched "${stats.teamName}" -> teamA "${teamAName}": ${scoreA}`);
+            console.log(`[sync-api-scores] Matched innings "${stats.teamName}" -> teamA "${teamAName}": ${scoreA}`);
           }
         }
         // Check if this innings belongs to teamB
-        else if (teamsMatch(stats.teamName, teamBName)) {
-          if (!scoreB || stats.totalRuns > 0) {
+        else if (teamsMatch(stats.teamName, teamBName) || teamsMatch(stats.teamName, teamBShort)) {
+          teamBScores.push(stats.scoreWithOvers);
+          // Use latest/last innings with actual data
+          if (stats.totalRuns > 0 || stats.wickets > 0) {
             scoreB = stats.scoreWithOvers;
             oversB = stats.overs;
-            console.log(`[sync-api-scores] Matched "${stats.teamName}" -> teamB "${teamBName}": ${scoreB}`);
+            console.log(`[sync-api-scores] Matched innings "${stats.teamName}" -> teamB "${teamBName}": ${scoreB}`);
           }
+        } else {
+          console.log(`[sync-api-scores] Could not match innings team "${stats.teamName}" to either "${teamAName}" or "${teamBName}"`);
         }
       }
 
-      // Also map to home/away for the API scores table
-      const homeTeamLower = (detailedEvent.event_home_team || '').toLowerCase().trim();
-      const awayTeamLower = (detailedEvent.event_away_team || '').toLowerCase().trim();
-      
+      // For Test matches or multi-innings, concatenate all scores
+      if (teamAScores.length > 1) {
+        scoreA = teamAScores.join(' & ');
+      }
+      if (teamBScores.length > 1) {
+        scoreB = teamBScores.join(' & ');
+      }
+
+      // Also store home/away for the API scores table (for compatibility)
+      // But we derive these FROM the scorecard teams, not API's home/away
       let homeScore: string | null = null;
       let homeOvers: string | null = null;
       let awayScore: string | null = null;
       let awayOvers: string | null = null;
       
+      const apiHomeTeam = detailedEvent.event_home_team || '';
+      const apiAwayTeam = detailedEvent.event_away_team || '';
+      
       for (const stats of inningsStats) {
-        if (teamsMatch(stats.teamName, homeTeamLower)) {
-          homeScore = stats.scoreWithOvers;
+        if (teamsMatch(stats.teamName, apiHomeTeam)) {
+          homeScore = homeScore ? `${homeScore} & ${stats.scoreWithOvers}` : stats.scoreWithOvers;
           homeOvers = stats.overs;
-        } else if (teamsMatch(stats.teamName, awayTeamLower)) {
-          awayScore = stats.scoreWithOvers;
+        } else if (teamsMatch(stats.teamName, apiAwayTeam)) {
+          awayScore = awayScore ? `${awayScore} & ${stats.scoreWithOvers}` : stats.scoreWithOvers;
           awayOvers = stats.overs;
         }
       }
 
-      // Fallback to API data if no batsmen data
-      if (!homeScore && detailedEvent.event_home_final_result) {
+      // Fallback only if no scorecard data at all
+      if (!homeScore && !awayScore && detailedEvent.event_home_final_result) {
         homeScore = detailedEvent.event_home_final_result;
-      }
-      if (!awayScore && detailedEvent.event_away_final_result) {
         awayScore = detailedEvent.event_away_final_result;
       }
 
-      console.log(`[sync-api-scores] Final scores: scoreA=${scoreA}, scoreB=${scoreB} | home=${homeScore}, away=${awayScore}`);
+      console.log(`[sync-api-scores] Final scores: scoreA="${scoreA}", scoreB="${scoreB}" | home="${homeScore}", away="${awayScore}"`);
 
       // Determine match status
       let matchStatus: 'upcoming' | 'live' | 'completed' = 'upcoming';
@@ -478,7 +527,7 @@ Deno.serve(async (req) => {
         continue;
       }
 
-      // UPDATE matches table with correct teamA/teamB scores
+      // UPDATE matches table with correct teamA/teamB scores (from batsmen data)
       const matchUpdate: any = { 
         last_api_sync: new Date().toISOString(),
       };
@@ -492,7 +541,7 @@ Deno.serve(async (req) => {
         .update(matchUpdate)
         .eq('id', match.id);
 
-      console.log(`[sync-api-scores] Synced match: ${teamAName} vs ${teamBName}`);
+      console.log(`[sync-api-scores] Synced match: ${teamAName} (${scoreA}) vs ${teamBName} (${scoreB})`);
       syncedCount++;
     }
 
