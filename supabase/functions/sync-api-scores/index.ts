@@ -287,30 +287,87 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Extract overs from extra field
+      // Calculate overs from bowlers data for accuracy
+      const calculateOversFromBowlers = (teamInningsName: string): string | null => {
+        const teamBowlers = bowlers.filter(b => b.innings === teamInningsName);
+        if (teamBowlers.length === 0) return null;
+        
+        let totalBalls = 0;
+        teamBowlers.forEach(b => {
+          const overs = parseFloat(b.overs) || 0;
+          const fullOvers = Math.floor(overs);
+          const balls = Math.round((overs - fullOvers) * 10);
+          totalBalls += (fullOvers * 6) + balls;
+        });
+        
+        const calculatedOvers = Math.floor(totalBalls / 6);
+        const remainingBalls = totalBalls % 6;
+        return remainingBalls > 0 
+          ? `${calculatedOvers}.${remainingBalls}` 
+          : `${calculatedOvers}`;
+      };
+
+      // Get innings names for each team from batsmen data
+      const homeTeamLower = (detailedEvent.event_home_team || '').toLowerCase().trim();
+      const awayTeamLower = (detailedEvent.event_away_team || '').toLowerCase().trim();
+      
+      let homeInningsName: string | null = null;
+      let awayInningsName: string | null = null;
+      
+      // Find innings names from batsmen
+      const uniqueInnings = [...new Set(batsmen.map(b => b.innings).filter(Boolean))];
+      for (const innings of uniqueInnings) {
+        const inningsTeam = innings.replace(/ \d+ INN$/i, '').toLowerCase().trim();
+        const homeFirst = homeTeamLower.split(' ')[0];
+        const awayFirst = awayTeamLower.split(' ')[0];
+        const inningsFirst = inningsTeam.split(' ')[0];
+        
+        if (inningsFirst === homeFirst || homeFirst.includes(inningsFirst) || inningsFirst.includes(homeFirst)) {
+          if (!homeInningsName) homeInningsName = innings;
+        } else if (inningsFirst === awayFirst || awayFirst.includes(inningsFirst) || inningsFirst.includes(awayFirst)) {
+          if (!awayInningsName) awayInningsName = innings;
+        }
+      }
+
+      // Extract overs from extra field first
       let homeOvers: string | null = null;
       let awayOvers: string | null = null;
       
       if (detailedEvent.extra && typeof detailedEvent.extra === 'object') {
-        const homeTeamLower = (detailedEvent.event_home_team || '').toLowerCase();
-        const awayTeamLower = (detailedEvent.event_away_team || '').toLowerCase();
-        
         Object.entries(detailedEvent.extra).forEach(([inningsKey, inningsData]: [string, any]) => {
           if (Array.isArray(inningsData) && inningsData.length > 0) {
             const firstEntry = inningsData[0];
             const inningsTeam = inningsKey.replace(/ \d+ INN$/i, '').toLowerCase().trim();
+            const inningsFirst = inningsTeam.split(' ')[0];
+            const homeFirst = homeTeamLower.split(' ')[0];
+            const awayFirst = awayTeamLower.split(' ')[0];
             
-            if (inningsTeam.includes(homeTeamLower.split(' ')[0]) || homeTeamLower.includes(inningsTeam.split(' ')[0])) {
+            if (inningsFirst === homeFirst || homeFirst.includes(inningsFirst) || inningsFirst.includes(homeFirst)) {
               if (!homeOvers && firstEntry.total_overs) {
                 homeOvers = firstEntry.total_overs;
               }
-            } else if (inningsTeam.includes(awayTeamLower.split(' ')[0]) || awayTeamLower.includes(inningsTeam.split(' ')[0])) {
+            } else if (inningsFirst === awayFirst || awayFirst.includes(inningsFirst) || inningsFirst.includes(awayFirst)) {
               if (!awayOvers && firstEntry.total_overs) {
                 awayOvers = firstEntry.total_overs;
               }
             }
           }
         });
+      }
+      
+      // Calculate overs from bowlers if extra field doesn't have it or for validation
+      // Bowlers bowling in an innings means they were bowling while that team was batting
+      if (homeInningsName) {
+        const calculatedHomeOvers = calculateOversFromBowlers(homeInningsName);
+        if (calculatedHomeOvers) {
+          homeOvers = calculatedHomeOvers;
+        }
+      }
+      if (awayInningsName) {
+        const calculatedAwayOvers = calculateOversFromBowlers(awayInningsName);
+        if (calculatedAwayOvers) {
+          awayOvers = calculatedAwayOvers;
+        }
       }
 
       // Format scores with overs

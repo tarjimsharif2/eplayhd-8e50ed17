@@ -64,9 +64,72 @@ const ApiCricketLiveScore = ({
     return oversMatch ? oversMatch[1] : null;
   };
 
-  // Get raw overs - first from API field, then try parsing from score
-  const rawHomeOvers = scoreData?.homeOvers || (scoreData?.homeScore ? parseScoreOvers(scoreData.homeScore) : null);
-  const rawAwayOvers = scoreData?.awayOvers || (scoreData?.awayScore ? parseScoreOvers(scoreData.awayScore) : null);
+  // Calculate total overs from bowlers' data for a specific team/innings
+  const calculateOversFromBowlers = (teamName: string, isHomeTeam: boolean) => {
+    if (!scoreData?.bowlers || scoreData.bowlers.length === 0) return null;
+    
+    // Get unique innings from batsmen for this team
+    const teamNameLower = teamName?.toLowerCase().trim() || '';
+    const teamFirstWord = teamNameLower.split(' ')[0];
+    
+    // Find batsmen innings that match this team
+    let targetInnings: string | null = null;
+    if (scoreData.batsmen) {
+      for (const batsman of scoreData.batsmen) {
+        if (batsman.innings && batsman.team) {
+          const batsmanTeamLower = batsman.team.toLowerCase();
+          if (batsmanTeamLower.includes(teamFirstWord) || teamFirstWord.includes(batsmanTeamLower.split(' ')[0])) {
+            targetInnings = batsman.innings;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (!targetInnings) return null;
+    
+    // Find bowlers who bowled AGAINST this team (their innings matches this team's batting)
+    // Bowlers bowling against a team means they bowled while that team was batting
+    const opposingBowlers = scoreData.bowlers.filter(b => 
+      b.innings === targetInnings
+    );
+    
+    if (opposingBowlers.length === 0) return null;
+    
+    // Calculate total overs from bowlers
+    let totalBalls = 0;
+    opposingBowlers.forEach(b => {
+      const overs = parseFloat(b.overs) || 0;
+      const fullOvers = Math.floor(overs);
+      const balls = Math.round((overs - fullOvers) * 10);
+      totalBalls += (fullOvers * 6) + balls;
+    });
+    
+    const calculatedOvers = Math.floor(totalBalls / 6);
+    const remainingBalls = totalBalls % 6;
+    
+    return remainingBalls > 0 
+      ? `${calculatedOvers}.${remainingBalls}` 
+      : `${calculatedOvers}`;
+  };
+
+  // Get overs: prioritize calculated from bowlers, then API field, then parsed from score
+  const getOversForTeam = (teamName: string, apiOvers: string | null | undefined, score: string | null | undefined, isHomeTeam: boolean) => {
+    // First try to calculate from bowlers data (most accurate)
+    const calculatedOvers = calculateOversFromBowlers(teamName, isHomeTeam);
+    if (calculatedOvers) return calculatedOvers;
+    
+    // Fallback to API overs field
+    if (apiOvers) return apiOvers;
+    
+    // Finally try to parse from score string
+    if (score) return parseScoreOvers(score);
+    
+    return null;
+  };
+
+  const rawHomeOvers = getOversForTeam(scoreData?.homeTeam || '', scoreData?.homeOvers, scoreData?.homeScore, true);
+  const rawAwayOvers = getOversForTeam(scoreData?.awayTeam || '', scoreData?.awayOvers, scoreData?.awayScore, false);
 
   // Clean score to just show runs/wickets
   const cleanScore = (score: string) => {
