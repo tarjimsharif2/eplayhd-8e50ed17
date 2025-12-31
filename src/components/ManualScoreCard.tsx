@@ -231,7 +231,12 @@ const ManualScoreCard = ({
                   <Badge variant="secondary" className="text-[10px]">DEC</Badge>
                 )}
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                {inningsData.extras !== null && inningsData.extras !== undefined && inningsData.extras > 0 && (
+                  <span className="text-xs text-muted-foreground bg-muted/50 px-2 py-0.5 rounded">
+                    Extras: {inningsData.extras}
+                  </span>
+                )}
                 <span className={`font-bold text-lg ${inningsData.is_current ? 'text-primary' : ''}`}>
                   {formatScore(inningsData)}
                 </span>
