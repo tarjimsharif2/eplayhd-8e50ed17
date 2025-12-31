@@ -326,27 +326,73 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Parse extras data
+      // Parse extras data - try multiple formats
       if (detailedEvent.extra && typeof detailedEvent.extra === 'object') {
         Object.entries(detailedEvent.extra).forEach(([inningsKey, extrasData]: [string, any]) => {
           const inningsTeamName = inningsKey.replace(/ \d+ INN$/i, '').trim();
+          
+          // Handle array format
           if (Array.isArray(extrasData) && extrasData.length > 0) {
             const firstEntry = extrasData[0];
+            const wides = parseInt(firstEntry.wides || firstEntry.Wides || firstEntry.wd || 0) || 0;
+            const noballs = parseInt(firstEntry.noballs || firstEntry.NoBalls || firstEntry.nb || 0) || 0;
+            const byes = parseInt(firstEntry.byes || firstEntry.Byes || firstEntry.b || 0) || 0;
+            const legbyes = parseInt(firstEntry.legbyes || firstEntry.LegByes || firstEntry.lb || 0) || 0;
+            const penalty = parseInt(firstEntry.penalty || firstEntry.Penalty || firstEntry.p || 0) || 0;
+            
+            // Calculate total from individual extras if extras_total not provided
+            let total = parseInt(firstEntry.extras_total || firstEntry.total || firstEntry.Total || 0) || 0;
+            if (total === 0) {
+              total = wides + noballs + byes + legbyes + penalty;
+            }
+            
             extras.push({
               innings: inningsKey,
               team: inningsTeamName,
-              wides: parseInt(firstEntry.wides) || 0,
-              noballs: parseInt(firstEntry.noballs) || 0,
-              byes: parseInt(firstEntry.byes) || 0,
-              legbyes: parseInt(firstEntry.legbyes) || 0,
-              total: parseInt(firstEntry.extras_total) || 0,
-              total_overs: firstEntry.total_overs || null,
+              wides,
+              noballs,
+              byes,
+              legbyes,
+              penalty,
+              total,
+              total_overs: firstEntry.total_overs || firstEntry.overs || null,
+              total_runs: parseInt(firstEntry.total_runs || firstEntry.runs || 0) || 0,
             });
+            
+            console.log(`[sync-api-scores] Extras for "${inningsKey}": w=${wides}, nb=${noballs}, b=${byes}, lb=${legbyes}, total=${total}`);
+          }
+          // Handle object format
+          else if (typeof extrasData === 'object' && extrasData !== null) {
+            const wides = parseInt(extrasData.wides || extrasData.Wides || extrasData.wd || 0) || 0;
+            const noballs = parseInt(extrasData.noballs || extrasData.NoBalls || extrasData.nb || 0) || 0;
+            const byes = parseInt(extrasData.byes || extrasData.Byes || extrasData.b || 0) || 0;
+            const legbyes = parseInt(extrasData.legbyes || extrasData.LegByes || extrasData.lb || 0) || 0;
+            const penalty = parseInt(extrasData.penalty || extrasData.Penalty || extrasData.p || 0) || 0;
+            
+            let total = parseInt(extrasData.extras_total || extrasData.total || extrasData.Total || 0) || 0;
+            if (total === 0) {
+              total = wides + noballs + byes + legbyes + penalty;
+            }
+            
+            extras.push({
+              innings: inningsKey,
+              team: inningsTeamName,
+              wides,
+              noballs,
+              byes,
+              legbyes,
+              penalty,
+              total,
+              total_overs: extrasData.total_overs || extrasData.overs || null,
+              total_runs: parseInt(extrasData.total_runs || extrasData.runs || 0) || 0,
+            });
+            
+            console.log(`[sync-api-scores] Extras (obj) for "${inningsKey}": w=${wides}, nb=${noballs}, b=${byes}, lb=${legbyes}, total=${total}`);
           }
         });
       }
 
-      console.log(`[sync-api-scores] Parsed ${batsmen.length} batsmen, ${bowlers.length} bowlers from scorecard`);
+      console.log(`[sync-api-scores] Parsed ${batsmen.length} batsmen, ${bowlers.length} bowlers, ${extras.length} extras entries from scorecard`);
       console.log(`[sync-api-scores] Innings found: ${[...inningsTeamMap.entries()].map(([k, v]) => `${k}="${v}"`).join(', ')}`);
 
       // Fetch Playing XI from API if not already saved
@@ -605,11 +651,11 @@ Deno.serve(async (req) => {
         const inningsBatsmen = batsmen.filter(b => b.innings === inningsName);
         
         // Calculate total runs from batsmen
-        let totalRuns = 0;
+        let batsmenRuns = 0;
         let wickets = 0;
         
         inningsBatsmen.forEach(b => {
-          totalRuns += parseInt(b.runs) || 0;
+          batsmenRuns += parseInt(b.runs) || 0;
           if (b.how_out && b.how_out.toLowerCase() !== 'not out') {
             wickets++;
           }
@@ -617,9 +663,21 @@ Deno.serve(async (req) => {
         
         // Add extras for this innings
         const inningsExtras = extras.find(e => e.innings === inningsName);
+        let extrasTotal = 0;
+        let totalRuns = batsmenRuns;
+        
         if (inningsExtras) {
-          totalRuns += inningsExtras.total || 0;
+          extrasTotal = inningsExtras.total || 0;
+          totalRuns = batsmenRuns + extrasTotal;
+          
+          // If extras has total_runs (team total from API), prefer it
+          if (inningsExtras.total_runs && inningsExtras.total_runs > totalRuns) {
+            console.log(`[sync-api-scores] Using API total_runs ${inningsExtras.total_runs} instead of calculated ${totalRuns}`);
+            totalRuns = inningsExtras.total_runs;
+          }
         }
+        
+        console.log(`[sync-api-scores] Innings "${inningsName}": batsmen=${batsmenRuns}, extras=${extrasTotal}, total=${totalRuns}`);
         
         // Calculate overs from BOWLERS data for THIS innings
         // Note: bowlers in an innings are bowling AGAINST the batting team
@@ -634,16 +692,20 @@ Deno.serve(async (req) => {
           totalBalls += (fullOvers * 6) + balls;
         });
         
-        const fullOvers = Math.floor(totalBalls / 6);
-        const remainingBalls = totalBalls % 6;
-        const oversStr = totalBalls > 0 
-          ? (remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`)
-          : null;
+        // Also try to get overs from extras data (more reliable)
+        let oversStr: string | null = null;
+        if (inningsExtras?.total_overs) {
+          oversStr = String(inningsExtras.total_overs);
+        } else if (totalBalls > 0) {
+          const fullOvers = Math.floor(totalBalls / 6);
+          const remainingBalls = totalBalls % 6;
+          oversStr = remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`;
+        }
         
         const scoreStr = `${totalRuns}/${wickets}`;
         const scoreWithOvers = oversStr ? `${scoreStr} (${oversStr} ov)` : scoreStr;
         
-        console.log(`[sync-api-scores] Innings "${inningsName}" (team: "${teamName}"): ${scoreWithOvers} from ${inningsBatsmen.length} batsmen, ${inningsBowlers.length} bowlers`);
+        console.log(`[sync-api-scores] Innings "${inningsName}" (team: "${teamName}"): ${scoreWithOvers} from ${inningsBatsmen.length} batsmen, ${inningsBowlers.length} bowlers, extras=${extrasTotal}`);
         
         inningsStats.push({
           inningsName,
