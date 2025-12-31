@@ -23,13 +23,13 @@ const Header = () => {
     { name: "Matches", path: "/#matches" },
   ];
 
-  const menuTournaments = tournaments?.filter(t => t.is_active && t.show_in_menu) || [];
-  
+  const menuTournaments = tournaments?.filter((t) => t.is_active && t.show_in_menu) || [];
+
   // Group tournaments by sport
   const tournamentsBySport = useMemo(() => {
     const groups: Record<string, typeof menuTournaments> = {};
-    menuTournaments.forEach(tournament => {
-      const sport = tournament.sport || 'Other';
+    menuTournaments.forEach((tournament) => {
+      const sport = tournament.sport || "Other";
       if (!groups[sport]) {
         groups[sport] = [];
       }
@@ -37,8 +37,8 @@ const Header = () => {
     });
     return groups;
   }, [menuTournaments]);
-  
-  const siteName = settings?.site_name || "LIVE SPORTS";
+
+  const siteName = settings?.site_name || "ePlayHD.com";
 
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
@@ -47,11 +47,7 @@ const Header = () => {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2 group">
             {settings?.logo_url ? (
-              <img 
-                src={settings.logo_url} 
-                alt={siteName}
-                className="w-10 h-10 rounded-xl object-contain"
-              />
+              <img src={settings.logo_url} alt={siteName} className="w-10 h-10 rounded-xl object-contain" />
             ) : (
               <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center premium-shadow group-hover:glow-primary transition-shadow">
                 <Tv className="w-5 h-5 text-primary-foreground" />
@@ -67,36 +63,30 @@ const Header = () => {
           <nav className="hidden md:flex items-center gap-1">
             {navItems.map((item) => (
               <Link key={item.name} to={item.path}>
-                <Button
-                  variant={location.pathname === item.path ? "secondary" : "ghost"}
-                  size="sm"
-                >
+                <Button variant={location.pathname === item.path ? "secondary" : "ghost"} size="sm">
                   {item.name}
                 </Button>
               </Link>
             ))}
-            
+
             {/* Tournaments Dropdown - Click to toggle, grouped by sport */}
             {menuTournaments.length > 0 && (
               <div className="relative">
-                <Button 
-                  variant="ghost" 
-                  size="sm" 
+                <Button
+                  variant="ghost"
+                  size="sm"
                   className="gap-1"
                   onClick={() => setIsTournamentOpen(!isTournamentOpen)}
                 >
                   <Trophy className="w-4 h-4" />
                   Tournaments
-                  <ChevronDown className={`w-3 h-3 transition-transform ${isTournamentOpen ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`w-3 h-3 transition-transform ${isTournamentOpen ? "rotate-180" : ""}`} />
                 </Button>
                 <AnimatePresence>
                   {isTournamentOpen && (
                     <>
                       {/* Backdrop to close dropdown */}
-                      <div 
-                        className="fixed inset-0 z-40" 
-                        onClick={() => setIsTournamentOpen(false)}
-                      />
+                      <div className="fixed inset-0 z-40" onClick={() => setIsTournamentOpen(false)} />
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -111,8 +101,8 @@ const Header = () => {
                               {sport}
                             </div>
                             {sportTournaments.map((tournament) => (
-                              <Link 
-                                key={tournament.id} 
+                              <Link
+                                key={tournament.id}
                                 to={`/tournament/${tournament.slug}`}
                                 onClick={() => setIsTournamentOpen(false)}
                                 className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
@@ -140,7 +130,7 @@ const Header = () => {
                 </Button>
               </Link>
             ))}
-            
+
             <div className="ml-2 pl-2 border-l border-border">
               <ThemeToggle />
             </div>
@@ -149,10 +139,7 @@ const Header = () => {
           {/* Mobile Menu Toggle */}
           <div className="flex items-center gap-2 md:hidden">
             <ThemeToggle />
-            <button
-              onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 text-foreground"
-            >
+            <button onClick={() => setIsMenuOpen(!isMenuOpen)} className="p-2 text-foreground">
               {isMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
@@ -170,11 +157,7 @@ const Header = () => {
           >
             <nav className="container mx-auto px-4 py-4 flex flex-col gap-2">
               {navItems.map((item) => (
-                <Link
-                  key={item.name}
-                  to={item.path}
-                  onClick={() => setIsMenuOpen(false)}
-                >
+                <Link key={item.name} to={item.path} onClick={() => setIsMenuOpen(false)}>
                   <Button
                     variant={location.pathname === item.path ? "secondary" : "ghost"}
                     className="w-full justify-start"
@@ -183,12 +166,12 @@ const Header = () => {
                   </Button>
                 </Link>
               ))}
-              
+
               {/* Mobile Tournaments - Click to toggle, grouped by sport */}
               {menuTournaments.length > 0 && (
                 <div>
-                  <Button 
-                    variant="ghost" 
+                  <Button
+                    variant="ghost"
                     className="w-full justify-between"
                     onClick={() => setIsMobileTournamentOpen(!isMobileTournamentOpen)}
                   >
@@ -196,7 +179,9 @@ const Header = () => {
                       <Trophy className="w-4 h-4" />
                       Tournaments
                     </span>
-                    <ChevronDown className={`w-4 h-4 transition-transform ${isMobileTournamentOpen ? 'rotate-180' : ''}`} />
+                    <ChevronDown
+                      className={`w-4 h-4 transition-transform ${isMobileTournamentOpen ? "rotate-180" : ""}`}
+                    />
                   </Button>
                   <AnimatePresence>
                     {isMobileTournamentOpen && (
@@ -233,16 +218,12 @@ const Header = () => {
                   </AnimatePresence>
                 </div>
               )}
-              
+
               {/* Mobile Dynamic Pages */}
               {headerPages && headerPages.length > 0 && (
                 <>
                   {headerPages.map((page) => (
-                    <Link
-                      key={page.id}
-                      to={`/page/${page.slug}`}
-                      onClick={() => setIsMenuOpen(false)}
-                    >
+                    <Link key={page.id} to={`/page/${page.slug}`} onClick={() => setIsMenuOpen(false)}>
                       <Button variant="ghost" className="w-full justify-start">
                         {page.title}
                       </Button>
