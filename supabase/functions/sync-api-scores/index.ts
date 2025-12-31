@@ -289,12 +289,32 @@ Deno.serve(async (req) => {
       // Track unique innings and their team names from the scorecard
       const inningsTeamMap: Map<string, string> = new Map();
       
+      // Determine the bowling team (opponent of batting team)
+      const getBowlingTeam = (battingTeamName: string): string => {
+        // Check which team is batting and return the other team
+        if (teamsMatch(battingTeamName, teamAName) || teamsMatch(battingTeamName, teamAShort)) {
+          return teamBName;
+        } else if (teamsMatch(battingTeamName, teamBName) || teamsMatch(battingTeamName, teamBShort)) {
+          return teamAName;
+        }
+        // Fallback: check against API home/away teams
+        const apiHomeTeam = detailedEvent.event_home_team || '';
+        const apiAwayTeam = detailedEvent.event_away_team || '';
+        if (teamsMatch(battingTeamName, apiHomeTeam)) {
+          return apiAwayTeam;
+        } else if (teamsMatch(battingTeamName, apiAwayTeam)) {
+          return apiHomeTeam;
+        }
+        return battingTeamName; // fallback
+      };
+      
       if (detailedEvent.scorecard && typeof detailedEvent.scorecard === 'object') {
         Object.entries(detailedEvent.scorecard).forEach(([inningsKey, players]: [string, any]) => {
           if (Array.isArray(players)) {
             // Extract team name from innings key (e.g., "Sydney Thunder 1 INN" -> "Sydney Thunder")
-            const inningsTeamName = inningsKey.replace(/ \d+ INN$/i, '').trim();
-            inningsTeamMap.set(inningsKey, inningsTeamName);
+            const battingTeamName = inningsKey.replace(/ \d+ INN$/i, '').trim();
+            const bowlingTeamName = getBowlingTeam(battingTeamName);
+            inningsTeamMap.set(inningsKey, battingTeamName);
             
             players.forEach((player: any) => {
               if (player.type === 'Batsman') {
@@ -306,10 +326,11 @@ Deno.serve(async (req) => {
                   sixes: player['6s'] || '0',
                   sr: player.SR || '0.00',
                   how_out: player.status || 'not out',
-                  team: inningsTeamName,
+                  team: battingTeamName,
                   innings: inningsKey,
                 });
               } else if (player.type === 'Bowler') {
+                // Bowlers belong to the OPPONENT team (the one bowling)
                 bowlers.push({
                   player: player.player,
                   overs: player.O || '0',
@@ -317,7 +338,7 @@ Deno.serve(async (req) => {
                   runs: player.R || '0',
                   wickets: player.W || '0',
                   econ: player.ER || '0.00',
-                  team: inningsTeamName,
+                  team: bowlingTeamName,
                   innings: inningsKey,
                 });
               }
