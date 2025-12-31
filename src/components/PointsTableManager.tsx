@@ -41,6 +41,8 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [leagueSelectOpen, setLeagueSelectOpen] = useState(false);
+  const [leagueSearchQuery, setLeagueSearchQuery] = useState('');
+  const [leagueErrorMessage, setLeagueErrorMessage] = useState('');
   const [availableLeagues, setAvailableLeagues] = useState<{ id: string; name: string; country: string }[]>([]);
   const [selectedLeagueId, setSelectedLeagueId] = useState<string>('');
   const [editingEntry, setEditingEntry] = useState<PointsTableEntry | null>(null);
@@ -172,8 +174,9 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
       if (!data.success && data.availableLeagues) {
         // Show league selection dialog
         setAvailableLeagues(data.availableLeagues);
+        setLeagueErrorMessage(data.error || 'Please select the correct league to sync from');
+        setLeagueSearchQuery('');
         setLeagueSelectOpen(true);
-        toast({ title: "Select League", description: "Please select the correct league to sync from" });
       } else if (data.success) {
         queryClient.invalidateQueries({ queryKey: ['tournament_points_table', tournament.id] });
         toast({ 
@@ -182,6 +185,7 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
         });
         setLeagueSelectOpen(false);
         setSelectedLeagueId('');
+        setLeagueErrorMessage('');
       } else {
         toast({ title: "Sync failed", description: data.error || 'Unknown error', variant: "destructive" });
       }
@@ -491,18 +495,30 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
           </DialogHeader>
           <div className="space-y-4">
             <p className="text-sm text-muted-foreground">
-              Could not automatically match the tournament. Please select the correct league:
+              {leagueErrorMessage || 'Please select the correct league:'}
             </p>
+            <Input
+              placeholder="Search leagues..."
+              value={leagueSearchQuery}
+              onChange={(e) => setLeagueSearchQuery(e.target.value)}
+              className="mb-2"
+            />
             <Select value={selectedLeagueId} onValueChange={setSelectedLeagueId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a league..." />
               </SelectTrigger>
               <SelectContent className="max-h-60">
-                {availableLeagues.map((league) => (
-                  <SelectItem key={league.id} value={league.id}>
-                    {league.name} {league.country && `(${league.country})`}
-                  </SelectItem>
-                ))}
+                {availableLeagues
+                  .filter((league) => 
+                    !leagueSearchQuery || 
+                    league.name.toLowerCase().includes(leagueSearchQuery.toLowerCase()) ||
+                    league.country.toLowerCase().includes(leagueSearchQuery.toLowerCase())
+                  )
+                  .map((league) => (
+                    <SelectItem key={league.id} value={league.id}>
+                      {league.name} {league.country && `(${league.country})`}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </div>

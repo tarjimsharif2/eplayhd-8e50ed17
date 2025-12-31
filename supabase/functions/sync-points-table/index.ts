@@ -160,33 +160,70 @@ Deno.serve(async (req) => {
     const leagues = leaguesData.result || [];
     console.log(`[sync-points-table] Found ${leagues.length} leagues`);
 
-    // Find matching league by tournament name
+    // Find matching league by tournament name - more strict matching
     let targetLeagueId = leagueId;
+    let matchedLeagueName = '';
     
     if (!targetLeagueId) {
       const tournamentNameLower = normalizeTeamName(tournament.name);
-      const matchingLeague = leagues.find((league: any) => {
-        const leagueNameLower = normalizeTeamName(league.league_name || '');
-        return leagueNameLower.includes(tournamentNameLower) || 
-               tournamentNameLower.includes(leagueNameLower) ||
-               leagueNameLower.split(' ').some((word: string) => 
-                 word.length >= 3 && tournamentNameLower.includes(word)
-               );
-      });
+      const tournamentWords = tournamentNameLower.split(/\s+/).filter((w: string) => w.length >= 3);
       
-      if (matchingLeague) {
-        targetLeagueId = matchingLeague.league_key;
-        console.log(`[sync-points-table] Found matching league: ${matchingLeague.league_name} (${targetLeagueId})`);
+      // Score-based matching - higher score = better match
+      let bestMatch: { league: any; score: number } | null = null;
+      
+      for (const league of leagues) {
+        const leagueNameLower = normalizeTeamName(league.league_name || '');
+        let score = 0;
+        
+        // Exact match gets highest score
+        if (leagueNameLower === tournamentNameLower) {
+          score = 100;
+        } 
+        // Check if league name contains tournament name or vice versa
+        else if (leagueNameLower.includes(tournamentNameLower) || tournamentNameLower.includes(leagueNameLower)) {
+          score = 80;
+        }
+        // Check word overlap - need at least 2 matching significant words
+        else {
+          const leagueWords = leagueNameLower.split(/\s+/).filter((w: string) => w.length >= 3);
+          const matchingWords = tournamentWords.filter((tw: string) => 
+            leagueWords.some((lw: string) => lw === tw || (lw.length >= 4 && tw.length >= 4 && (lw.includes(tw) || tw.includes(lw))))
+          );
+          if (matchingWords.length >= 2) {
+            score = 30 + matchingWords.length * 10;
+          }
+        }
+        
+        if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+          bestMatch = { league, score };
+        }
+      }
+      
+      // Only auto-match if score is high enough
+      if (bestMatch && bestMatch.score >= 50) {
+        targetLeagueId = bestMatch.league.league_key;
+        matchedLeagueName = bestMatch.league.league_name;
+        console.log(`[sync-points-table] Found matching league: ${matchedLeagueName} (${targetLeagueId}) with score ${bestMatch.score}`);
       }
     }
 
+    // If no auto-match found, return league list for user selection
     if (!targetLeagueId) {
-      // Return available leagues for user to select
+      // Filter to show relevant cricket leagues
+      const relevantLeagues = leagues
+        .filter((l: any) => {
+          const name = (l.league_name || '').toLowerCase();
+          // Filter out clearly irrelevant leagues
+          return name.includes('premier') || name.includes('league') || name.includes('cup') || 
+                 name.includes('t20') || name.includes('championship') || name.includes('series');
+        })
+        .slice(0, 50); // Limit to 50 leagues
+      
       return new Response(
         JSON.stringify({ 
           success: false, 
           error: 'No matching league found. Please select a league.',
-          availableLeagues: leagues.map((l: any) => ({
+          availableLeagues: relevantLeagues.map((l: any) => ({
             id: l.league_key,
             name: l.league_name,
             country: l.country_name || '',
@@ -217,10 +254,28 @@ Deno.serve(async (req) => {
     const standingsData = await standingsResponse.json();
     
     if (!standingsData.success || standingsData.success !== 1) {
-      console.error('[sync-points-table] API returned unsuccessful standings response');
+      console.error(`[sync-points-table] API returned unsuccessful standings response for league ${targetLeagueId}`);
+      
+      // Return league selection so user can try a different league
+      const relevantLeagues = leagues
+        .filter((l: any) => {
+          const name = (l.league_name || '').toLowerCase();
+          return name.includes('premier') || name.includes('league') || name.includes('cup') || 
+                 name.includes('t20') || name.includes('championship') || name.includes('series');
+        })
+        .slice(0, 50);
+      
       return new Response(
-        JSON.stringify({ success: false, error: 'API returned unsuccessful standings response' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false, 
+          error: `Standings not available for "${matchedLeagueName || targetLeagueId}". Please select a different league.`,
+          availableLeagues: relevantLeagues.map((l: any) => ({
+            id: l.league_key,
+            name: l.league_name,
+            country: l.country_name || '',
+          }))
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
@@ -229,7 +284,7 @@ Deno.serve(async (req) => {
 
     if (!standings || standings.length === 0) {
       return new Response(
-        JSON.stringify({ success: false, error: 'No standings data available' }),
+        JSON.stringify({ success: false, error: 'No standings data available for this league' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
