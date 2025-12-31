@@ -440,8 +440,38 @@ Deno.serve(async (req) => {
               console.log(`[sync-api-scores] No lineup data from API, generating from scorecard...`);
               
               // Group players by team from scorecard
-              const teamAPlayers = new Map<string, { role: string; order: number }>();
-              const teamBPlayers = new Map<string, { role: string; order: number }>();
+              const teamAPlayers = new Map<string, { role: string; order: number; isWicketKeeper: boolean }>();
+              const teamBPlayers = new Map<string, { role: string; order: number; isWicketKeeper: boolean }>();
+              
+              // Helper to extract fielder names from dismissal text
+              const extractFielderFromDismissal = (howOut: string): { fielder: string | null; isWicketKeeper: boolean } => {
+                if (!howOut) return { fielder: null, isWicketKeeper: false };
+                
+                const howOutLower = howOut.toLowerCase();
+                
+                // Caught patterns: "c PlayerName b BowlerName" or "c & b PlayerName"
+                const caughtMatch = howOut.match(/c\s+(?:&\s+b\s+)?([A-Z][a-zA-Z\s'-]+?)(?:\s+b\s+|$)/i);
+                if (caughtMatch && caughtMatch[1]) {
+                  const fielder = caughtMatch[1].trim();
+                  // Check if caught by wicketkeeper (common indicators)
+                  const isWk = howOutLower.includes('†') || howOutLower.includes('wk ');
+                  return { fielder, isWicketKeeper: isWk };
+                }
+                
+                // Stumped pattern: "st PlayerName b BowlerName"
+                const stumpedMatch = howOut.match(/st\s+([A-Z][a-zA-Z\s'-]+?)\s+b\s+/i);
+                if (stumpedMatch && stumpedMatch[1]) {
+                  return { fielder: stumpedMatch[1].trim(), isWicketKeeper: true };
+                }
+                
+                // Run out pattern: "run out (PlayerName)" or "run out PlayerName"
+                const runOutMatch = howOut.match(/run\s+out\s*\(?([A-Z][a-zA-Z\s'-]+?)\)?(?:\s*\/|$)/i);
+                if (runOutMatch && runOutMatch[1]) {
+                  return { fielder: runOutMatch[1].trim(), isWicketKeeper: false };
+                }
+                
+                return { fielder: null, isWicketKeeper: false };
+              };
               
               // Process batsmen first (they get batting order based on their position)
               batsmen.forEach((b, index) => {
@@ -451,11 +481,23 @@ Deno.serve(async (req) => {
                 // Check which team this batsman belongs to
                 if (teamsMatch(batsmanTeamName, teamAName) || teamsMatch(batsmanTeamName, teamAShort)) {
                   if (!teamAPlayers.has(playerName)) {
-                    teamAPlayers.set(playerName, { role: 'Batsman', order: teamAPlayers.size + 1 });
+                    teamAPlayers.set(playerName, { role: 'Batsman', order: teamAPlayers.size + 1, isWicketKeeper: false });
+                  }
+                  
+                  // Extract fielder from dismissal (fielder is from Team B)
+                  const { fielder, isWicketKeeper } = extractFielderFromDismissal(b.how_out || '');
+                  if (fielder && !teamBPlayers.has(fielder)) {
+                    teamBPlayers.set(fielder, { role: 'Fielder', order: teamBPlayers.size + 1, isWicketKeeper });
                   }
                 } else if (teamsMatch(batsmanTeamName, teamBName) || teamsMatch(batsmanTeamName, teamBShort)) {
                   if (!teamBPlayers.has(playerName)) {
-                    teamBPlayers.set(playerName, { role: 'Batsman', order: teamBPlayers.size + 1 });
+                    teamBPlayers.set(playerName, { role: 'Batsman', order: teamBPlayers.size + 1, isWicketKeeper: false });
+                  }
+                  
+                  // Extract fielder from dismissal (fielder is from Team A)
+                  const { fielder, isWicketKeeper } = extractFielderFromDismissal(b.how_out || '');
+                  if (fielder && !teamAPlayers.has(fielder)) {
+                    teamAPlayers.set(fielder, { role: 'Fielder', order: teamAPlayers.size + 1, isWicketKeeper });
                   }
                 }
               });
@@ -470,45 +512,55 @@ Deno.serve(async (req) => {
                 if (teamsMatch(bowlerInningsTeam, teamAName) || teamsMatch(bowlerInningsTeam, teamAShort)) {
                   // This bowler is from Team B (bowling against Team A)
                   if (!teamBPlayers.has(playerName)) {
-                    teamBPlayers.set(playerName, { role: 'Bowler', order: teamBPlayers.size + 1 });
+                    teamBPlayers.set(playerName, { role: 'Bowler', order: teamBPlayers.size + 1, isWicketKeeper: false });
                   }
                 } else if (teamsMatch(bowlerInningsTeam, teamBName) || teamsMatch(bowlerInningsTeam, teamBShort)) {
                   // This bowler is from Team A (bowling against Team B)
                   if (!teamAPlayers.has(playerName)) {
-                    teamAPlayers.set(playerName, { role: 'Bowler', order: teamAPlayers.size + 1 });
+                    teamAPlayers.set(playerName, { role: 'Bowler', order: teamAPlayers.size + 1, isWicketKeeper: false });
                   }
                 }
               });
               
               console.log(`[sync-api-scores] Extracted ${teamAPlayers.size} players for Team A, ${teamBPlayers.size} players for Team B from scorecard`);
               
-              // Convert to insert format - Team A
+              // Convert to insert format - Team A (limit to 11 players)
+              let teamACount = 0;
               teamAPlayers.forEach((info, playerName) => {
-                playersToInsert.push({
-                  match_id: match.id,
-                  team_id: matchData.team_a_id,
-                  player_name: playerName,
-                  player_role: info.role,
-                  is_captain: false,
-                  is_vice_captain: false,
-                  is_wicket_keeper: info.role.toLowerCase().includes('keeper'),
-                  batting_order: info.order,
-                });
+                if (teamACount < 11) {
+                  playersToInsert.push({
+                    match_id: match.id,
+                    team_id: matchData.team_a_id,
+                    player_name: playerName,
+                    player_role: info.role,
+                    is_captain: false,
+                    is_vice_captain: false,
+                    is_wicket_keeper: info.isWicketKeeper || info.role.toLowerCase().includes('keeper'),
+                    batting_order: info.order,
+                  });
+                  teamACount++;
+                }
               });
               
-              // Convert to insert format - Team B
+              // Convert to insert format - Team B (limit to 11 players)
+              let teamBCount = 0;
               teamBPlayers.forEach((info, playerName) => {
-                playersToInsert.push({
-                  match_id: match.id,
-                  team_id: matchData.team_b_id,
-                  player_name: playerName,
-                  player_role: info.role,
-                  is_captain: false,
-                  is_vice_captain: false,
-                  is_wicket_keeper: info.role.toLowerCase().includes('keeper'),
-                  batting_order: info.order,
-                });
+                if (teamBCount < 11) {
+                  playersToInsert.push({
+                    match_id: match.id,
+                    team_id: matchData.team_b_id,
+                    player_name: playerName,
+                    player_role: info.role,
+                    is_captain: false,
+                    is_vice_captain: false,
+                    is_wicket_keeper: info.isWicketKeeper || info.role.toLowerCase().includes('keeper'),
+                    batting_order: info.order,
+                  });
+                  teamBCount++;
+                }
               });
+              
+              console.log(`[sync-api-scores] Final count: Team A=${teamACount}, Team B=${teamBCount} players`);
             }
             
             // If we have players to insert, save them
