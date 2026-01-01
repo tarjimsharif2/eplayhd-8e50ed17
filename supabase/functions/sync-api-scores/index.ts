@@ -409,8 +409,19 @@ Deno.serve(async (req) => {
               totalRuns = parseInt(firstEntry.total || firstEntry.Total || 0) || 0;
             }
             
-            // Calculate extras total from individual values
-            const extrasSum = wides + noballs + byes + legbyes + penalty;
+            // Calculate extras total - prefer 'nr' field if available (API's extras total)
+            // Otherwise use sum of individual values
+            let extrasSum = wides + noballs + byes + legbyes + penalty;
+            
+            // If 'nr' field exists and is greater than our calculated sum, use it
+            // 'nr' appears to be the actual extras total from API
+            if (firstEntry.nr) {
+              const nrValue = parseFloat(firstEntry.nr) || 0;
+              if (nrValue > extrasSum) {
+                extrasSum = Math.round(nrValue);
+                console.log(`[sync-api-scores] Using 'nr' field value ${nrValue} as extras total instead of calculated ${wides + noballs + byes + legbyes + penalty}`);
+              }
+            }
             
             extras.push({
               innings: inningsKey,
@@ -420,12 +431,12 @@ Deno.serve(async (req) => {
               byes,
               legbyes,
               penalty,
-              total: extrasSum, // Use sum of individual extras, not innings total
+              total: extrasSum,
               total_overs: totalOvers,
-              total_runs: totalRuns, // This is the INNINGS total (runs scored)
+              total_runs: totalRuns,
             });
             
-            console.log(`[sync-api-scores] Extras for "${inningsKey}": w=${wides}, nb=${noballs}, b=${byes}, lb=${legbyes}, sum=${extrasSum}, innings_total=${totalRuns}`);
+            console.log(`[sync-api-scores] Extras for "${inningsKey}": w=${wides}, nb=${noballs}, b=${byes}, lb=${legbyes}, nr=${firstEntry.nr || 'N/A'}, sum=${extrasSum}, innings_total=${totalRuns}`);
           }
           // Handle object format
           else if (typeof extrasData === 'object' && extrasData !== null) {
