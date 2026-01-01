@@ -366,19 +366,21 @@ Deno.serve(async (req) => {
             if (firstEntry.text && typeof firstEntry.text === 'string') {
               const textLower = firstEntry.text.toLowerCase();
               // Match patterns like "w 3", "lb 5", "nb 2", "b 1", "p 0"
-              const widesMatch = textLower.match(/\bw\s*(\d+)/);
-              const noballsMatch = textLower.match(/\bnb\s*(\d+)/);
-              const byesMatch = textLower.match(/\bb\s*(\d+)/);
-              const legbyesMatch = textLower.match(/\blb\s*(\d+)/);
-              const penaltyMatch = textLower.match(/\bp\s*(\d+)/);
+              // IMPORTANT: Match lb/nb BEFORE b to avoid incorrect matches
+              const widesMatch = textLower.match(/\bw\s+(\d+)/);
+              const noballsMatch = textLower.match(/\bnb\s+(\d+)/);
+              const legbyesMatch = textLower.match(/\blb\s+(\d+)/);
+              const penaltyMatch = textLower.match(/\bp\s+(\d+)/);
+              // For byes, match standalone "b" followed by space and number, but NOT "lb" or "nb"
+              const byesMatch = textLower.match(/(?<![ln])b\s+(\d+)/);
               
               wides = widesMatch ? parseInt(widesMatch[1]) : 0;
               noballs = noballsMatch ? parseInt(noballsMatch[1]) : 0;
-              byes = byesMatch ? parseInt(byesMatch[1]) : 0;
               legbyes = legbyesMatch ? parseInt(legbyesMatch[1]) : 0;
+              byes = byesMatch ? parseInt(byesMatch[1]) : 0;
               penalty = penaltyMatch ? parseInt(penaltyMatch[1]) : 0;
               
-              console.log(`[sync-api-scores] Parsed from text "${firstEntry.text}": w=${wides}, nb=${noballs}, b=${byes}, lb=${legbyes}`);
+              console.log(`[sync-api-scores] Parsed from text "${firstEntry.text}": w=${wides}, nb=${noballs}, b=${byes}, lb=${legbyes}, total_extras=${wides + noballs + byes + legbyes + penalty}`);
             } else {
               // Fallback to direct field access
               wides = parseInt(firstEntry.wides || firstEntry.Wides || firstEntry.wd || firstEntry.W || 0) || 0;
