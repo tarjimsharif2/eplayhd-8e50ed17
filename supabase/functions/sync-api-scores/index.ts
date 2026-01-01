@@ -905,13 +905,17 @@ Deno.serve(async (req) => {
       }
 
       // UPDATE matches table with correct teamA/teamB scores (from batsmen data)
+      // IMPORTANT: Always update both scores to fix any previous incorrect values
+      // If a team hasn't batted yet, set their score to null
       const matchUpdate: any = { 
         last_api_sync: new Date().toISOString(),
+        score_a: scoreA || null,  // Always set, even if null (to clear wrong data)
+        score_b: scoreB || null,  // Always set, even if null (to clear wrong data)
       };
       
-      if (scoreA) matchUpdate.score_a = scoreA;
-      if (scoreB) matchUpdate.score_b = scoreB;
       if (match.status !== matchStatus) matchUpdate.status = matchStatus;
+
+      console.log(`[sync-api-scores] Updating match: score_a="${matchUpdate.score_a}", score_b="${matchUpdate.score_b}"`);
 
       await supabase
         .from('matches')
