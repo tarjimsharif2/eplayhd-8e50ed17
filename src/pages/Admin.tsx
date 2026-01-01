@@ -130,7 +130,7 @@ const Admin = () => {
     tournament_id: '' as string | null,
     team_a_id: '',
     team_b_id: '',
-    match_number: 1,
+    match_number: null as number | null,
     match_date: '',
     match_time: '',
     status: 'upcoming' as 'upcoming' | 'live' | 'completed' | 'abandoned' | 'postponed',
@@ -388,7 +388,7 @@ const Admin = () => {
         tournament_id: matchForm.tournament_id || null,
         team_a_id: matchForm.team_a_id,
         team_b_id: matchForm.team_b_id,
-        match_number: matchForm.match_number,
+        match_number: matchForm.match_number ?? null,
         match_date: matchForm.match_date,
         match_time: matchForm.match_time,
         status: matchForm.status,
@@ -397,7 +397,7 @@ const Admin = () => {
         score_a: matchForm.score_a || null,
         score_b: matchForm.score_b || null,
         match_link: matchForm.page_type === 'redirect' ? (matchForm.match_link || null) : null,
-        match_duration_minutes: matchForm.duration_type === 'duration' ? (matchForm.match_duration_minutes || 180) : null,
+        match_duration_minutes: matchForm.duration_type === 'duration' ? (matchForm.match_duration_minutes ?? 180) : null,
         match_end_time: matchForm.duration_type === 'end_time' ? (matchForm.match_end_time || null) : null,
         match_start_time: matchForm.match_start_time || null,
         is_priority: matchForm.is_priority,
@@ -457,7 +457,7 @@ const Admin = () => {
       tournament_id: match.tournament_id || '',
       team_a_id: match.team_a_id,
       team_b_id: match.team_b_id,
-      match_number: match.match_number,
+      match_number: match.match_number ?? null,
       match_date: match.match_date,
       match_time: match.match_time,
       status: match.status,
@@ -466,7 +466,7 @@ const Admin = () => {
       score_a: match.score_a || '',
       score_b: match.score_b || '',
       match_link: match.match_link || '',
-      match_duration_minutes: match.match_duration_minutes || 180,
+      match_duration_minutes: match.match_duration_minutes ?? null,
       match_end_time: (match as any).match_end_time || null,
       duration_type: (match as any).match_end_time ? 'end_time' : 'duration',
       match_start_time: match.match_start_time || null,
@@ -558,7 +558,7 @@ const Admin = () => {
       tournament_id: match.tournament_id || '',
       team_a_id: match.team_a_id,
       team_b_id: match.team_b_id,
-      match_number: match.match_number + 1,
+      match_number: match.match_number ? match.match_number + 1 : null,
       match_date: match.match_date,
       match_time: match.match_time,
       status: 'upcoming',
@@ -567,7 +567,7 @@ const Admin = () => {
       score_a: '',
       score_b: '',
       match_link: match.match_link || '',
-      match_duration_minutes: match.match_duration_minutes || 180,
+      match_duration_minutes: match.match_duration_minutes ?? null,
       match_end_time: null,
       duration_type: 'duration',
       match_start_time: match.match_start_time || null,
@@ -602,7 +602,7 @@ const Admin = () => {
       tournament_id: '',
       team_a_id: '',
       team_b_id: '',
-      match_number: 1,
+      match_number: null,
       match_date: '',
       match_time: '',
       status: 'upcoming',
@@ -611,7 +611,7 @@ const Admin = () => {
       score_a: '',
       score_b: '',
       match_link: '',
-      match_duration_minutes: 180,
+      match_duration_minutes: null,
       match_end_time: null,
       duration_type: 'duration',
       match_start_time: null,
@@ -1225,8 +1225,13 @@ const Admin = () => {
                       {/* Match Number and Status Row */}
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Match Number</Label>
-                          <Input type="number" value={matchForm.match_number} onChange={(e) => setMatchForm({ ...matchForm, match_number: parseInt(e.target.value) || 1 })} />
+                          <Label>Match Number (optional)</Label>
+                          <Input 
+                            type="number" 
+                            placeholder="Leave blank if not needed"
+                            value={matchForm.match_number ?? ''} 
+                            onChange={(e) => setMatchForm({ ...matchForm, match_number: e.target.value ? parseInt(e.target.value) : null })} 
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label>Status</Label>
@@ -1409,8 +1414,8 @@ const Admin = () => {
                             <Input 
                               type="number" 
                               placeholder="180" 
-                              value={matchForm.match_duration_minutes || ''} 
-                              onChange={(e) => setMatchForm({ ...matchForm, match_duration_minutes: parseInt(e.target.value) || 0 })} 
+                            value={matchForm.match_duration_minutes ?? ''} 
+                            onChange={(e) => setMatchForm({ ...matchForm, match_duration_minutes: e.target.value ? parseInt(e.target.value) : null })} 
                             />
                             <p className="text-xs text-muted-foreground">How long the match will run</p>
                           </div>

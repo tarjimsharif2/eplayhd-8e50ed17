@@ -315,9 +315,11 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
               {match.is_priority && (
                 <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
               )}
-              <span className="text-muted-foreground text-xs font-medium bg-muted/40 px-3 py-1.5 rounded-full">
-                Match #{match.match_number}
-              </span>
+              {match.match_number && (
+                <span className="text-muted-foreground text-xs font-medium bg-muted/40 px-3 py-1.5 rounded-full">
+                  Match #{match.match_number}
+                </span>
+              )}
             </div>
           </div>
 
