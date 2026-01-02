@@ -31,11 +31,26 @@ export const useGoogleIndexing = () => {
       }
 
       if (data?.success) {
-        console.log('Match indexed successfully:', data);
-        toast({
-          title: "Indexed",
-          description: `Match submitted to Google (${data.submitted} URL${data.submitted > 1 ? 's' : ''})`,
-        });
+        console.log('Match indexing result:', data);
+        
+        // Check if any URLs were actually submitted successfully
+        if (data.submitted > 0) {
+          toast({
+            title: "Indexed",
+            description: `Match submitted to Google (${data.submitted} URL${data.submitted > 1 ? 's' : ''})`,
+          });
+        } else if (data.failed > 0) {
+          // All URLs failed
+          const firstError = data.results?.find((r: any) => !r.success)?.error || 'Unknown error';
+          console.error('All indexing attempts failed:', firstError);
+          toast({
+            title: "Indexing Failed",
+            description: firstError.includes('SERVICE_DISABLED') 
+              ? "Google Indexing API is not enabled. Please enable it in Google Cloud Console."
+              : `Failed to submit URL: ${firstError.substring(0, 100)}`,
+            variant: "destructive",
+          });
+        }
       }
 
       return data;
@@ -76,11 +91,22 @@ export const useGoogleIndexing = () => {
       }
 
       if (data?.success) {
-        console.log('Tournament indexed successfully:', data);
-        toast({
-          title: "Indexed",
-          description: `Tournament submitted to Google`,
-        });
+        console.log('Tournament indexing result:', data);
+        if (data.submitted > 0) {
+          toast({
+            title: "Indexed",
+            description: `Tournament submitted to Google`,
+          });
+        } else if (data.failed > 0) {
+          const firstError = data.results?.find((r: any) => !r.success)?.error || 'Unknown error';
+          toast({
+            title: "Indexing Failed",
+            description: firstError.includes('SERVICE_DISABLED') 
+              ? "Google Indexing API is not enabled."
+              : `Failed: ${firstError.substring(0, 80)}`,
+            variant: "destructive",
+          });
+        }
       }
 
       return data;
@@ -104,11 +130,22 @@ export const useGoogleIndexing = () => {
       }
 
       if (data?.success) {
-        console.log('URL indexed successfully:', data);
-        toast({
-          title: action === 'URL_UPDATED' ? "Indexed" : "Removed from Index",
-          description: `URL submitted to Google`,
-        });
+        console.log('URL indexing result:', data);
+        if (data.submitted > 0) {
+          toast({
+            title: action === 'URL_UPDATED' ? "Indexed" : "Removed from Index",
+            description: `URL submitted to Google`,
+          });
+        } else if (data.failed > 0) {
+          const firstError = data.results?.find((r: any) => !r.success)?.error || 'Unknown error';
+          toast({
+            title: "Indexing Failed",
+            description: firstError.includes('SERVICE_DISABLED') 
+              ? "Google Indexing API is not enabled."
+              : `Failed: ${firstError.substring(0, 80)}`,
+            variant: "destructive",
+          });
+        }
       }
 
       return data;
