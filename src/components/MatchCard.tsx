@@ -370,11 +370,11 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
 
             {/* Team B */}
             <div className="flex-1 flex flex-col items-center text-center gap-1.5">
-              <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-accent/15 to-transparent flex items-center justify-center border border-accent/20">
+              <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-primary/15 to-transparent flex items-center justify-center border border-primary/20">
                 {teamB.logo_url ? (
                   <img src={teamB.logo_url} alt={teamB.name} className="w-10 h-10 md:w-12 md:h-12 object-contain" />
                 ) : (
-                  <span className="font-display text-lg text-accent">{getInitials(teamB.name)}</span>
+                  <span className="font-display text-lg text-primary">{getInitials(teamB.name)}</span>
                 )}
               </div>
               <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamB.name}</span>
