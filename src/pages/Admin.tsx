@@ -125,6 +125,11 @@ const Admin = () => {
   const [bulkDeleteTeamsDialogOpen, setBulkDeleteTeamsDialogOpen] = useState(false);
   const [bulkDeleteTournamentsDialogOpen, setBulkDeleteTournamentsDialogOpen] = useState(false);
   
+  // Single delete confirmation dialogs
+  const [deleteMatchId, setDeleteMatchId] = useState<string | null>(null);
+  const [deleteTeamId, setDeleteTeamId] = useState<string | null>(null);
+  const [deleteTournamentId, setDeleteTournamentId] = useState<string | null>(null);
+  
   // Form states
   const [matchForm, setMatchForm] = useState({
     tournament_id: '' as string | null,
@@ -502,6 +507,7 @@ const Admin = () => {
         next.delete(id);
         return next;
       });
+      setDeleteMatchId(null);
       toast({ title: "Match deleted successfully" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -747,6 +753,7 @@ const Admin = () => {
         next.delete(id);
         return next;
       });
+      setDeleteTeamId(null);
       toast({ title: "Team deleted successfully" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -862,6 +869,7 @@ const Admin = () => {
         next.delete(id);
         return next;
       });
+      setDeleteTournamentId(null);
       toast({ title: "Tournament deleted successfully" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
@@ -1887,7 +1895,7 @@ const Admin = () => {
                                       <Globe className="w-4 h-4 text-green-500" />
                                     </Button>
                                   )}
-                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteMatch(match.id)} title="Delete match">
+                                  <Button variant="ghost" size="icon" onClick={() => setDeleteMatchId(match.id)} title="Delete match">
                                     <Trash2 className="w-4 h-4 text-destructive" />
                                   </Button>
                                 </div>
@@ -2294,7 +2302,7 @@ const Admin = () => {
                                   <Button variant="ghost" size="icon" onClick={() => handleEditTeam(team)}>
                                     <Edit2 className="w-4 h-4" />
                                   </Button>
-                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteTeam(team.id)}>
+                                  <Button variant="ghost" size="icon" onClick={() => setDeleteTeamId(team.id)}>
                                     <Trash2 className="w-4 h-4 text-destructive" />
                                   </Button>
                                 </div>
@@ -2525,7 +2533,7 @@ const Admin = () => {
                                       <Globe className="w-4 h-4 text-green-500" />
                                     </Button>
                                   )}
-                                  <Button variant="ghost" size="icon" onClick={() => handleDeleteTournament(tournament.id)}>
+                                  <Button variant="ghost" size="icon" onClick={() => setDeleteTournamentId(tournament.id)}>
                                     <Trash2 className="w-4 h-4 text-destructive" />
                                   </Button>
                                 </div>
@@ -3314,6 +3322,67 @@ const Admin = () => {
             >
               {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Delete {selectedTournaments.size} Tournament{selectedTournaments.size > 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Single Delete Confirmation Dialogs */}
+      <AlertDialog open={!!deleteMatchId} onOpenChange={(open) => !open && setDeleteMatchId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Match?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the match and all associated data including streaming servers and innings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMatchId && handleDeleteMatch(deleteMatchId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Match
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTeamId} onOpenChange={(open) => !open && setDeleteTeamId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Team?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the team. Make sure no matches are using this team.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTeamId && handleDeleteTeam(deleteTeamId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Team
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!deleteTournamentId} onOpenChange={(open) => !open && setDeleteTournamentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Tournament?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the tournament and may affect associated matches.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteTournamentId && handleDeleteTournament(deleteTournamentId)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Tournament
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
