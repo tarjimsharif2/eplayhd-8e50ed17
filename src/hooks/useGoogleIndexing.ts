@@ -43,11 +43,17 @@ export const useGoogleIndexing = () => {
           // All URLs failed
           const firstError = data.results?.find((r: any) => !r.success)?.error || 'Unknown error';
           console.error('All indexing attempts failed:', firstError);
+          
+          let errorMessage = `Failed: ${firstError.substring(0, 80)}`;
+          if (firstError.includes('verify the URL owner') || firstError.includes('Failed to verify')) {
+            errorMessage = "Add service account email as site owner in Google Search Console.";
+          } else if (firstError.includes('SERVICE_DISABLED') || firstError.includes('has not been used')) {
+            errorMessage = "Google Indexing API is not enabled. Enable it in Google Cloud Console.";
+          }
+          
           toast({
             title: "Indexing Failed",
-            description: firstError.includes('SERVICE_DISABLED') 
-              ? "Google Indexing API is not enabled. Please enable it in Google Cloud Console."
-              : `Failed to submit URL: ${firstError.substring(0, 100)}`,
+            description: errorMessage,
             variant: "destructive",
           });
         }
@@ -99,11 +105,15 @@ export const useGoogleIndexing = () => {
           });
         } else if (data.failed > 0) {
           const firstError = data.results?.find((r: any) => !r.success)?.error || 'Unknown error';
+          let errorMessage = `Failed: ${firstError.substring(0, 80)}`;
+          if (firstError.includes('verify the URL owner')) {
+            errorMessage = "Add service account as site owner in Search Console.";
+          } else if (firstError.includes('SERVICE_DISABLED')) {
+            errorMessage = "Google Indexing API is not enabled.";
+          }
           toast({
             title: "Indexing Failed",
-            description: firstError.includes('SERVICE_DISABLED') 
-              ? "Google Indexing API is not enabled."
-              : `Failed: ${firstError.substring(0, 80)}`,
+            description: errorMessage,
             variant: "destructive",
           });
         }
@@ -138,11 +148,15 @@ export const useGoogleIndexing = () => {
           });
         } else if (data.failed > 0) {
           const firstError = data.results?.find((r: any) => !r.success)?.error || 'Unknown error';
+          let errorMessage = `Failed: ${firstError.substring(0, 80)}`;
+          if (firstError.includes('verify the URL owner')) {
+            errorMessage = "Add service account as site owner in Search Console.";
+          } else if (firstError.includes('SERVICE_DISABLED')) {
+            errorMessage = "Google Indexing API is not enabled.";
+          }
           toast({
             title: "Indexing Failed",
-            description: firstError.includes('SERVICE_DISABLED') 
-              ? "Google Indexing API is not enabled."
-              : `Failed: ${firstError.substring(0, 80)}`,
+            description: errorMessage,
             variant: "destructive",
           });
         }
