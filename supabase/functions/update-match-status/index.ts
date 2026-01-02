@@ -75,12 +75,6 @@ Deno.serve(async (req) => {
       console.log(`Found ${matchesToComplete.length} matches to auto-complete based on end time`);
       
       for (const match of matchesToComplete) {
-        // Skip Test matches - they should be completed manually
-        if (match.match_format === 'test') {
-          console.log(`Skipping Test match ${match.id} - Test matches are completed manually`);
-          continue;
-        }
-
         const { error: updateError } = await supabase
           .from('matches')
           .update({ status: 'completed' })
@@ -89,7 +83,7 @@ Deno.serve(async (req) => {
         if (updateError) {
           console.error(`Error completing match ${match.id}:`, updateError);
         } else {
-          console.log(`Match ${match.id} auto-completed (past end time)`);
+          console.log(`Match ${match.id} auto-completed (past end time)${match.match_format === 'test' ? ' - Test match' : ''}`);
           updatedCount++;
         }
       }
