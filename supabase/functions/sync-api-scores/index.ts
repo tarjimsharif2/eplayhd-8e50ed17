@@ -119,6 +119,10 @@ Deno.serve(async (req) => {
     const now = new Date();
     const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
     
+    // Include recently completed matches (within last 30 minutes) to ensure final scores are synced
+    // This prevents the issue where second innings data stops syncing when match completes
+    const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
+    
     const { data: matches, error: matchesError } = await supabase
       .from('matches')
       .select(`
@@ -129,11 +133,11 @@ Deno.serve(async (req) => {
         match_start_time,
         api_score_enabled,
         last_api_sync,
+        updated_at,
         team_a:teams!matches_team_a_id_fkey(name, short_name),
         team_b:teams!matches_team_b_id_fkey(name, short_name)
       `)
       .eq('api_score_enabled', true)
-      .neq('status', 'completed')
       .order('match_date', { ascending: true });
 
     if (matchesError) {
@@ -154,6 +158,17 @@ Deno.serve(async (req) => {
 
     // Filter matches that should be synced
     const matchesToSync = matches.filter(match => {
+      // Skip matches that are completed for more than 30 minutes
+      if (match.status === 'completed') {
+        const updatedAt = new Date(match.updated_at || match.last_api_sync || 0);
+        if (updatedAt < thirtyMinutesAgo) {
+          console.log(`[sync-api-scores] Skipping completed match ${match.id} - completed more than 30 mins ago`);
+          return false;
+        }
+        // For recently completed matches, do one final sync if not synced after completion
+        console.log(`[sync-api-scores] Recently completed match ${match.id} - checking for final sync`);
+      }
+      
       if (match.last_api_sync) {
         const lastSyncTime = new Date(match.last_api_sync).getTime();
         const timeSinceLastSync = now.getTime() - lastSyncTime;
@@ -164,6 +179,12 @@ Deno.serve(async (req) => {
       }
       
       if (match.status === 'live') return true;
+      
+      // Include recently completed matches for final sync
+      if (match.status === 'completed') {
+        const updatedAt = new Date(match.updated_at || match.last_api_sync || 0);
+        return updatedAt >= thirtyMinutesAgo;
+      }
       
       if (match.status === 'upcoming') {
         let matchDateTime: Date | null = null;
