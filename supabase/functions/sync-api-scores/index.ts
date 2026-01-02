@@ -826,9 +826,22 @@ Deno.serve(async (req) => {
       const teamAScores: string[] = [];
       const teamBScores: string[] = [];
       
-      for (const stats of inningsStats) {
+      // Sort innings stats by innings name to process in order (1st, 2nd, etc.)
+      const sortedInningsStats = [...inningsStats].sort((a, b) => {
+        const orderA = parseInt(a.inningsName.match(/(\d+)\s*INN/i)?.[1] || '1');
+        const orderB = parseInt(b.inningsName.match(/(\d+)\s*INN/i)?.[1] || '1');
+        return orderA - orderB;
+      });
+      
+      for (const stats of sortedInningsStats) {
+        // Match innings team to our match teams
+        const isTeamA = teamsMatch(stats.teamName, teamAName) || teamsMatch(stats.teamName, teamAShort);
+        const isTeamB = teamsMatch(stats.teamName, teamBName) || teamsMatch(stats.teamName, teamBShort);
+        
+        console.log(`[sync-api-scores] Checking innings "${stats.teamName}" against teamA="${teamAName}" (match=${isTeamA}) and teamB="${teamBName}" (match=${isTeamB})`);
+        
         // Check if this innings belongs to teamA
-        if (teamsMatch(stats.teamName, teamAName) || teamsMatch(stats.teamName, teamAShort)) {
+        if (isTeamA && !isTeamB) {
           teamAScores.push(stats.scoreWithOvers);
           // Use latest/last innings with actual data
           if (stats.totalRuns > 0 || stats.wickets > 0) {
@@ -838,7 +851,7 @@ Deno.serve(async (req) => {
           }
         }
         // Check if this innings belongs to teamB
-        else if (teamsMatch(stats.teamName, teamBName) || teamsMatch(stats.teamName, teamBShort)) {
+        else if (isTeamB && !isTeamA) {
           teamBScores.push(stats.scoreWithOvers);
           // Use latest/last innings with actual data
           if (stats.totalRuns > 0 || stats.wickets > 0) {
@@ -846,18 +859,25 @@ Deno.serve(async (req) => {
             oversB = stats.overs;
             console.log(`[sync-api-scores] Matched innings "${stats.teamName}" -> teamB "${teamBName}": ${scoreB}`);
           }
-        } else {
+        } 
+        // If both match (unlikely but handle gracefully)
+        else if (isTeamA && isTeamB) {
+          console.log(`[sync-api-scores] Ambiguous: innings "${stats.teamName}" matches BOTH teamA and teamB, skipping to avoid duplication`);
+        }
+        else {
           console.log(`[sync-api-scores] Could not match innings team "${stats.teamName}" to either "${teamAName}" or "${teamBName}"`);
         }
       }
 
-      // For Test matches or multi-innings, concatenate all scores
+      // For Test matches or multi-innings, concatenate all scores ONLY for the same team
       if (teamAScores.length > 1) {
         scoreA = teamAScores.join(' & ');
       }
       if (teamBScores.length > 1) {
         scoreB = teamBScores.join(' & ');
       }
+      
+      console.log(`[sync-api-scores] Final processed: teamA(${teamAName}) scores=${teamAScores.length}, teamB(${teamBName}) scores=${teamBScores.length}`);
 
       // Also store home/away for the API scores table (for compatibility)
       // But we derive these FROM the scorecard teams, not API's home/away
