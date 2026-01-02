@@ -60,7 +60,43 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
-    // 2. Auto-increment Test day when day_start_time is reached
+    // 2. Auto-complete matches based on match_end_time
+    // ============================================
+    const { data: matchesToComplete, error: completeFetchError } = await supabase
+      .from('matches')
+      .select('id, match_end_time, match_format, status')
+      .eq('status', 'live')
+      .not('match_end_time', 'is', null)
+      .lte('match_end_time', now.toISOString());
+
+    if (completeFetchError) {
+      console.error('Error fetching matches to complete:', completeFetchError);
+    } else if (matchesToComplete && matchesToComplete.length > 0) {
+      console.log(`Found ${matchesToComplete.length} matches to auto-complete based on end time`);
+      
+      for (const match of matchesToComplete) {
+        // Skip Test matches - they should be completed manually
+        if (match.match_format === 'test') {
+          console.log(`Skipping Test match ${match.id} - Test matches are completed manually`);
+          continue;
+        }
+
+        const { error: updateError } = await supabase
+          .from('matches')
+          .update({ status: 'completed' })
+          .eq('id', match.id);
+
+        if (updateError) {
+          console.error(`Error completing match ${match.id}:`, updateError);
+        } else {
+          console.log(`Match ${match.id} auto-completed (past end time)`);
+          updatedCount++;
+        }
+      }
+    }
+
+    // ============================================
+    // 3. Auto-increment Test day when day_start_time is reached
     // For live Test matches, check if we're past the next day's start time
     // ============================================
     const { data: testMatchesForDayUpdate, error: testDayFetchError } = await supabase
@@ -104,7 +140,7 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
-    // 3. Auto-set STUMPS at stumps_time for live Test matches
+    // 4. Auto-set STUMPS at stumps_time for live Test matches
     // ============================================
     const { data: testMatchesForStumps, error: stumpsFetchError } = await supabase
       .from('matches')
@@ -142,7 +178,7 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
-    // 4. Resume from STUMPS (legacy check - for matches where next_day_start passed)
+    // 5. Resume from STUMPS (legacy check - for matches where next_day_start passed)
     // ============================================
     const { data: matchesToResume, error: fetchError } = await supabase
       .from('matches')
