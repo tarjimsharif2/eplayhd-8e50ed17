@@ -60,31 +60,54 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
-    // 2. Auto-complete matches based on match_end_time
+    // 2. Auto-complete matches based on match_end_time or calculated duration
     // ============================================
-    const { data: matchesToComplete, error: completeFetchError } = await supabase
+    const { data: liveMatches, error: liveFetchError } = await supabase
       .from('matches')
-      .select('id, match_end_time, match_format, status')
-      .eq('status', 'live')
-      .not('match_end_time', 'is', null)
-      .lte('match_end_time', now.toISOString());
+      .select('id, match_end_time, match_start_time, match_duration_minutes, match_format, status')
+      .eq('status', 'live');
 
-    if (completeFetchError) {
-      console.error('Error fetching matches to complete:', completeFetchError);
-    } else if (matchesToComplete && matchesToComplete.length > 0) {
-      console.log(`Found ${matchesToComplete.length} matches to auto-complete based on end time`);
+    if (liveFetchError) {
+      console.error('Error fetching live matches:', liveFetchError);
+    } else if (liveMatches && liveMatches.length > 0) {
+      console.log(`Checking ${liveMatches.length} live matches for auto-complete...`);
       
-      for (const match of matchesToComplete) {
-        const { error: updateError } = await supabase
-          .from('matches')
-          .update({ status: 'completed' })
-          .eq('id', match.id);
+      for (const match of liveMatches) {
+        let shouldComplete = false;
+        let completionReason = '';
 
-        if (updateError) {
-          console.error(`Error completing match ${match.id}:`, updateError);
-        } else {
-          console.log(`Match ${match.id} auto-completed (past end time)${match.match_format === 'test' ? ' - Test match' : ''}`);
-          updatedCount++;
+        // Check if match_end_time is set and passed
+        if (match.match_end_time) {
+          const endTime = new Date(match.match_end_time);
+          if (now >= endTime) {
+            shouldComplete = true;
+            completionReason = 'past end time';
+          }
+        } 
+        // Fallback: calculate end time from start time + duration
+        else if (match.match_start_time && match.match_duration_minutes) {
+          const startTime = new Date(match.match_start_time);
+          const durationMs = match.match_duration_minutes * 60 * 1000;
+          const calculatedEndTime = new Date(startTime.getTime() + durationMs);
+          
+          if (now >= calculatedEndTime) {
+            shouldComplete = true;
+            completionReason = `past calculated duration (${match.match_duration_minutes} mins)`;
+          }
+        }
+
+        if (shouldComplete) {
+          const { error: updateError } = await supabase
+            .from('matches')
+            .update({ status: 'completed' })
+            .eq('id', match.id);
+
+          if (updateError) {
+            console.error(`Error completing match ${match.id}:`, updateError);
+          } else {
+            console.log(`Match ${match.id} auto-completed - ${completionReason}${match.match_format === 'test' ? ' (Test match)' : ''}`);
+            updatedCount++;
+          }
         }
       }
     }
