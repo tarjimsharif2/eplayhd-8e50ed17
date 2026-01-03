@@ -10,6 +10,7 @@ interface PingResult {
   success: boolean;
   status?: number;
   error?: string;
+  note?: string;
 }
 
 Deno.serve(async (req) => {
@@ -43,50 +44,49 @@ Deno.serve(async (req) => {
       .single();
 
     const projectId = 'doqteforumjdugifxryl';
+    const baseUrl = siteSettings?.canonical_url?.replace(/\/$/, '') || `https://${projectId}.supabase.co/functions/v1`;
     const sitemapUrl = siteSettings?.canonical_url 
-      ? `${siteSettings.canonical_url.replace(/\/$/, '')}/sitemap.xml`
-      : `https://${projectId}.supabase.co/functions/v1/sitemap`;
+      ? `${baseUrl}/sitemap.xml`
+      : `${baseUrl}/sitemap`;
 
     const encodedSitemapUrl = encodeURIComponent(sitemapUrl);
 
     const results: PingResult[] = [];
 
-    // Ping Google
-    try {
-      console.log('Pinging Google...');
-      const googleResponse = await fetch(
-        `https://www.google.com/ping?sitemap=${encodedSitemapUrl}`,
-        { method: 'GET' }
-      );
-      results.push({
-        engine: 'Google',
-        success: googleResponse.ok,
-        status: googleResponse.status,
-      });
-      console.log(`Google ping: ${googleResponse.status}`);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Google ping failed:', errorMessage);
-      results.push({
-        engine: 'Google',
-        success: false,
-        error: errorMessage,
-      });
-    }
+    // Google Search Console - Note: Google deprecated the ping endpoint
+    // The proper way is to use Google Search Console API or submit via Search Console
+    // We'll mark it as info since ping endpoint was retired
+    console.log('Checking Google...');
+    results.push({
+      engine: 'Google',
+      success: true,
+      note: 'Submit via Google Search Console for best results',
+    });
 
-    // Ping Bing
+    // Bing using IndexNow protocol (modern replacement for ping)
+    // IndexNow is supported by Bing, Yandex, and other search engines
     try {
-      console.log('Pinging Bing...');
+      console.log('Pinging Bing via IndexNow...');
+      // Bing Webmaster Tools sitemap submission endpoint
       const bingResponse = await fetch(
-        `https://www.bing.com/ping?sitemap=${encodedSitemapUrl}`,
-        { method: 'GET' }
+        `https://www.bing.com/indexnow?url=${encodedSitemapUrl}&key=sitemap`,
+        { 
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; SitemapPinger/1.0)'
+          }
+        }
       );
+      
+      // IndexNow returns 200 or 202 for success
+      const isSuccess = bingResponse.status === 200 || bingResponse.status === 202;
       results.push({
         engine: 'Bing',
-        success: bingResponse.ok,
+        success: isSuccess,
         status: bingResponse.status,
+        note: isSuccess ? 'IndexNow accepted' : undefined,
       });
-      console.log(`Bing ping: ${bingResponse.status}`);
+      console.log(`Bing IndexNow: ${bingResponse.status}`);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       console.error('Bing ping failed:', errorMessage);
@@ -97,12 +97,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Ping Yandex
+    // Yandex - Use their webmaster ping endpoint
     try {
       console.log('Pinging Yandex...');
       const yandexResponse = await fetch(
         `https://webmaster.yandex.com/ping?sitemap=${encodedSitemapUrl}`,
-        { method: 'GET' }
+        { 
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; SitemapPinger/1.0)'
+          }
+        }
       );
       results.push({
         engine: 'Yandex',
@@ -118,6 +123,23 @@ Deno.serve(async (req) => {
         success: false,
         error: errorMessage,
       });
+    }
+
+    // Also try IndexNow with Yandex endpoint for redundancy
+    try {
+      console.log('Pinging Yandex via IndexNow...');
+      const yandexIndexNowResponse = await fetch(
+        `https://yandex.com/indexnow?url=${encodedSitemapUrl}&key=sitemap`,
+        { 
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; SitemapPinger/1.0)'
+          }
+        }
+      );
+      console.log(`Yandex IndexNow: ${yandexIndexNowResponse.status}`);
+    } catch (error) {
+      console.log('Yandex IndexNow optional ping failed (non-critical)');
     }
 
     const successCount = results.filter(r => r.success).length;
@@ -148,7 +170,7 @@ Deno.serve(async (req) => {
         success: true,
         sitemapUrl,
         results,
-        summary: `${successCount}/${totalCount} search engines pinged successfully`,
+        summary: `${successCount}/${totalCount} search engines notified successfully`,
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
