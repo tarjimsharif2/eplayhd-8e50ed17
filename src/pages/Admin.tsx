@@ -242,6 +242,8 @@ const Admin = () => {
   
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
   const [syncingMatchId, setSyncingMatchId] = useState<string | null>(null);
+  const [slugConflict, setSlugConflict] = useState<{ matchId: string; teamA: string; teamB: string; matchDate: string } | null>(null);
+  const [isCheckingSlug, setIsCheckingSlug] = useState(false);
 
   // ALL useEffect hooks must be called before any conditional returns
   useEffect(() => {
@@ -278,6 +280,46 @@ const Admin = () => {
       });
     }
   }, [siteSettings]);
+
+  // Check for slug conflicts when slug changes
+  useEffect(() => {
+    const checkSlugConflict = async () => {
+      if (!matchForm.slug || matchForm.slug.length < 3 || matchForm.page_type !== 'page') {
+        setSlugConflict(null);
+        return;
+      }
+
+      setIsCheckingSlug(true);
+      try {
+        const currentMatchId = editingMatch?.id || '00000000-0000-0000-0000-000000000000';
+        const { data: existingMatches } = await supabase
+          .from('matches')
+          .select('id, match_date, team_a:teams!matches_team_a_id_fkey(name), team_b:teams!matches_team_b_id_fkey(name)')
+          .eq('slug', matchForm.slug)
+          .neq('id', currentMatchId)
+          .limit(1);
+
+        if (existingMatches && existingMatches.length > 0) {
+          const match = existingMatches[0];
+          setSlugConflict({
+            matchId: match.id,
+            teamA: (match.team_a as any)?.name || 'Unknown',
+            teamB: (match.team_b as any)?.name || 'Unknown',
+            matchDate: match.match_date,
+          });
+        } else {
+          setSlugConflict(null);
+        }
+      } catch (error) {
+        console.error('Error checking slug:', error);
+      } finally {
+        setIsCheckingSlug(false);
+      }
+    };
+
+    const debounce = setTimeout(checkSlugConflict, 300);
+    return () => clearTimeout(debounce);
+  }, [matchForm.slug, matchForm.page_type, editingMatch?.id]);
 
   useEffect(() => {
     if (!loading && !user) {
@@ -1526,6 +1568,7 @@ const Admin = () => {
                             <Label className="flex items-center gap-2">
                               <Globe className="w-4 h-4" />
                               Custom URL Slug (optional)
+                              {isCheckingSlug && <Loader2 className="w-3 h-3 animate-spin text-muted-foreground" />}
                             </Label>
                             <Input 
                               placeholder="e.g., team-a-vs-team-b-live" 
@@ -1537,8 +1580,21 @@ const Admin = () => {
                                   .replace(/[^a-z0-9-]/g, '');
                                 setMatchForm({ ...matchForm, slug: sanitized });
                               }} 
+                              className={slugConflict ? 'border-amber-500 focus-visible:ring-amber-500' : ''}
                             />
-                            <p className="text-xs text-muted-foreground">Leave empty to auto-generate from team names. Must be unique.</p>
+                            {slugConflict ? (
+                              <div className="p-2 rounded-md bg-amber-500/10 border border-amber-500/30">
+                                <p className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2">
+                                  <ShieldAlert className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                                  <span>
+                                    <strong>Slug in use:</strong> Currently assigned to <strong>{slugConflict.teamA} vs {slugConflict.teamB}</strong> ({slugConflict.matchDate}). 
+                                    Saving will transfer this URL to the new match.
+                                  </span>
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">Leave empty to auto-generate from team names. Same slug can be reused for recurring matches.</p>
+                            )}
                           </div>
                           <div className="space-y-2">
                             <Label>SEO Title (optional)</Label>
