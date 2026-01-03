@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -332,6 +333,32 @@ export const useDeleteTournament = () => {
 
 // Matches hooks
 export const useMatches = () => {
+  const queryClient = useQueryClient();
+  
+  // Set up real-time subscription for matches
+  useEffect(() => {
+    const channel = supabase
+      .channel('matches-realtime')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'matches',
+        },
+        (payload) => {
+          console.log('Match realtime update:', payload);
+          // Invalidate and refetch matches when any change occurs
+          queryClient.invalidateQueries({ queryKey: ['matches'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+  
   return useQuery({
     queryKey: ['matches'],
     queryFn: async () => {
