@@ -1,5 +1,4 @@
-import { useMemo } from 'react';
-import DOMPurify from 'dompurify';
+import { useEffect, useRef, useMemo } from 'react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 
 interface AdSlotProps {
@@ -9,12 +8,13 @@ interface AdSlotProps {
 
 const AdSlot = ({ position, className = '' }: AdSlotProps) => {
   const { data: settings } = useSiteSettings();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const hasExecuted = useRef(false);
 
-  // Sanitize ad code to prevent XSS attacks
-  const sanitizedAdCode = useMemo(() => {
+  const adCode = useMemo(() => {
     if (!settings?.ads_enabled) return null;
 
-    const adCodeMap: Record<string, string | null> = {
+    const adCodeMap: Record<string, string | null | undefined> = {
       header: settings.header_ad_code,
       sidebar: settings.sidebar_ad_code,
       footer: settings.footer_ad_code,
@@ -22,42 +22,78 @@ const AdSlot = ({ position, className = '' }: AdSlotProps) => {
       popup: settings.popup_ad_code,
     };
 
-    const adCode = adCodeMap[position];
-    if (!adCode) return null;
-
-    // Configure DOMPurify to allow ad-related elements and attributes
-    // This allows common ad network scripts while still preventing malicious code
-    return DOMPurify.sanitize(adCode, {
-      ADD_TAGS: ['iframe', 'script', 'ins'],
-      ADD_ATTR: [
-        'data-ad-client',
-        'data-ad-slot',
-        'data-ad-format',
-        'data-full-width-responsive',
-        'async',
-        'crossorigin',
-        'src',
-        'style',
-        'class',
-        'id',
-        'width',
-        'height',
-        'frameborder',
-        'scrolling',
-        'allowfullscreen',
-        'allow',
-        'loading',
-      ],
-      ALLOW_UNKNOWN_PROTOCOLS: false,
-    });
+    return adCodeMap[position] || null;
   }, [settings, position]);
 
-  if (!sanitizedAdCode) return null;
+  useEffect(() => {
+    if (!adCode || !containerRef.current || hasExecuted.current) return;
+
+    const container = containerRef.current;
+    
+    // Clear existing content
+    container.innerHTML = '';
+    
+    // Create a temporary container to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = adCode;
+
+    // Extract scripts and non-script content separately
+    const scripts: HTMLScriptElement[] = [];
+    const nonScriptNodes: Node[] = [];
+
+    tempDiv.childNodes.forEach((node) => {
+      if (node.nodeName === 'SCRIPT') {
+        scripts.push(node as HTMLScriptElement);
+      } else {
+        nonScriptNodes.push(node.cloneNode(true));
+      }
+    });
+
+    // Add non-script content first
+    nonScriptNodes.forEach((node) => {
+      container.appendChild(node);
+    });
+
+    // Execute scripts properly
+    scripts.forEach((oldScript) => {
+      const newScript = document.createElement('script');
+      
+      // Copy all attributes
+      Array.from(oldScript.attributes).forEach((attr) => {
+        newScript.setAttribute(attr.name, attr.value);
+      });
+
+      // If it's an external script, just set src
+      if (oldScript.src) {
+        newScript.src = oldScript.src;
+      } else {
+        // For inline scripts, copy the content
+        newScript.textContent = oldScript.textContent;
+      }
+
+      // Append to container (this will execute the script)
+      container.appendChild(newScript);
+    });
+
+    hasExecuted.current = true;
+
+    // Cleanup on unmount
+    return () => {
+      hasExecuted.current = false;
+    };
+  }, [adCode]);
+
+  // Reset execution flag when position changes
+  useEffect(() => {
+    hasExecuted.current = false;
+  }, [position]);
+
+  if (!adCode) return null;
 
   return (
     <div 
+      ref={containerRef}
       className={`ad-slot ad-slot-${position} ${className}`}
-      dangerouslySetInnerHTML={{ __html: sanitizedAdCode }}
     />
   );
 };
