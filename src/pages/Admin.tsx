@@ -24,7 +24,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe, CloudDownload, Radio } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe, CloudDownload, Radio, Map } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
@@ -46,6 +46,7 @@ import DynamicPagesManager from "@/components/DynamicPagesManager";
 import AdsSettingsManager from "@/components/AdsSettingsManager";
 import AutoScoreSyncManager from "@/components/AutoScoreSyncManager";
 import { useStreamingServerCounts } from "@/hooks/useStreamingServerCounts";
+import SitemapManager from "@/components/SitemapManager";
 
 
 const Admin = () => {
@@ -1128,6 +1129,9 @@ const Admin = () => {
                 </TabsTrigger>
                 <TabsTrigger value="live-api" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                   Live Score API
+                </TabsTrigger>
+                <TabsTrigger value="sitemap" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Sitemap
                 </TabsTrigger>
                 <TabsTrigger value="settings" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                   Settings
@@ -2861,6 +2865,10 @@ const Admin = () => {
                   }}
                 />
               )}
+            </TabsContent>
+
+            <TabsContent value="sitemap" className="space-y-6">
+              <SitemapManager />
             </TabsContent>
 
             <TabsContent value="settings" className="space-y-6">
