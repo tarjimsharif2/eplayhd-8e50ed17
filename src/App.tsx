@@ -13,6 +13,7 @@ import MatchPage from "./pages/MatchPage";
 import TournamentPage from "./pages/TournamentPage";
 import DynamicPage from "./pages/DynamicPage";
 import AdsTxt from "./pages/AdsTxt";
+import Sitemap from "./pages/Sitemap";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -35,6 +36,8 @@ const App = () => (
               <Route path="/page/:slug" element={<DynamicPage />} />
               {/* Handle both /ads.txt and /ads.txt/ */}
               <Route path="/ads.txt/*" element={<AdsTxt />} />
+              {/* Handle /sitemap.xml */}
+              <Route path="/sitemap.xml" element={<Sitemap />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
