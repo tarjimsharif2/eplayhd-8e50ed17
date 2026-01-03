@@ -390,6 +390,31 @@ const Admin = () => {
           .replace(/(^-|-$)/g, '');
       };
 
+      const finalSlug = matchForm.page_type === 'page' 
+        ? (matchForm.slug || editingMatch?.slug || generateSlug(teamAName, teamBName)) 
+        : null;
+
+      // If assigning a slug, clear it from any other match that has it
+      // This allows reusing the same URL for different matches (e.g., recurring events)
+      if (finalSlug) {
+        const currentMatchId = editingMatch?.id;
+        const { data: existingMatches } = await supabase
+          .from('matches')
+          .select('id')
+          .eq('slug', finalSlug)
+          .neq('id', currentMatchId || '00000000-0000-0000-0000-000000000000');
+        
+        if (existingMatches && existingMatches.length > 0) {
+          // Clear slug from existing matches that have it
+          await supabase
+            .from('matches')
+            .update({ slug: null, page_type: 'redirect' })
+            .in('id', existingMatches.map(m => m.id));
+          
+          console.log(`Cleared slug "${finalSlug}" from ${existingMatches.length} existing match(es)`);
+        }
+      }
+
       const matchData = {
         tournament_id: matchForm.tournament_id || null,
         team_a_id: matchForm.team_a_id,
@@ -410,7 +435,7 @@ const Admin = () => {
         match_label: matchForm.match_label || null,
         sport_id: matchForm.sport_id || null,
         page_type: matchForm.page_type,
-        slug: matchForm.page_type === 'page' ? (matchForm.slug || editingMatch?.slug || generateSlug(teamAName, teamBName)) : null,
+        slug: finalSlug,
         seo_title: matchForm.seo_title || null,
         seo_description: matchForm.seo_description || null,
         seo_keywords: matchForm.seo_keywords || null,
