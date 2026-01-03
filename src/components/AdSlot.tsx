@@ -1,15 +1,17 @@
-import { useEffect, useRef, useMemo } from 'react';
+import { useEffect, useRef, useMemo, forwardRef } from 'react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { trackAdImpression } from '@/hooks/useGoogleAnalytics';
 
 interface AdSlotProps {
   position: 'header' | 'sidebar' | 'footer' | 'in_article' | 'popup';
   className?: string;
 }
 
-const AdSlot = ({ position, className = '' }: AdSlotProps) => {
+const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = '' }, ref) => {
   const { data: settings } = useSiteSettings();
   const containerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
+  const hasTrackedImpression = useRef(false);
 
   const adCode = useMemo(() => {
     if (!settings?.ads_enabled) return null;
@@ -77,25 +79,38 @@ const AdSlot = ({ position, className = '' }: AdSlotProps) => {
 
     hasExecuted.current = true;
 
+    // Track ad impression
+    if (!hasTrackedImpression.current) {
+      trackAdImpression(position);
+      hasTrackedImpression.current = true;
+    }
+
     // Cleanup on unmount
     return () => {
       hasExecuted.current = false;
     };
-  }, [adCode]);
+  }, [adCode, position]);
 
   // Reset execution flag when position changes
   useEffect(() => {
     hasExecuted.current = false;
+    hasTrackedImpression.current = false;
   }, [position]);
 
   if (!adCode) return null;
 
   return (
     <div 
-      ref={containerRef}
+      ref={(node) => {
+        containerRef.current = node;
+        if (typeof ref === 'function') ref(node);
+        else if (ref) ref.current = node;
+      }}
       className={`ad-slot ad-slot-${position} ${className}`}
     />
   );
-};
+});
+
+AdSlot.displayName = 'AdSlot';
 
 export default AdSlot;

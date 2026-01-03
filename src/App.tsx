@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import CustomCodeInjector from "@/components/CustomCodeInjector";
+import GoogleAnalyticsProvider from "@/components/GoogleAnalyticsProvider";
 import Index from "./pages/Index";
 import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
@@ -27,19 +28,21 @@ const App = () => (
           <Sonner />
           <CustomCodeInjector />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/match/:slug" element={<MatchPage />} />
-              <Route path="/tournament/:slug" element={<TournamentPage />} />
-              <Route path="/page/:slug" element={<DynamicPage />} />
-              {/* Handle both /ads.txt and /ads.txt/ */}
-              <Route path="/ads.txt/*" element={<AdsTxt />} />
-              {/* Handle /sitemap.xml */}
-              <Route path="/sitemap.xml" element={<Sitemap />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <GoogleAnalyticsProvider>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/admin" element={<Admin />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/match/:slug" element={<MatchPage />} />
+                <Route path="/tournament/:slug" element={<TournamentPage />} />
+                <Route path="/page/:slug" element={<DynamicPage />} />
+                {/* Handle both /ads.txt and /ads.txt/ */}
+                <Route path="/ads.txt/*" element={<AdsTxt />} />
+                {/* Handle /sitemap.xml */}
+                <Route path="/sitemap.xml" element={<Sitemap />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </GoogleAnalyticsProvider>
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
