@@ -448,6 +448,14 @@ const Admin = () => {
       // Submit to Google Indexing if page_type is 'page' (has its own URL)
       if (matchData.page_type === 'page' && matchId) {
         submitMatchForIndexing(matchId);
+        
+        // Auto-ping search engines for sitemap update
+        supabase.functions.invoke('sitemap-ping', {
+          body: { 
+            ping_type: 'auto_match', 
+            triggered_by: matchId 
+          }
+        }).catch(err => console.error('Auto-ping failed:', err));
       }
       
       setMatchDialogOpen(false);
@@ -836,6 +844,14 @@ const Admin = () => {
       // Submit to Google Indexing
       if (tournamentSlug) {
         submitTournamentForIndexing(tournamentSlug);
+        
+        // Auto-ping search engines for sitemap update
+        supabase.functions.invoke('sitemap-ping', {
+          body: { 
+            ping_type: 'auto_tournament', 
+            triggered_by: tournamentSlug 
+          }
+        }).catch(err => console.error('Auto-ping failed:', err));
       }
       
       setTournamentDialogOpen(false);

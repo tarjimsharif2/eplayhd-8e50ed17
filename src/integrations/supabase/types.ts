@@ -816,6 +816,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sitemap_ping_history: {
+        Row: {
+          created_at: string
+          id: string
+          ping_type: string
+          results: Json | null
+          sitemap_url: string
+          success_count: number | null
+          total_count: number | null
+          triggered_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ping_type?: string
+          results?: Json | null
+          sitemap_url: string
+          success_count?: number | null
+          total_count?: number | null
+          triggered_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ping_type?: string
+          results?: Json | null
+          sitemap_url?: string
+          success_count?: number | null
+          total_count?: number | null
+          triggered_by?: string | null
+        }
+        Relationships: []
+      }
       sports: {
         Row: {
           created_at: string

@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { RefreshCw, ExternalLink, Copy, Loader2, FileText, Globe, CheckCircle2, Bell, Send, Layers } from "lucide-react";
+import { RefreshCw, ExternalLink, Copy, Loader2, FileText, Globe, CheckCircle2, Bell, Send, Layers, History, Clock } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
 
 interface SitemapStats {
   totalUrls: number;
@@ -23,6 +25,17 @@ interface PingResult {
   error?: string;
 }
 
+interface PingHistoryItem {
+  id: string;
+  ping_type: string;
+  triggered_by: string | null;
+  sitemap_url: string;
+  results: PingResult[];
+  success_count: number;
+  total_count: number;
+  created_at: string;
+}
+
 const SitemapManager = () => {
   const { toast } = useToast();
   const [sitemapContent, setSitemapContent] = useState<string>('');
@@ -31,8 +44,9 @@ const SitemapManager = () => {
   const [stats, setStats] = useState<SitemapStats | null>(null);
   const [canonicalUrl, setCanonicalUrl] = useState<string>('');
   const [lastRefreshed, setLastRefreshed] = useState<Date | null>(null);
-  const [lastPinged, setLastPinged] = useState<Date | null>(null);
   const [pingResults, setPingResults] = useState<PingResult[] | null>(null);
+  const [pingHistory, setPingHistory] = useState<PingHistoryItem[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const projectId = 'doqteforumjdugifxryl';
   const sitemapUrl = `https://${projectId}.supabase.co/functions/v1/sitemap`;
@@ -51,7 +65,33 @@ const SitemapManager = () => {
       }
     };
     fetchCanonicalUrl();
+    fetchPingHistory();
   }, []);
+
+  const fetchPingHistory = async () => {
+    setIsLoadingHistory(true);
+    try {
+      const { data, error } = await supabase
+        .from('sitemap_ping_history')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+      
+      if (error) throw error;
+      // Transform the data to match our interface
+      const transformedData: PingHistoryItem[] = (data || []).map(item => ({
+        ...item,
+        results: (item.results as unknown as PingResult[]) || [],
+        success_count: item.success_count ?? 0,
+        total_count: item.total_count ?? 0,
+      }));
+      setPingHistory(transformedData);
+    } catch (error) {
+      console.error('Error fetching ping history:', error);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
 
   const fetchSitemap = async () => {
     setIsLoading(true);
@@ -99,11 +139,12 @@ const SitemapManager = () => {
     setIsPinging(true);
     setPingResults(null);
     try {
-      const { data, error } = await supabase.functions.invoke('sitemap-ping');
+      const { data, error } = await supabase.functions.invoke('sitemap-ping', {
+        body: { ping_type: 'manual', triggered_by: 'admin_panel' }
+      });
       
       if (error) throw error;
       
-      setLastPinged(new Date());
       setPingResults(data.results);
       
       const successCount = data.results?.filter((r: PingResult) => r.success).length || 0;
@@ -113,6 +154,9 @@ const SitemapManager = () => {
         title: "Search engines pinged",
         description: data.summary || `${successCount}/${totalCount} search engines notified`,
       });
+
+      // Refresh history after ping
+      fetchPingHistory();
     } catch (error) {
       console.error('Error pinging search engines:', error);
       toast({
@@ -164,6 +208,25 @@ const SitemapManager = () => {
     });
   };
 
+  const getPingTypeLabel = (type: string) => {
+    switch (type) {
+      case 'auto_match': return 'Match Save';
+      case 'auto_tournament': return 'Tournament Save';
+      case 'auto_page': return 'Page Save';
+      case 'manual': return 'Manual';
+      default: return type;
+    }
+  };
+
+  const getPingTypeBadgeVariant = (type: string): "default" | "secondary" | "outline" => {
+    switch (type) {
+      case 'auto_match': return 'default';
+      case 'auto_tournament': return 'secondary';
+      case 'auto_page': return 'outline';
+      default: return 'outline';
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Ping Search Engines Card */}
@@ -192,13 +255,6 @@ const SitemapManager = () => {
               )}
               Ping Search Engines
             </Button>
-            
-            {lastPinged && (
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <CheckCircle2 className="w-3 h-3 text-green-500" />
-                Last pinged: {lastPinged.toLocaleString()}
-              </div>
-            )}
           </div>
 
           {pingResults && (
@@ -217,9 +273,90 @@ const SitemapManager = () => {
 
           <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
             <p className="text-xs text-muted-foreground">
-              <strong>Tip:</strong> Ping search engines after adding new matches, tournaments, or pages to speed up indexing.
+              <strong>Auto-ping enabled:</strong> Search engines are automatically notified when you save matches or tournaments with page type enabled.
             </p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Ping History Card */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <History className="w-5 h-5 text-primary" />
+              Indexing Ping History
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={fetchPingHistory}
+              disabled={isLoadingHistory}
+            >
+              {isLoadingHistory ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <RefreshCw className="w-4 h-4" />
+              )}
+            </Button>
+          </CardTitle>
+          <CardDescription>
+            Track when search engines were notified about sitemap updates
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {pingHistory.length > 0 ? (
+            <ScrollArea className="h-64">
+              <div className="space-y-2">
+                {pingHistory.map((item) => (
+                  <div 
+                    key={item.id} 
+                    className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getPingTypeBadgeVariant(item.ping_type)} className="text-xs">
+                          {getPingTypeLabel(item.ping_type)}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {item.success_count}/{item.total_count} successful
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="w-3 h-3" />
+                        {format(new Date(item.created_at), 'MMM d, HH:mm')}
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {(item.results as PingResult[]).map((result) => (
+                        <span 
+                          key={result.engine}
+                          className={`text-xs px-1.5 py-0.5 rounded ${
+                            result.success 
+                              ? 'bg-green-500/10 text-green-600 dark:text-green-400' 
+                              : 'bg-red-500/10 text-red-600 dark:text-red-400'
+                          }`}
+                        >
+                          {result.engine} {result.success ? '✓' : '✗'}
+                        </span>
+                      ))}
+                    </div>
+                    {item.triggered_by && (
+                      <p className="text-xs text-muted-foreground mt-1 truncate">
+                        Triggered by: {item.triggered_by}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No ping history yet</p>
+              <p className="text-xs mt-1">Click "Ping Search Engines" to get started</p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -275,7 +412,7 @@ const SitemapManager = () => {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              Sitemap index splits URLs into separate files (matches, tournaments, pages) for better performance with 1000+ URLs
+              Sitemap index splits URLs into separate files for better performance with 1000+ URLs
             </p>
           </div>
 
@@ -291,9 +428,6 @@ const SitemapManager = () => {
                 <Copy className="w-4 h-4" />
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Submit this URL to Google Search Console, Bing Webmaster Tools, etc.
-            </p>
           </div>
 
           {!canonicalUrl && (
@@ -388,12 +522,6 @@ const SitemapManager = () => {
               </Button>
             </div>
           </div>
-          
-          <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
-            <p className="text-xs text-muted-foreground">
-              <strong>Tip:</strong> The sitemap URL in robots.txt helps search engine crawlers discover your sitemap automatically.
-            </p>
-          </div>
         </CardContent>
       </Card>
 
@@ -453,13 +581,11 @@ const SitemapManager = () => {
           )}
 
           {sitemapContent ? (
-            <div className="space-y-2">
-              <Textarea 
-                value={sitemapContent}
-                readOnly
-                className="font-mono text-xs h-64"
-              />
-            </div>
+            <Textarea 
+              value={sitemapContent}
+              readOnly
+              className="font-mono text-xs h-64"
+            />
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
@@ -476,49 +602,26 @@ const SitemapManager = () => {
             <Globe className="w-5 h-5 text-primary" />
             Search Console Setup Guide
           </CardTitle>
-          <CardDescription>
-            How to submit your sitemap to search engines
-          </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-3">
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">1</div>
+        <CardContent className="space-y-3">
+          {[
+            { title: 'Google Search Console', url: 'https://search.google.com/search-console', desc: 'Sitemaps → Add your sitemap URL' },
+            { title: 'Bing Webmaster Tools', url: 'https://www.bing.com/webmasters', desc: 'Sitemaps → Submit Sitemap' },
+            { title: 'Auto-ping on Save', desc: 'Matches & tournaments auto-ping when saved' },
+            { title: 'Automatic Discovery', desc: 'Search engines find sitemap via robots.txt' },
+          ].map((item, i) => (
+            <div key={i} className="flex items-start gap-3">
+              <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">{i + 1}</div>
               <div>
-                <p className="font-medium text-sm">Google Search Console</p>
+                <p className="font-medium text-sm">{item.title}</p>
                 <p className="text-xs text-muted-foreground">
-                  Go to <a href="https://search.google.com/search-console" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Search Console</a> → Sitemaps → Add your sitemap URL
+                  {item.url ? (
+                    <>Go to <a href={item.url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">{item.title}</a> → {item.desc}</>
+                  ) : item.desc}
                 </p>
               </div>
             </div>
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">2</div>
-              <div>
-                <p className="font-medium text-sm">Bing Webmaster Tools</p>
-                <p className="text-xs text-muted-foreground">
-                  Go to <a href="https://www.bing.com/webmasters" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Bing Webmaster</a> → Sitemaps → Submit Sitemap
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">3</div>
-              <div>
-                <p className="font-medium text-sm">Ping Search Engines</p>
-                <p className="text-xs text-muted-foreground">
-                  Use the "Ping Search Engines" button above to notify crawlers after publishing new content
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <div className="w-6 h-6 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-xs font-bold shrink-0">4</div>
-              <div>
-                <p className="font-medium text-sm">Automatic Discovery</p>
-                <p className="text-xs text-muted-foreground">
-                  Search engines will also find your sitemap via robots.txt reference
-                </p>
-              </div>
-            </div>
-          </div>
+          ))}
         </CardContent>
       </Card>
     </div>

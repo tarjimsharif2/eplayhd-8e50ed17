@@ -22,7 +22,19 @@ Deno.serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    console.log('Pinging search engines with sitemap update...');
+    // Parse request body for ping type and trigger info
+    let pingType = 'manual';
+    let triggeredBy: string | null = null;
+    
+    try {
+      const body = await req.json();
+      pingType = body.ping_type || 'manual';
+      triggeredBy = body.triggered_by || null;
+    } catch {
+      // No body or invalid JSON, use defaults
+    }
+
+    console.log(`Pinging search engines (type: ${pingType}, triggered_by: ${triggeredBy})...`);
 
     // Get site settings for canonical URL
     const { data: siteSettings } = await supabase
@@ -62,7 +74,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Ping Bing (IndexNow)
+    // Ping Bing
     try {
       console.log('Pinging Bing...');
       const bingResponse = await fetch(
@@ -109,14 +121,34 @@ Deno.serve(async (req) => {
     }
 
     const successCount = results.filter(r => r.success).length;
-    console.log(`Ping complete: ${successCount}/${results.length} successful`);
+    const totalCount = results.length;
+
+    // Log ping to history table
+    const { error: insertError } = await supabase
+      .from('sitemap_ping_history')
+      .insert({
+        ping_type: pingType,
+        triggered_by: triggeredBy,
+        sitemap_url: sitemapUrl,
+        results: results,
+        success_count: successCount,
+        total_count: totalCount,
+      });
+
+    if (insertError) {
+      console.error('Error logging ping history:', insertError);
+    } else {
+      console.log('Ping history logged successfully');
+    }
+
+    console.log(`Ping complete: ${successCount}/${totalCount} successful`);
 
     return new Response(
       JSON.stringify({
         success: true,
         sitemapUrl,
         results,
-        summary: `${successCount}/${results.length} search engines pinged successfully`,
+        summary: `${successCount}/${totalCount} search engines pinged successfully`,
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
