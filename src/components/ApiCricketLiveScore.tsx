@@ -223,33 +223,73 @@ const ApiCricketLiveScore = ({
     return score?.replace(/\s*\(\d+\.?\d*\s*ov\)/, '').trim() || '';
   };
 
-  // Get scores for display - prioritize API home/away scores over calculated innings
-  // This fixes the issue where teams with similar names (e.g., Melbourne Stars vs Melbourne Renegades)
-  // would both match the same innings data
+  // Get scores for display - ALWAYS use batsmen innings data to match teams correctly
+  // This ensures the score is shown for the correct team based on who is batting
+  // NOT based on home/away designation which can be swapped
   const getDisplayScores = () => {
-    // Always use home/away scores from API when available - they are correctly matched
+    // First try to get scores from calculated innings stats (based on batsmen data)
+    // This is the most accurate as it uses actual player team data
+    if (inningsStats.length > 0) {
+      const teamAScore = getTeamScoreFromInnings(teamAName);
+      const teamBScore = getTeamScoreFromInnings(teamBName);
+      
+      // If we got valid scores from innings, use them
+      if (teamAScore.score || teamBScore.score) {
+        return {
+          teamA: teamAScore,
+          teamB: teamBScore,
+        };
+      }
+    }
+    
+    // Fallback: Match API home/away with actual team names (not position)
+    // Check if homeTeam matches teamA or teamB and assign accordingly
     if (scoreData?.homeScore || scoreData?.awayScore) {
-      const homeOvers = parseScoreOvers(scoreData.homeScore || '') || scoreData.homeOvers;
-      const awayOvers = parseScoreOvers(scoreData.awayScore || '') || scoreData.awayOvers;
+      const homeMatchesTeamA = teamsMatch(scoreData?.homeTeam || '', teamAName);
+      const homeMatchesTeamB = teamsMatch(scoreData?.homeTeam || '', teamBName);
+      const awayMatchesTeamA = teamsMatch(scoreData?.awayTeam || '', teamAName);
+      const awayMatchesTeamB = teamsMatch(scoreData?.awayTeam || '', teamBName);
+      
+      let teamAScoreStr = '-';
+      let teamAOvers: string | null = null;
+      let teamBScoreStr = '-';
+      let teamBOvers: string | null = null;
+      
+      // Assign scores based on team name matching, not position
+      if (homeMatchesTeamA && scoreData?.homeScore) {
+        teamAScoreStr = cleanScore(scoreData.homeScore);
+        teamAOvers = parseScoreOvers(scoreData.homeScore) || scoreData.homeOvers || null;
+      } else if (awayMatchesTeamA && scoreData?.awayScore) {
+        teamAScoreStr = cleanScore(scoreData.awayScore);
+        teamAOvers = parseScoreOvers(scoreData.awayScore) || scoreData.awayOvers || null;
+      }
+      
+      if (homeMatchesTeamB && scoreData?.homeScore) {
+        teamBScoreStr = cleanScore(scoreData.homeScore);
+        teamBOvers = parseScoreOvers(scoreData.homeScore) || scoreData.homeOvers || null;
+      } else if (awayMatchesTeamB && scoreData?.awayScore) {
+        teamBScoreStr = cleanScore(scoreData.awayScore);
+        teamBOvers = parseScoreOvers(scoreData.awayScore) || scoreData.awayOvers || null;
+      }
       
       return {
         teamA: {
-          score: cleanScore(scoreData.homeScore || '-'),
-          overs: homeOvers,
-          allScores: scoreData.homeScore ? [scoreData.homeScore] : [],
+          score: teamAScoreStr,
+          overs: teamAOvers,
+          allScores: teamAScoreStr !== '-' ? [teamAScoreStr + (teamAOvers ? ` (${teamAOvers} ov)` : '')] : [],
         },
         teamB: {
-          score: cleanScore(scoreData.awayScore || '-'),
-          overs: awayOvers,
-          allScores: scoreData.awayScore ? [scoreData.awayScore] : [],
+          score: teamBScoreStr,
+          overs: teamBOvers,
+          allScores: teamBScoreStr !== '-' ? [teamBScoreStr + (teamBOvers ? ` (${teamBOvers} ov)` : '')] : [],
         },
       };
     }
     
-    // Fallback to calculated innings (for cases where home/away not set)
+    // No scores available
     return {
-      teamA: getTeamScoreFromInnings(teamAName),
-      teamB: getTeamScoreFromInnings(teamBName),
+      teamA: { score: null, overs: null, allScores: [] },
+      teamB: { score: null, overs: null, allScores: [] },
     };
   };
 
