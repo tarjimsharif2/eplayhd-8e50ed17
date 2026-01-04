@@ -17,7 +17,17 @@ import AdsTxt from "./pages/AdsTxt";
 import Sitemap from "./pages/Sitemap";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 0, // Data is immediately stale, forcing fresh fetch
+      gcTime: 1000 * 60 * 5, // Cache for 5 minutes
+      refetchOnWindowFocus: true, // Refetch when window regains focus
+      refetchOnMount: true, // Always refetch on component mount
+      refetchOnReconnect: true, // Refetch when network reconnects
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
