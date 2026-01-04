@@ -64,7 +64,7 @@ export const useRealtimeLiveMatches = () => {
 
   useEffect(() => {
     // Subscribe to all match updates for live matches
-    const channel = supabase
+    const matchChannel = supabase
       .channel('live-matches')
       .on(
         'postgres_changes',
@@ -75,14 +75,35 @@ export const useRealtimeLiveMatches = () => {
         },
         (payload) => {
           console.log('Live match update received:', payload);
-          // Invalidate matches query to refetch latest data
+          // Immediately invalidate and refetch matches query
           queryClient.invalidateQueries({ queryKey: ['matches'] });
+          queryClient.refetchQueries({ queryKey: ['matches'] });
+        }
+      )
+      .subscribe();
+
+    // Also subscribe to match_api_scores updates (scores sync from API)
+    const apiScoresChannel = supabase
+      .channel('live-api-scores')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'match_api_scores',
+        },
+        (payload) => {
+          console.log('API scores update received:', payload);
+          // Immediately invalidate and refetch matches query
+          queryClient.invalidateQueries({ queryKey: ['matches'] });
+          queryClient.refetchQueries({ queryKey: ['matches'] });
         }
       )
       .subscribe();
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(matchChannel);
+      supabase.removeChannel(apiScoresChannel);
     };
   }, [queryClient]);
 };
