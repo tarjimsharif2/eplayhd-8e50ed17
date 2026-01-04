@@ -269,17 +269,15 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
 
         <div className="p-4">
           {/* Cricket Format & Test Day Badges */}
-          {isCricket && (cricketFormat || match.test_day) && (
+          {isCricket && cricketFormat && (
             <div className="flex items-center justify-center gap-2 mb-2">
-              {cricketFormat && (
-                <Badge className={`${cricketFormat.color} text-white border-0 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg`}>
-                  {cricketFormat.label}
-                </Badge>
-              )}
-              {match.match_format?.toLowerCase() === 'test' && match.test_day && (
+              <Badge className={`${cricketFormat.color} text-white border-0 font-bold text-xs uppercase tracking-wider px-3 py-1.5 shadow-lg`}>
+                {cricketFormat.label}
+              </Badge>
+              {match.match_format?.toLowerCase() === 'test' && (
                 <Badge className="bg-gradient-to-r from-amber-500 to-orange-600 text-white border-0 font-bold text-sm uppercase tracking-wider px-4 py-2 shadow-lg">
                   <Calendar className="w-3.5 h-3.5 mr-1.5" />
-                  Day {match.test_day}
+                  Day {match.test_day || 1}
                 </Badge>
               )}
             </div>
