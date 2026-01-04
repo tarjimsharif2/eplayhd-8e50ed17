@@ -851,8 +851,10 @@ Deno.serve(async (req) => {
       
       for (const stats of sortedInningsStats) {
         // Match innings team to our match teams
-        const isTeamA = teamsMatch(stats.teamName, teamAName) || teamsMatch(stats.teamName, teamAShort);
-        const isTeamB = teamsMatch(stats.teamName, teamBName) || teamsMatch(stats.teamName, teamBShort);
+        // IMPORTANT: Only use full team names, NOT short codes
+        // Short codes like "SYL", "CHA" are too ambiguous
+        const isTeamA = teamsMatch(stats.teamName, teamAName);
+        const isTeamB = teamsMatch(stats.teamName, teamBName);
         
         console.log(`[sync-api-scores] Checking innings "${stats.teamName}" against teamA="${teamAName}" (match=${isTeamA}) and teamB="${teamBName}" (match=${isTeamB})`);
         
