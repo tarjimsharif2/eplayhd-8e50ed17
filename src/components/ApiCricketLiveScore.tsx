@@ -71,6 +71,7 @@ const ApiCricketLiveScore = ({
 
   // Check if two team names match - STRICT matching requiring BOTH first AND last words
   // e.g., "Melbourne Stars" should NOT match "Melbourne Renegades"
+  // Also prevents short codes like "SYL", "CHA" from incorrectly matching
   const teamsMatch = (name1: string, name2: string): boolean => {
     const n1 = normalizeTeamName(name1);
     const n2 = normalizeTeamName(name2);
@@ -83,6 +84,12 @@ const ApiCricketLiveScore = ({
     const words1 = n1.split(' ').filter(w => w.length > 0);
     const words2 = n2.split(' ').filter(w => w.length > 0);
     
+    // If either is a short code (3 chars or less, single word), DON'T match
+    // Short codes like "SYL", "CHA", "MI" are too ambiguous for reliable matching
+    if ((words1.length === 1 && n1.length <= 3) || (words2.length === 1 && n2.length <= 3)) {
+      return false;
+    }
+    
     // Get first and last words
     const firstWord1 = words1[0];
     const lastWord1 = words1[words1.length - 1];
@@ -94,11 +101,12 @@ const ApiCricketLiveScore = ({
       return firstWord1 === firstWord2 && lastWord1 === lastWord2;
     }
     
-    // If one is single word, check if it matches either first or last word of the other
-    if (words1.length === 1) {
+    // If one is single word (4+ chars), check if it matches either first or last word of the other
+    // The single word must be at least 4 characters to be reliable
+    if (words1.length === 1 && n1.length >= 4) {
       return firstWord2 === words1[0] || lastWord2 === words1[0];
     }
-    if (words2.length === 1) {
+    if (words2.length === 1 && n2.length >= 4) {
       return firstWord1 === words2[0] || lastWord1 === words2[0];
     }
     
