@@ -63,7 +63,53 @@ const TestMatchManager = ({ match }: TestMatchManagerProps) => {
     return tomorrow.toISOString();
   };
 
+  // Validate STUMPS time is after match start time
+  const validateStumpsTime = (): boolean => {
+    if (!match.match_start_time) {
+      return true; // No start time set, allow any STUMPS time
+    }
+    
+    const stumpsTimestamp = new Date(calculateTodayStumpsTime(dailyStumpsTime));
+    const matchStartTime = new Date(match.match_start_time);
+    
+    if (stumpsTimestamp <= matchStartTime) {
+      toast({
+        title: "Invalid STUMPS Time",
+        description: `STUMPS time (${dailyStumpsTime}) must be after match start time (${matchStartTime.toLocaleTimeString()})`,
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
+  // Validate day start time is before STUMPS time
+  const validateDayStartTime = (): boolean => {
+    const [startHours, startMinutes] = dayStartTime.split(':').map(Number);
+    const [stumpsHours, stumpsMinutes] = dailyStumpsTime.split(':').map(Number);
+    
+    const startTotalMinutes = startHours * 60 + startMinutes;
+    const stumpsTotalMinutes = stumpsHours * 60 + stumpsMinutes;
+    
+    if (startTotalMinutes >= stumpsTotalMinutes) {
+      toast({
+        title: "Invalid Schedule",
+        description: `Day start time (${dayStartTime}) must be before STUMPS time (${dailyStumpsTime})`,
+        variant: "destructive"
+      });
+      return false;
+    }
+    
+    return true;
+  };
+
   const handleSave = async () => {
+    // Validate times before saving
+    if (!validateDayStartTime() || !validateStumpsTime()) {
+      return;
+    }
+    
     setIsSaving(true);
     try {
       // Calculate the actual timestamps based on daily times
