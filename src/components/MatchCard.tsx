@@ -117,9 +117,10 @@ const MatchCard = ({ match, index = 0 }: MatchCardProps) => {
     return CRICKET_FORMATS[match.match_format.toLowerCase()] || null;
   }, [match.match_format]);
 
-  // Check if it's a cricket match
+  // Check if it's a cricket match - also consider cricket formats
   const sportName = match.sport?.name || match.tournament?.sport || 'Sport';
-  const isCricket = sportName.toLowerCase() === 'cricket';
+  const hasCricketFormat = match.match_format && Object.keys(CRICKET_FORMATS).includes(match.match_format.toLowerCase());
+  const isCricket = sportName.toLowerCase() === 'cricket' || hasCricketFormat;
 
   // Fetch innings for cricket matches
   const { data: innings } = useMatchInnings(isCricket ? match.id : undefined);
