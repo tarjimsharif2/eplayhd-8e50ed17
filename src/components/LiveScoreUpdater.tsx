@@ -27,9 +27,12 @@ const LiveScoreUpdater = ({ match }: LiveScoreUpdaterProps) => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const lastSyncRef = useRef<number>(Date.now());
 
-  const sportName = match.sport?.name?.toLowerCase() || "";
+  const sportName = match.sport?.name?.toLowerCase() || match.tournament?.sport?.toLowerCase() || "";
   const isFootball = sportName.includes("football") || sportName.includes("soccer");
-  const isCricket = sportName.includes("cricket");
+  // Cricket check: either sport name contains 'cricket' OR match has a cricket format
+  const cricketFormats = ['test', 'odi', 't20', 't10', 'the_hundred'];
+  const hasCricketFormat = match.match_format && cricketFormats.includes(match.match_format.toLowerCase());
+  const isCricket = sportName.includes("cricket") || hasCricketFormat;
   const isTestMatch = isCricket && match.match_format?.toLowerCase() === "test";
 
   // Sync match minute from props when match data changes
