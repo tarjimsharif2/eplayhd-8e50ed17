@@ -218,6 +218,11 @@ const ApiCricketLiveScore = ({
     return { score: latestScore, overs: latestOvers, allScores };
   };
 
+  // Clean score to just show runs/wickets - moved before getDisplayScores to avoid hoisting issue
+  const cleanScore = (score: string) => {
+    return score?.replace(/\s*\(\d+\.?\d*\s*ov\)/, '').trim() || '';
+  };
+
   // Get scores for display - prioritize API home/away scores over calculated innings
   // This fixes the issue where teams with similar names (e.g., Melbourne Stars vs Melbourne Renegades)
   // would both match the same innings data
@@ -251,11 +256,6 @@ const ApiCricketLiveScore = ({
   const displayScores = getDisplayScores();
   const teamACalc = displayScores.teamA;
   const teamBCalc = displayScores.teamB;
-
-  // Clean score to just show runs/wickets
-  const cleanScore = (score: string) => {
-    return score?.replace(/\s*\(\d+\.?\d*\s*ov\)/, '').trim() || '';
-  };
 
   const renderFullScoreboard = () => {
     if (!scoreData) {
