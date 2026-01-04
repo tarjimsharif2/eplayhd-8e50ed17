@@ -69,22 +69,37 @@ const ApiCricketLiveScore = ({
     return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
   };
 
-  // Check if two team names match
+  // Check if two team names match - STRICT matching to avoid similar names matching
+  // e.g., "Melbourne Stars" should NOT match "Melbourne Renegades"
   const teamsMatch = (name1: string, name2: string): boolean => {
     const n1 = normalizeTeamName(name1);
     const n2 = normalizeTeamName(name2);
     
     if (!n1 || !n2) return false;
-    if (n1 === n2) return true;
-    if (n1.includes(n2) || n2.includes(n1)) return true;
     
-    // Check first word match
-    const first1 = n1.split(' ')[0];
-    const first2 = n2.split(' ')[0];
-    if (first1.length >= 3 && first2.length >= 3) {
-      if (first1 === first2 || first1.includes(first2) || first2.includes(first1)) {
-        return true;
-      }
+    // Exact match
+    if (n1 === n2) return true;
+    
+    // One fully contains the other (for short names like "Stars" matching "Melbourne Stars")
+    // But only if the shorter name has at least 2 words or is the full team name
+    const words1 = n1.split(' ');
+    const words2 = n2.split(' ');
+    
+    // If both have 2+ words, require exact match or significant overlap
+    if (words1.length >= 2 && words2.length >= 2) {
+      // Count matching words
+      const matchingWords = words1.filter(w => words2.includes(w) && w.length > 2).length;
+      // Require at least 2 significant words to match (e.g., "melbourne stars" matching "melbourne stars")
+      return matchingWords >= 2 || n1 === n2;
+    }
+    
+    // If one is single word, it must match the last word of the other (team nickname)
+    // e.g., "Stars" should match "Melbourne Stars" but not "Melbourne Renegades"
+    if (words1.length === 1) {
+      return words2[words2.length - 1] === words1[0];
+    }
+    if (words2.length === 1) {
+      return words1[words1.length - 1] === words2[0];
     }
     
     return false;
