@@ -378,12 +378,12 @@ export const useMatches = () => {
       if (error) throw error;
       return data as Match[];
     },
-    staleTime: Infinity, // Data never becomes stale automatically - only realtime updates
-    gcTime: 1000 * 60 * 10, // Keep in cache for 10 minutes
+    staleTime: 0, // Data is immediately stale - allows invalidation to trigger refetch
+    gcTime: 0, // Don't cache old data at all
     refetchInterval: false, // NO auto polling - only realtime
     refetchOnWindowFocus: false, // Don't refetch on focus - use realtime
-    refetchOnMount: true, // Fetch fresh data on mount
-    refetchOnReconnect: true, // Refetch when network reconnects
+    refetchOnMount: 'always' as const, // Always fetch fresh data on mount
+    refetchOnReconnect: 'always' as const, // Always refetch when network reconnects
   });
 };
 
