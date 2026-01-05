@@ -378,9 +378,12 @@ export const useMatches = () => {
       if (error) throw error;
       return data as Match[];
     },
-    staleTime: 0, // Always refetch on invalidation
-    refetchInterval: 8000, // Auto refetch every 8 seconds for live scores
+    staleTime: 0, // Always refetch on invalidation - no caching
+    gcTime: 0, // Don't cache data at all (formerly cacheTime)
+    refetchInterval: 5000, // Auto refetch every 5 seconds for live scores
     refetchOnWindowFocus: true, // Refetch when user returns to tab
+    refetchOnMount: 'always', // Always refetch when component mounts
+    refetchOnReconnect: true, // Refetch when network reconnects
   });
 };
 
