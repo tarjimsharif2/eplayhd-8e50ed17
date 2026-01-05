@@ -114,27 +114,49 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
-    // 3. Auto-increment Test day when day_start_time is reached
-    // For live Test matches, check if we're past the next day's start time
+    // 3. Auto-resume Test matches from STUMPS when day_start_time is reached
+    // Uses day_start_time (daily play start) to determine when to resume
     // ============================================
     const { data: testMatchesForDayUpdate, error: testDayFetchError } = await supabase
       .from('matches')
       .select('id, match_format, test_day, is_stumps, next_day_start, day_start_time, match_start_time')
       .eq('match_format', 'test')
       .eq('status', 'live')
-      .eq('is_stumps', true)
-      .not('next_day_start', 'is', null);
+      .eq('is_stumps', true);
 
     if (testDayFetchError) {
       console.error('Error fetching Test matches for day update:', testDayFetchError);
     } else if (testMatchesForDayUpdate && testMatchesForDayUpdate.length > 0) {
-      console.log(`Checking ${testMatchesForDayUpdate.length} Test matches for day increment...`);
+      console.log(`Checking ${testMatchesForDayUpdate.length} Test matches for resume from STUMPS...`);
       
       for (const match of testMatchesForDayUpdate) {
-        const nextDayStart = new Date(match.next_day_start);
-        
-        // If current time is past next_day_start, increment day and resume play
-        if (now >= nextDayStart) {
+        let shouldResume = false;
+        let resumeTime: Date | null = null;
+
+        // Priority 1: Use next_day_start if set
+        if (match.next_day_start) {
+          resumeTime = new Date(match.next_day_start);
+          if (now >= resumeTime) {
+            shouldResume = true;
+            console.log(`Match ${match.id}: Using next_day_start ${resumeTime.toISOString()}`);
+          }
+        }
+        // Priority 2: Use day_start_time (HH:MM format) to calculate today's resume time
+        else if (match.day_start_time) {
+          // day_start_time is in HH:MM format, calculate today's resume datetime
+          const [hours, minutes] = match.day_start_time.split(':').map(Number);
+          const todayResumeTime = new Date();
+          todayResumeTime.setHours(hours, minutes, 0, 0);
+          
+          // If current time is past today's day_start_time, resume play
+          if (now >= todayResumeTime) {
+            shouldResume = true;
+            resumeTime = todayResumeTime;
+            console.log(`Match ${match.id}: Using day_start_time ${match.day_start_time} -> ${todayResumeTime.toISOString()}`);
+          }
+        }
+
+        if (shouldResume) {
           const newDay = (match.test_day || 1) + 1;
           
           const { error: updateError } = await supabase
@@ -142,7 +164,6 @@ Deno.serve(async (req) => {
             .update({
               test_day: newDay,
               is_stumps: false,
-              stumps_time: null,
               next_day_start: null, // Clear until next stumps is called
             })
             .eq('id', match.id);
@@ -150,7 +171,7 @@ Deno.serve(async (req) => {
           if (updateError) {
             console.error(`Error updating Test match ${match.id} to Day ${newDay}:`, updateError);
           } else {
-            console.log(`Match ${match.id} advanced to Day ${newDay} and resumed from STUMPS`);
+            console.log(`Match ${match.id} advanced to Day ${newDay} and resumed from STUMPS at ${resumeTime?.toISOString()}`);
             updatedCount++;
           }
         }
@@ -196,21 +217,10 @@ Deno.serve(async (req) => {
     }
 
     // ============================================
-    // 5. Resume from STUMPS (legacy check - for matches where next_day_start passed)
+    // 5. Clear stale cache - force refetch for any updated match
     // ============================================
-    const { data: matchesToResume, error: fetchError } = await supabase
-      .from('matches')
-      .select('id, team_a_id, team_b_id, match_format, test_day, is_stumps, next_day_start, status')
-      .eq('match_format', 'test')
-      .eq('is_stumps', true)
-      .eq('status', 'live')
-      .not('next_day_start', 'is', null)
-      .lte('next_day_start', now.toISOString());
-
-    if (fetchError) {
-      console.error('Error fetching matches to resume:', fetchError);
-    } else {
-      console.log(`Found ${matchesToResume?.length || 0} matches to resume from STUMPS`);
+    if (updatedCount > 0) {
+      console.log(`${updatedCount} matches updated - clients should refetch data`);
     }
 
     // Log summary
