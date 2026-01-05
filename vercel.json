@@ -5,5 +5,5 @@
     { "source": "/sitemap-matches.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=matches" },
     { "source": "/sitemap-tournaments.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=tournaments" },
     { "source": "/sitemap-pages.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=pages" }
-  ],
+  ]
 }
