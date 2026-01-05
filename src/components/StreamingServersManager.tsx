@@ -44,7 +44,6 @@ type ServerFormType = {
   cookie_value: string;
   user_agent: string;
   ad_block_enabled: boolean;
-  player_type: 'hls' | 'clappr' | 'hlsjs_proxy' | null;
 };
 
 const defaultServerForm: ServerFormType = {
@@ -58,7 +57,6 @@ const defaultServerForm: ServerFormType = {
   cookie_value: '',
   user_agent: '',
   ad_block_enabled: false,
-  player_type: null,
 };
 
 
@@ -109,7 +107,6 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       cookie_value: server.cookie_value || '',
       user_agent: server.user_agent || '',
       ad_block_enabled: server.ad_block_enabled || false,
-      player_type: server.player_type || null,
     });
     setFormHeaders(serverFormToHeaders({
       referer_value: server.referer_value || '',
@@ -134,7 +131,6 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       cookie_value: saved.cookie_value || '',
       user_agent: saved.user_agent || '',
       ad_block_enabled: saved.ad_block_enabled || false,
-      player_type: (saved.player_type as 'hls' | 'clappr' | 'hlsjs_proxy') || null,
     });
     setFormHeaders(serverFormToHeaders({
       referer_value: saved.referer_value || '',
@@ -172,7 +168,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       ad_block_enabled: serverForm.ad_block_enabled,
       drm_license_url: null,
       drm_scheme: null,
-      player_type: serverForm.server_type === 'm3u8' ? serverForm.player_type : null,
+      player_type: null,
       clearkey_key_id: null,
       clearkey_key: null,
     };
@@ -369,30 +365,6 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
           </p>
         )}
       </div>
-
-      {/* Player Type Selection - Only for M3U8 streams */}
-      {serverForm.server_type === 'm3u8' && (
-        <div className="space-y-2">
-          <Label>Player Type</Label>
-          <Select 
-            value={serverForm.player_type || 'clappr'} 
-            onValueChange={(v: 'hls' | 'clappr' | 'hlsjs_proxy') => setServerForm({ ...serverForm, player_type: v })}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="clappr">Clappr (Default)</SelectItem>
-              <SelectItem value="hlsjs_proxy">HLS.js Proxy (Referrer/Origin Support)</SelectItem>
-            </SelectContent>
-          </Select>
-          <p className="text-xs text-muted-foreground">
-            {serverForm.player_type === 'hlsjs_proxy' 
-              ? 'Uses proxy to handle referrer/origin headers. Works on all devices including computers.'
-              : 'Standard player with built-in proxy support for headers.'}
-          </p>
-        </div>
-      )}
 
 
       {/* Request Headers Section - Mod Header Style */}

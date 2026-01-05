@@ -15,7 +15,7 @@ export interface StreamingServer {
   user_agent: string | null;
   drm_license_url: string | null;
   drm_scheme: 'widevine' | 'playready' | 'clearkey' | null;
-  player_type: 'hls' | 'clappr' | 'hlsjs_proxy' | null;
+  player_type: 'hls' | 'clappr' | null;
   ad_block_enabled: boolean;
   clearkey_key_id: string | null;
   clearkey_key: string | null;

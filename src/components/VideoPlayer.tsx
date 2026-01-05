@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Play, Settings, Check, Loader2, PictureInPicture2, Volume2, VolumeX, Maximize } from 'lucide-react';
+import { AlertCircle, Play, Settings, Check, Loader2, PictureInPicture2, Volume2, VolumeX } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,6 @@ import {
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import Hls from 'hls.js';
 
 interface StreamHeaders {
   referer?: string | null;
@@ -22,7 +21,6 @@ interface VideoPlayerProps {
   url: string;
   type: 'iframe' | 'm3u8' | 'embed' | 'iframe_to_m3u8';
   headers?: StreamHeaders;
-  playerType?: 'hls' | 'clappr' | 'hlsjs_proxy' | null;
 }
 
 // Validate that URL uses safe protocols (http:// or https://)
@@ -366,245 +364,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
   );
 };
 
-// HLS.js Player with Proxy Support - works with referrer/origin on all devices
-const HlsJsProxyPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const hlsRef = useRef<Hls | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
-  const [currentQuality, setCurrentQuality] = useState<number>(-1);
-  const [showQualityMenu, setShowQualityMenu] = useState(false);
-  const [isPiPActive, setIsPiPActive] = useState(false);
-
-  const isPiPSupported = 'pictureInPictureEnabled' in document;
-
-  const togglePiP = async () => {
-    try {
-      if (!videoRef.current) {
-        toast.error('Video element not found');
-        return;
-      }
-
-      if (document.pictureInPictureElement) {
-        await document.exitPictureInPicture();
-        setIsPiPActive(false);
-      } else if (document.pictureInPictureEnabled) {
-        await videoRef.current.requestPictureInPicture();
-        setIsPiPActive(true);
-      }
-    } catch (err) {
-      console.error('PiP error:', err);
-      toast.error('Picture-in-Picture not available');
-    }
-  };
-
-  const toggleFullscreen = async () => {
-    try {
-      if (!videoRef.current) return;
-      
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
-      } else {
-        await videoRef.current.requestFullscreen();
-        // Lock orientation to landscape on mobile
-        try {
-          const orientation = screen.orientation as any;
-          if (orientation && typeof orientation.lock === 'function') {
-            orientation.lock('landscape').catch(() => {});
-          }
-        } catch (e) {}
-      }
-    } catch (err) {
-      console.error('Fullscreen error:', err);
-    }
-  };
-
-  useEffect(() => {
-    let mounted = true;
-    const video = videoRef.current;
-    
-    if (!video) return;
-
-    const initPlayer = async () => {
-      // Always use proxy URL for this player type
-      const streamUrl = buildM3U8ProxyUrl(url, headers);
-      console.log('HLS.js Proxy Player loading:', streamUrl.substring(0, 100));
-
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: true,
-          lowLatencyMode: false,
-          xhrSetup: (xhr) => {
-            // Headers are handled by proxy, no need to set here
-          },
-        });
-
-        hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
-          if (mounted) {
-            setIsLoading(false);
-            const levels: QualityLevel[] = data.levels.map((level, index) => ({
-              index,
-              height: level.height,
-              bitrate: level.bitrate,
-              label: level.height ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}kbps`,
-            }));
-            levels.sort((a, b) => b.height - a.height);
-            setQualityLevels(levels);
-            video.play().catch(() => {});
-          }
-        });
-
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          console.error('HLS.js error:', data);
-          if (data.fatal && mounted) {
-            setError('Failed to load stream');
-            setIsLoading(false);
-          }
-        });
-
-        hls.loadSource(streamUrl);
-        hls.attachMedia(video);
-        hlsRef.current = hls;
-      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-        // Safari native HLS - headers won't work, but try anyway
-        video.src = streamUrl;
-        video.addEventListener('loadedmetadata', () => {
-          if (mounted) {
-            setIsLoading(false);
-            video.play().catch(() => {});
-          }
-        });
-        video.addEventListener('error', () => {
-          if (mounted) {
-            setError('Failed to load stream');
-            setIsLoading(false);
-          }
-        });
-      } else {
-        if (mounted) {
-          setError('HLS not supported in this browser');
-          setIsLoading(false);
-        }
-      }
-    };
-
-    initPlayer();
-
-    return () => {
-      mounted = false;
-      if (hlsRef.current) {
-        hlsRef.current.destroy();
-        hlsRef.current = null;
-      }
-    };
-  }, [url, headers]);
-
-  const handleQualityChange = (levelIndex: number) => {
-    if (hlsRef.current) {
-      hlsRef.current.currentLevel = levelIndex;
-      setCurrentQuality(levelIndex);
-    }
-    setShowQualityMenu(false);
-  };
-
-  const getCurrentQualityLabel = () => {
-    if (currentQuality === -1) return 'Auto';
-    const level = qualityLevels.find(l => l.index === currentQuality);
-    return level?.label || 'Auto';
-  };
-
-  if (error) {
-    return (
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
-        <AlertCircle className="w-10 h-10 text-destructive" />
-        <p className="text-destructive text-center px-4">{error}</p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black">
-          <Loader2 className="w-10 h-10 text-primary animate-spin" />
-        </div>
-      )}
-      <video
-        ref={videoRef}
-        className="absolute inset-0 w-full h-full object-fill"
-        controls
-        playsInline
-        autoPlay
-        muted={false}
-      />
-
-      {/* Controls - PiP, Fullscreen and Quality */}
-      <div className="absolute bottom-16 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-        {/* PiP Button */}
-        {isPiPSupported && (
-          <Button 
-            variant="secondary" 
-            size="sm" 
-            className={`bg-black/70 hover:bg-black/90 text-white border-0 ${isPiPActive ? 'ring-2 ring-primary' : ''}`}
-            onClick={togglePiP}
-            title="Picture-in-Picture"
-          >
-            <PictureInPicture2 className="w-4 h-4" />
-          </Button>
-        )}
-
-        {/* Fullscreen Button */}
-        <Button 
-          variant="secondary" 
-          size="sm" 
-          className="bg-black/70 hover:bg-black/90 text-white border-0"
-          onClick={toggleFullscreen}
-          title="Fullscreen"
-        >
-          <Maximize className="w-4 h-4" />
-        </Button>
-
-        {/* Quality Selector */}
-        {qualityLevels.length > 1 && (
-          <DropdownMenu open={showQualityMenu} onOpenChange={setShowQualityMenu}>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="text-xs">{getCurrentQualityLabel()}</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
-              <DropdownMenuItem 
-                onClick={() => handleQualityChange(-1)}
-                className="text-white hover:bg-white/20 gap-2"
-              >
-                {currentQuality === -1 && <Check className="w-4 h-4" />}
-                <span className={currentQuality !== -1 ? 'ml-6' : ''}>Auto</span>
-              </DropdownMenuItem>
-              {qualityLevels.map((level) => (
-                <DropdownMenuItem
-                  key={level.index}
-                  onClick={() => handleQualityChange(level.index)}
-                  className="text-white hover:bg-white/20 gap-2"
-                >
-                  {currentQuality === level.index && <Check className="w-4 h-4" />}
-                  <span className={currentQuality !== level.index ? 'ml-6' : ''}>
-                    {level.label}
-                  </span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-      </div>
-    </div>
-  );
-};
+// Component for iframe_to_m3u8 type that extracts and plays M3U8
 const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
   const [extractedUrl, setExtractedUrl] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(true);
@@ -679,7 +439,7 @@ const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHea
   return null;
 };
 
-const VideoPlayer = ({ url, type, headers, playerType }: VideoPlayerProps) => {
+const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
   const [useDirectEmbed, setUseDirectEmbed] = useState(false);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -693,13 +453,8 @@ const VideoPlayer = ({ url, type, headers, playerType }: VideoPlayerProps) => {
     );
   }
 
-  // For M3U8 streams, check player type
+  // For M3U8 streams, use Clappr player (with proxy if headers are set)
   if (type === 'm3u8') {
-    // Use HLS.js proxy player if selected (best for referrer/origin requirements)
-    if (playerType === 'hlsjs_proxy') {
-      return <HlsJsProxyPlayer url={url} headers={headers} />;
-    }
-    // Default to Clappr player
     return <ClapprPlayer url={url} headers={headers} />;
   }
 
