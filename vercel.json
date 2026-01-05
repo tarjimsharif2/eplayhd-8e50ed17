@@ -1,24 +1,9 @@
 {
   "rewrites": [
-    {
-      "source": "/sitemap.xml",
-      "destination": "https://dqteforumjdugifxryl.supabase.co/functions/v1/sitemap"
-    },
-    {
-      "source": "/sitemap_index.xml",
-      "destination": "https://dqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=index"
-    },
-    {
-      "source": "/sitemap-matches.xml",
-      "destination": "https://dqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=matches"
-    },
-    {
-      "source": "/sitemap-tournaments.xml",
-      "destination": "https://dqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=tournaments"
-    },
-    {
-      "source": "/sitemap-pages.xml",
-      "destination": "https://dqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=pages"
-    }
-  ]
-}
+    { "source": "/sitemap.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap" },
+    { "source": "/sitemap_index.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=index" },
+    { "source": "/sitemap-matches.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=matches" },
+    { "source": "/sitemap-tournaments.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=tournaments" },
+    { "source": "/sitemap-pages.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=pages" }
+  ],
+  
