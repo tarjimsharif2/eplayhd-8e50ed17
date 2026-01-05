@@ -157,9 +157,13 @@ const ClapprPlayer = ({ url }: { url: string }) => {
           playback: {
             playInline: true,
             controls: false,
+            crossOrigin: 'anonymous',
             hlsjsConfig: {
               enableWorker: true,
               lowLatencyMode: false,
+              xhrSetup: function(xhr: XMLHttpRequest, url: string) {
+                xhr.withCredentials = false;
+              },
             },
           },
           disableVideoTagContextMenu: true,
