@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
-import { AlertCircle, Play, Settings, Check, Loader2, PictureInPicture2, Volume2, VolumeX } from 'lucide-react';
+import { AlertCircle, Play, Settings, Check, Loader2, PictureInPicture2, Volume2, VolumeX, MonitorPlay } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import Hls from 'hls.js';
 
 interface StreamHeaders {
   referer?: string | null;
@@ -22,6 +25,8 @@ interface VideoPlayerProps {
   type: 'iframe' | 'm3u8' | 'embed' | 'iframe_to_m3u8';
   headers?: StreamHeaders;
 }
+
+type PlayerType = 'clappr' | 'hlsjs' | 'native';
 
 // Validate that URL uses safe protocols (http:// or https://)
 const isValidUrl = (url: string): boolean => {
@@ -73,6 +78,283 @@ interface QualityLevel {
   bitrate: number;
   label: string;
 }
+
+// HLS.js Native Player Component
+const HlsJsPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const hlsRef = useRef<Hls | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [qualityLevels, setQualityLevels] = useState<QualityLevel[]>([]);
+  const [currentQuality, setCurrentQuality] = useState<number>(-1);
+  const [showQualityMenu, setShowQualityMenu] = useState(false);
+  const [isPiPActive, setIsPiPActive] = useState(false);
+
+  const isPiPSupported = 'pictureInPictureEnabled' in document;
+
+  const togglePiP = async () => {
+    try {
+      const videoElement = videoRef.current;
+      if (!videoElement) {
+        toast.error('Video element not found');
+        return;
+      }
+
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        setIsPiPActive(false);
+      } else if (document.pictureInPictureEnabled) {
+        await videoElement.requestPictureInPicture();
+        setIsPiPActive(true);
+      }
+    } catch (err) {
+      console.error('PiP error:', err);
+      toast.error('Picture-in-Picture not available');
+    }
+  };
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const streamUrl = hasCustomHeaders(headers) 
+      ? buildM3U8ProxyUrl(url, headers) 
+      : url;
+
+    console.log('HLS.js Playing:', hasCustomHeaders(headers) ? 'via proxy' : 'direct');
+
+    // Check if HLS is supported natively (Safari)
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = streamUrl;
+      video.addEventListener('loadedmetadata', () => {
+        setIsLoading(false);
+        video.play().catch(console.error);
+      });
+      video.addEventListener('error', () => {
+        setError('Failed to load stream');
+        setIsLoading(false);
+      });
+      return;
+    }
+
+    // Use HLS.js for other browsers
+    if (Hls.isSupported()) {
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: false,
+        xhrSetup: (xhr, url) => {
+          xhr.withCredentials = false;
+        },
+      });
+
+      hlsRef.current = hls;
+
+      hls.loadSource(streamUrl);
+      hls.attachMedia(video);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, (_, data) => {
+        setIsLoading(false);
+        video.play().catch(console.error);
+        
+        if (data.levels) {
+          const levels: QualityLevel[] = data.levels.map((level, index) => ({
+            index,
+            height: level.height,
+            bitrate: level.bitrate,
+            label: level.height ? `${level.height}p` : `${Math.round(level.bitrate / 1000)}kbps`,
+          }));
+          levels.sort((a, b) => b.height - a.height);
+          setQualityLevels(levels);
+        }
+      });
+
+      hls.on(Hls.Events.ERROR, (_, data) => {
+        console.error('HLS.js error:', data);
+        if (data.fatal) {
+          setError('Failed to load stream');
+          setIsLoading(false);
+        }
+      });
+
+      return () => {
+        hls.destroy();
+        hlsRef.current = null;
+      };
+    } else {
+      setError('HLS not supported in this browser');
+      setIsLoading(false);
+    }
+  }, [url, headers]);
+
+  const handleQualityChange = (levelIndex: number) => {
+    if (hlsRef.current) {
+      hlsRef.current.currentLevel = levelIndex;
+      setCurrentQuality(levelIndex);
+    }
+    setShowQualityMenu(false);
+  };
+
+  const getCurrentQualityLabel = () => {
+    if (currentQuality === -1) return 'Auto';
+    const level = qualityLevels.find(l => l.index === currentQuality);
+    return level?.label || 'Auto';
+  };
+
+  if (error) {
+    return (
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+        <AlertCircle className="w-10 h-10 text-destructive" />
+        <p className="text-destructive text-center px-4">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        </div>
+      )}
+      <video
+        ref={videoRef}
+        className="absolute inset-0 w-full h-full object-fill"
+        controls
+        playsInline
+        autoPlay
+        muted={false}
+      />
+
+      {/* Controls - PiP and Quality */}
+      <div className="absolute bottom-16 right-4 z-20 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        {isPiPSupported && (
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            className={`bg-black/70 hover:bg-black/90 text-white border-0 ${isPiPActive ? 'ring-2 ring-primary' : ''}`}
+            onClick={togglePiP}
+            title="Picture-in-Picture"
+          >
+            <PictureInPicture2 className="w-4 h-4" />
+          </Button>
+        )}
+
+        {qualityLevels.length > 1 && (
+          <DropdownMenu open={showQualityMenu} onOpenChange={setShowQualityMenu}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
+              >
+                <Settings className="w-4 h-4" />
+                <span className="text-xs">{getCurrentQualityLabel()}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
+              <DropdownMenuItem 
+                onClick={() => handleQualityChange(-1)}
+                className="text-white hover:bg-white/20 gap-2"
+              >
+                {currentQuality === -1 && <Check className="w-4 h-4" />}
+                <span className={currentQuality !== -1 ? 'ml-6' : ''}>Auto</span>
+              </DropdownMenuItem>
+              {qualityLevels.map((level) => (
+                <DropdownMenuItem
+                  key={level.index}
+                  onClick={() => handleQualityChange(level.index)}
+                  className="text-white hover:bg-white/20 gap-2"
+                >
+                  {currentQuality === level.index && <Check className="w-4 h-4" />}
+                  <span className={currentQuality !== level.index ? 'ml-6' : ''}>
+                    {level.label}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Native HTML5 Player Component (for direct playback)
+const NativePlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [isPiPActive, setIsPiPActive] = useState(false);
+
+  const isPiPSupported = 'pictureInPictureEnabled' in document;
+
+  const streamUrl = hasCustomHeaders(headers) 
+    ? buildM3U8ProxyUrl(url, headers) 
+    : url;
+
+  const togglePiP = async () => {
+    try {
+      const videoElement = videoRef.current;
+      if (!videoElement) return;
+
+      if (document.pictureInPictureElement) {
+        await document.exitPictureInPicture();
+        setIsPiPActive(false);
+      } else if (document.pictureInPictureEnabled) {
+        await videoElement.requestPictureInPicture();
+        setIsPiPActive(true);
+      }
+    } catch (err) {
+      console.error('PiP error:', err);
+    }
+  };
+
+  if (error) {
+    return (
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex flex-col items-center justify-center gap-3">
+        <AlertCircle className="w-10 h-10 text-destructive" />
+        <p className="text-destructive text-center px-4">{error}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden group">
+      {isLoading && (
+        <div className="absolute inset-0 flex items-center justify-center z-10 bg-black">
+          <Loader2 className="w-10 h-10 text-primary animate-spin" />
+        </div>
+      )}
+      <video
+        ref={videoRef}
+        src={streamUrl}
+        className="absolute inset-0 w-full h-full object-fill"
+        controls
+        playsInline
+        autoPlay
+        onLoadedData={() => setIsLoading(false)}
+        onError={() => {
+          setError('Failed to load stream');
+          setIsLoading(false);
+        }}
+      />
+      
+      {isPiPSupported && (
+        <div className="absolute bottom-16 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button 
+            variant="secondary" 
+            size="sm" 
+            className={`bg-black/70 hover:bg-black/90 text-white border-0 ${isPiPActive ? 'ring-2 ring-primary' : ''}`}
+            onClick={togglePiP}
+            title="Picture-in-Picture"
+          >
+            <PictureInPicture2 className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -370,7 +652,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
 };
 
 // Component for iframe_to_m3u8 type that extracts and plays M3U8
-const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
+const IframeToM3U8Player = ({ url, headers, selectedPlayer }: { url: string; headers?: StreamHeaders; selectedPlayer: PlayerType }) => {
   const [extractedUrl, setExtractedUrl] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -438,16 +720,92 @@ const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHea
   }
 
   if (extractedUrl) {
+    if (selectedPlayer === 'hlsjs') {
+      return <HlsJsPlayer url={extractedUrl} headers={headers} />;
+    }
+    if (selectedPlayer === 'native') {
+      return <NativePlayer url={extractedUrl} headers={headers} />;
+    }
     return <ClapprPlayer url={extractedUrl} headers={headers} />;
   }
 
   return null;
 };
 
+// M3U8 Player with selector
+const M3U8PlayerWithSelector = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerType>('clappr');
+  const [showPlayerMenu, setShowPlayerMenu] = useState(false);
+
+  const playerLabels: Record<PlayerType, string> = {
+    clappr: 'Clappr',
+    hlsjs: 'HLS.js',
+    native: 'Native',
+  };
+
+  const renderPlayer = () => {
+    switch (selectedPlayer) {
+      case 'hlsjs':
+        return <HlsJsPlayer url={url} headers={headers} />;
+      case 'native':
+        return <NativePlayer url={url} headers={headers} />;
+      case 'clappr':
+      default:
+        return <ClapprPlayer url={url} headers={headers} />;
+    }
+  };
+
+  return (
+    <div className="relative">
+      {renderPlayer()}
+      
+      {/* Player Selector */}
+      <div className="absolute top-4 right-4 z-30">
+        <DropdownMenu open={showPlayerMenu} onOpenChange={setShowPlayerMenu}>
+          <DropdownMenuTrigger asChild>
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
+            >
+              <MonitorPlay className="w-4 h-4" />
+              <span className="text-xs">{playerLabels[selectedPlayer]}</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
+            <DropdownMenuLabel className="text-white/70 text-xs">Select Player</DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-white/10" />
+            {(Object.keys(playerLabels) as PlayerType[]).map((player) => (
+              <DropdownMenuItem
+                key={player}
+                onClick={() => setSelectedPlayer(player)}
+                className="text-white hover:bg-white/20 gap-2"
+              >
+                {selectedPlayer === player && <Check className="w-4 h-4" />}
+                <span className={selectedPlayer !== player ? 'ml-6' : ''}>
+                  {playerLabels[player]}
+                </span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </div>
+  );
+};
+
 const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
   const [useDirectEmbed, setUseDirectEmbed] = useState(false);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerType>('clappr');
+  const [showPlayerMenu, setShowPlayerMenu] = useState(false);
+
+  const playerLabels: Record<PlayerType, string> = {
+    clappr: 'Clappr',
+    hlsjs: 'HLS.js',
+    native: 'Native',
+  };
 
   // Validate URL before rendering to prevent XSS attacks
   if (!isValidUrl(url)) {
@@ -458,14 +816,50 @@ const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
     );
   }
 
-  // For M3U8 streams, use Clappr player (with proxy if headers are set)
+  // For M3U8 streams, use player with selector
   if (type === 'm3u8') {
-    return <ClapprPlayer url={url} headers={headers} />;
+    return <M3U8PlayerWithSelector url={url} headers={headers} />;
   }
 
-  // For iframe_to_m3u8 type, extract and play M3U8
+  // For iframe_to_m3u8 type, extract and play M3U8 with selector
   if (type === 'iframe_to_m3u8') {
-    return <IframeToM3U8Player url={url} headers={headers} />;
+    return (
+      <div className="relative">
+        <IframeToM3U8Player url={url} headers={headers} selectedPlayer={selectedPlayer} />
+        
+        {/* Player Selector */}
+        <div className="absolute top-4 right-4 z-30">
+          <DropdownMenu open={showPlayerMenu} onOpenChange={setShowPlayerMenu}>
+            <DropdownMenuTrigger asChild>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
+              >
+                <MonitorPlay className="w-4 h-4" />
+                <span className="text-xs">{playerLabels[selectedPlayer]}</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
+              <DropdownMenuLabel className="text-white/70 text-xs">Select Player</DropdownMenuLabel>
+              <DropdownMenuSeparator className="bg-white/10" />
+              {(Object.keys(playerLabels) as PlayerType[]).map((player) => (
+                <DropdownMenuItem
+                  key={player}
+                  onClick={() => setSelectedPlayer(player)}
+                  className="text-white hover:bg-white/20 gap-2"
+                >
+                  {selectedPlayer === player && <Check className="w-4 h-4" />}
+                  <span className={selectedPlayer !== player ? 'ml-6' : ''}>
+                    {playerLabels[player]}
+                  </span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    );
   }
 
   // For iframe and embed types - only use proxy if headers are needed AND not using direct embed
