@@ -19,17 +19,67 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Helper to clear invalid session data from localStorage
+    const clearInvalidSession = () => {
+      console.log('Clearing invalid session data...');
+      // Clear Supabase auth storage keys
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    };
+
     // Set up auth state listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth event:', event);
+        
+        // Handle token refresh failures and sign out events
+        if (event === 'TOKEN_REFRESHED' && !session) {
+          clearInvalidSession();
+        }
+        if (event === 'SIGNED_OUT') {
+          clearInvalidSession();
+        }
+        
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
       }
     );
 
-    // THEN check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // Check for existing session and validate it
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Session error:', error);
+        clearInvalidSession();
+        setSession(null);
+        setUser(null);
+        setLoading(false);
+        return;
+      }
+      
+      // If session exists, verify it's still valid
+      if (session) {
+        // Check if token is expired
+        const expiresAt = session.expires_at;
+        const now = Math.floor(Date.now() / 1000);
+        
+        if (expiresAt && expiresAt < now) {
+          console.log('Session expired, clearing...');
+          clearInvalidSession();
+          supabase.auth.signOut();
+          setSession(null);
+          setUser(null);
+          setLoading(false);
+          return;
+        }
+      }
+      
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
