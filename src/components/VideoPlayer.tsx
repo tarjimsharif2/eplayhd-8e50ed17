@@ -76,7 +76,7 @@ interface QualityLevel {
   label: string;
 }
 
-const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
+const ClapprPlayer = ({ url }: { url: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -139,12 +139,10 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
 
         if (!mounted) return;
 
-        // Use proxy URL if headers are configured
-        const streamUrl = hasCustomHeaders(headers) 
-          ? buildM3U8ProxyUrl(url, headers) 
-          : url;
+        // Use direct URL - no proxy for Clappr player
+        const streamUrl = url;
 
-        console.log('Playing M3U8:', hasCustomHeaders(headers) ? 'via proxy' : 'direct', streamUrl.substring(0, 100));
+        console.log('ClapprPlayer playing M3U8 direct:', streamUrl.substring(0, 100));
 
         const player = new Clappr.Player({
           source: streamUrl,
@@ -266,7 +264,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
         playerRef.current = null;
       }
     };
-  }, [url, headers]);
+  }, [url]);
 
   const handleQualityChange = (levelIndex: number) => {
     try {
@@ -673,7 +671,7 @@ const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHea
   }
 
   if (extractedUrl) {
-    return <ClapprPlayer url={extractedUrl} headers={headers} />;
+    return <ClapprPlayer url={extractedUrl} />;
   }
 
   return null;
@@ -699,8 +697,8 @@ const VideoPlayer = ({ url, type, headers, playerType }: VideoPlayerProps) => {
     if (playerType === 'hlsjs_proxy') {
       return <HlsJsProxyPlayer url={url} headers={headers} />;
     }
-    // Default to Clappr player
-    return <ClapprPlayer url={url} headers={headers} />;
+    // Default to Clappr player (plays direct URL, no proxy)
+    return <ClapprPlayer url={url} />;
   }
 
   // For iframe_to_m3u8 type, extract and play M3U8
