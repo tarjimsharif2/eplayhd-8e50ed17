@@ -6,9 +6,4 @@
     { "source": "/sitemap-tournaments.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=tournaments" },
     { "source": "/sitemap-pages.xml", "destination": "https://doqteforumjdugifxryl.supabase.co/functions/v1/sitemap?type=pages" }
   ],
-  "routes": [
-    { "handle": "filesystem" },
-    { "src": "/(.*)", "dest": "/" }
-  ]
-}
-
+  
