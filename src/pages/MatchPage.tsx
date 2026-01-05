@@ -175,7 +175,7 @@ const MatchPage = () => {
               <CardContent className="p-0">
                 {activeServer ? (
                   <VideoPlayer 
-                    key={`${activeServer.id}-${activeServer.server_type}`}
+                    key={`${activeServer.id}-${activeServer.server_type}-${activeServer.player_type || 'auto'}`}
                     url={activeServer.server_url} 
                     type={activeServer.server_type}
                     headers={{
@@ -184,6 +184,7 @@ const MatchPage = () => {
                       cookie: activeServer.cookie_value,
                       userAgent: activeServer.user_agent,
                     }}
+                    playerType={activeServer.player_type}
                   />
                 ) : (
                   <div className="aspect-video bg-muted flex items-center justify-center">

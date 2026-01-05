@@ -24,6 +24,7 @@ interface VideoPlayerProps {
   url: string;
   type: 'iframe' | 'm3u8' | 'embed' | 'iframe_to_m3u8';
   headers?: StreamHeaders;
+  playerType?: 'clappr' | 'hlsjs' | 'native' | null;
 }
 
 type PlayerType = 'clappr' | 'hlsjs' | 'native';
@@ -733,8 +734,8 @@ const IframeToM3U8Player = ({ url, headers, selectedPlayer }: { url: string; hea
 };
 
 // M3U8 Player with selector
-const M3U8PlayerWithSelector = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerType>('clappr');
+const M3U8PlayerWithSelector = ({ url, headers, forcedPlayerType }: { url: string; headers?: StreamHeaders; forcedPlayerType?: PlayerType | null }) => {
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerType>(forcedPlayerType || 'clappr');
   const [showPlayerMenu, setShowPlayerMenu] = useState(false);
 
   const playerLabels: Record<PlayerType, string> = {
@@ -743,8 +744,11 @@ const M3U8PlayerWithSelector = ({ url, headers }: { url: string; headers?: Strea
     native: 'Native',
   };
 
+  // If forced player type, use it directly
+  const currentPlayer = forcedPlayerType || selectedPlayer;
+
   const renderPlayer = () => {
-    switch (selectedPlayer) {
+    switch (currentPlayer) {
       case 'hlsjs':
         return <HlsJsPlayer url={url} headers={headers} />;
       case 'native':
@@ -759,75 +763,8 @@ const M3U8PlayerWithSelector = ({ url, headers }: { url: string; headers?: Strea
     <div className="relative">
       {renderPlayer()}
       
-      {/* Player Selector */}
-      <div className="absolute top-4 right-4 z-30">
-        <DropdownMenu open={showPlayerMenu} onOpenChange={setShowPlayerMenu}>
-          <DropdownMenuTrigger asChild>
-            <Button 
-              variant="secondary" 
-              size="sm" 
-              className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
-            >
-              <MonitorPlay className="w-4 h-4" />
-              <span className="text-xs">{playerLabels[selectedPlayer]}</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
-            <DropdownMenuLabel className="text-white/70 text-xs">Select Player</DropdownMenuLabel>
-            <DropdownMenuSeparator className="bg-white/10" />
-            {(Object.keys(playerLabels) as PlayerType[]).map((player) => (
-              <DropdownMenuItem
-                key={player}
-                onClick={() => setSelectedPlayer(player)}
-                className="text-white hover:bg-white/20 gap-2"
-              >
-                {selectedPlayer === player && <Check className="w-4 h-4" />}
-                <span className={selectedPlayer !== player ? 'ml-6' : ''}>
-                  {playerLabels[player]}
-                </span>
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </div>
-  );
-};
-
-const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
-  const [useDirectEmbed, setUseDirectEmbed] = useState(false);
-  const [isIframeLoading, setIsIframeLoading] = useState(true);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerType>('clappr');
-  const [showPlayerMenu, setShowPlayerMenu] = useState(false);
-
-  const playerLabels: Record<PlayerType, string> = {
-    clappr: 'Clappr',
-    hlsjs: 'HLS.js',
-    native: 'Native',
-  };
-
-  // Validate URL before rendering to prevent XSS attacks
-  if (!isValidUrl(url)) {
-    return (
-      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center">
-        <p className="text-destructive">Invalid streaming URL</p>
-      </div>
-    );
-  }
-
-  // For M3U8 streams, use player with selector
-  if (type === 'm3u8') {
-    return <M3U8PlayerWithSelector url={url} headers={headers} />;
-  }
-
-  // For iframe_to_m3u8 type, extract and play M3U8 with selector
-  if (type === 'iframe_to_m3u8') {
-    return (
-      <div className="relative">
-        <IframeToM3U8Player url={url} headers={headers} selectedPlayer={selectedPlayer} />
-        
-        {/* Player Selector */}
+      {/* Player Selector - Only show if not forced */}
+      {!forcedPlayerType && (
         <div className="absolute top-4 right-4 z-30">
           <DropdownMenu open={showPlayerMenu} onOpenChange={setShowPlayerMenu}>
             <DropdownMenuTrigger asChild>
@@ -858,6 +795,80 @@ const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      )}
+    </div>
+  );
+};
+
+const VideoPlayer = ({ url, type, headers, playerType }: VideoPlayerProps) => {
+  const [useDirectEmbed, setUseDirectEmbed] = useState(false);
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerType>(playerType || 'clappr');
+  const [showPlayerMenu, setShowPlayerMenu] = useState(false);
+
+  const playerLabels: Record<PlayerType, string> = {
+    clappr: 'Clappr',
+    hlsjs: 'HLS.js',
+    native: 'Native',
+  };
+
+  // If forced player type, use it directly
+  const currentPlayer = playerType || selectedPlayer;
+
+  // Validate URL before rendering to prevent XSS attacks
+  if (!isValidUrl(url)) {
+    return (
+      <div className="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center">
+        <p className="text-destructive">Invalid streaming URL</p>
+      </div>
+    );
+  }
+
+  // For M3U8 streams, use player with selector
+  if (type === 'm3u8') {
+    return <M3U8PlayerWithSelector url={url} headers={headers} forcedPlayerType={playerType} />;
+  }
+
+  // For iframe_to_m3u8 type, extract and play M3U8 with selector
+  if (type === 'iframe_to_m3u8') {
+    return (
+      <div className="relative">
+        <IframeToM3U8Player url={url} headers={headers} selectedPlayer={currentPlayer} />
+        
+        {/* Player Selector - Only show if not forced */}
+        {!playerType && (
+          <div className="absolute top-4 right-4 z-30">
+            <DropdownMenu open={showPlayerMenu} onOpenChange={setShowPlayerMenu}>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="secondary" 
+                  size="sm" 
+                  className="bg-black/70 hover:bg-black/90 text-white border-0 gap-1.5"
+                >
+                  <MonitorPlay className="w-4 h-4" />
+                  <span className="text-xs">{playerLabels[selectedPlayer]}</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="bg-black/90 border-white/10">
+                <DropdownMenuLabel className="text-white/70 text-xs">Select Player</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-white/10" />
+                {(Object.keys(playerLabels) as PlayerType[]).map((player) => (
+                  <DropdownMenuItem
+                    key={player}
+                    onClick={() => setSelectedPlayer(player)}
+                    className="text-white hover:bg-white/20 gap-2"
+                  >
+                    {selectedPlayer === player && <Check className="w-4 h-4" />}
+                    <span className={selectedPlayer !== player ? 'ml-6' : ''}>
+                      {playerLabels[player]}
+                    </span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
     );
   }

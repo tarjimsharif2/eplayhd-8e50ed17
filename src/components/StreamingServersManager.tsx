@@ -44,6 +44,7 @@ type ServerFormType = {
   cookie_value: string;
   user_agent: string;
   ad_block_enabled: boolean;
+  player_type: 'clappr' | 'hlsjs' | 'native' | null;
 };
 
 const defaultServerForm: ServerFormType = {
@@ -57,6 +58,7 @@ const defaultServerForm: ServerFormType = {
   cookie_value: '',
   user_agent: '',
   ad_block_enabled: false,
+  player_type: null,
 };
 
 
@@ -107,6 +109,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       cookie_value: server.cookie_value || '',
       user_agent: server.user_agent || '',
       ad_block_enabled: server.ad_block_enabled || false,
+      player_type: server.player_type as 'clappr' | 'hlsjs' | 'native' | null,
     });
     setFormHeaders(serverFormToHeaders({
       referer_value: server.referer_value || '',
@@ -131,6 +134,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       cookie_value: saved.cookie_value || '',
       user_agent: saved.user_agent || '',
       ad_block_enabled: saved.ad_block_enabled || false,
+      player_type: saved.player_type as 'clappr' | 'hlsjs' | 'native' | null,
     });
     setFormHeaders(serverFormToHeaders({
       referer_value: saved.referer_value || '',
@@ -168,7 +172,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       ad_block_enabled: serverForm.ad_block_enabled,
       drm_license_url: null,
       drm_scheme: null,
-      player_type: null,
+      player_type: serverForm.player_type || null,
       clearkey_key_id: null,
       clearkey_key: null,
     };
@@ -359,13 +363,36 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
           value={serverForm.server_url}
           onChange={(e) => setServerForm({ ...serverForm, server_url: e.target.value })}
         />
-        {serverForm.server_type === 'iframe_to_m3u8' && (
+      {serverForm.server_type === 'iframe_to_m3u8' && (
           <p className="text-xs text-muted-foreground">
             The M3U8 stream URL will be extracted from this iframe page automatically
           </p>
         )}
       </div>
 
+      {/* Player Type Selector - Only for M3U8 streams */}
+      {(serverForm.server_type === 'm3u8' || serverForm.server_type === 'iframe_to_m3u8') && (
+        <div className="space-y-2">
+          <Label>Player Type</Label>
+          <Select 
+            value={serverForm.player_type || 'auto'} 
+            onValueChange={(v) => setServerForm({ ...serverForm, player_type: v === 'auto' ? null : v as 'clappr' | 'hlsjs' | 'native' })}
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="auto">Auto (User Choice)</SelectItem>
+              <SelectItem value="clappr">Clappr</SelectItem>
+              <SelectItem value="hlsjs">HLS.js</SelectItem>
+              <SelectItem value="native">Native HTML5</SelectItem>
+            </SelectContent>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            Select a specific player for better compatibility with certain streams
+          </p>
+        </div>
+      )}
 
       {/* Request Headers Section - Mod Header Style */}
       <div className="space-y-3 pt-4 border-t">
