@@ -2,8 +2,50 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-token',
 };
+
+// Verify authorization - accepts either admin JWT or cron token
+async function verifyAuth(req: Request): Promise<{ authorized: boolean; error?: string }> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const cronToken = Deno.env.get('CRON_SECRET_TOKEN');
+  
+  // Check cron token first (for automated calls)
+  const providedCronToken = req.headers.get('x-cron-token');
+  if (cronToken && providedCronToken === cronToken) {
+    return { authorized: true };
+  }
+  
+  // Check admin JWT
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { authorized: false, error: 'Missing authorization' };
+  }
+  
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+  
+  if (authError || !user) {
+    return { authorized: false, error: 'Invalid or expired token' };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: roles } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .single();
+
+  if (!roles) {
+    return { authorized: false, error: 'Admin access required' };
+  }
+
+  return { authorized: true };
+}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -12,6 +54,16 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Verify authorization
+    const authResult = await verifyAuth(req);
+    if (!authResult.authorized) {
+      console.log(`[update-match-status] Auth failed: ${authResult.error}`);
+      return new Response(
+        JSON.stringify({ success: false, error: authResult.error }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     

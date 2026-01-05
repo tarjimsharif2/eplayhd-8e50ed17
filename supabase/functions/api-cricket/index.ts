@@ -5,6 +5,41 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Verify admin authentication
+async function verifyAdminAuth(req: Request): Promise<{ authorized: boolean; error?: string }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { authorized: false, error: 'Missing authorization header' };
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+  
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+  
+  if (authError || !user) {
+    return { authorized: false, error: 'Invalid or expired token' };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: roles } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .single();
+
+  if (!roles) {
+    return { authorized: false, error: 'Admin access required' };
+  }
+
+  return { authorized: true };
+}
+
 // Helper function to fetch with retry logic
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
   let lastError: Error | null = null;
@@ -12,7 +47,7 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000); // 15 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
       
       const response = await fetch(url, {
         ...options,
@@ -26,7 +61,6 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
       console.log(`Attempt ${attempt}/${maxRetries} failed: ${error}`);
       
       if (attempt < maxRetries) {
-        // Exponential backoff: 1s, 2s, 4s
         const delay = Math.pow(2, attempt - 1) * 1000;
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -43,6 +77,16 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Verify admin authentication
+    const authResult = await verifyAdminAuth(req);
+    if (!authResult.authorized) {
+      console.log(`[api-cricket] Auth failed: ${authResult.error}`);
+      return new Response(
+        JSON.stringify({ success: false, error: authResult.error }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

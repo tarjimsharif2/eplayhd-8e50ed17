@@ -19,13 +19,45 @@ interface ServiceAccountCredentials {
   project_id?: string;
 }
 
+// Verify admin authentication
+async function verifyAdminAuth(req: Request): Promise<{ authorized: boolean; error?: string; userId?: string }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { authorized: false, error: 'Missing authorization header' };
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+  
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+  
+  if (authError || !user) {
+    return { authorized: false, error: 'Invalid or expired token' };
+  }
+
+  // Check if user is admin using service role client
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: roles } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .single();
+
+  if (!roles) {
+    return { authorized: false, error: 'Admin access required' };
+  }
+
+  return { authorized: true, userId: user.id };
+}
+
 // Create JWT for Google API authentication
 async function createGoogleJWT(credentials: ServiceAccountCredentials): Promise<string> {
-  const header = {
-    alg: 'RS256',
-    typ: 'JWT',
-  };
-
+  const header = { alg: 'RS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const payload = {
     iss: credentials.client_email,
@@ -41,7 +73,6 @@ async function createGoogleJWT(credentials: ServiceAccountCredentials): Promise<
   
   const signatureInput = `${headerB64}.${payloadB64}`;
   
-  // Import the private key
   const pemContents = credentials.private_key
     .replace(/-----BEGIN PRIVATE KEY-----/, '')
     .replace(/-----END PRIVATE KEY-----/, '')
@@ -71,7 +102,6 @@ async function createGoogleJWT(credentials: ServiceAccountCredentials): Promise<
   return `${signatureInput}.${signatureB64}`;
 }
 
-// Get access token from Google
 async function getGoogleAccessToken(credentials: ServiceAccountCredentials): Promise<string> {
   const jwt = await createGoogleJWT(credentials);
   
@@ -93,7 +123,6 @@ async function getGoogleAccessToken(credentials: ServiceAccountCredentials): Pro
   return data.access_token;
 }
 
-// Submit URL to Google Indexing API
 async function submitToGoogleIndexing(url: string, accessToken: string, type: 'URL_UPDATED' | 'URL_DELETED' = 'URL_UPDATED'): Promise<{ success: boolean; status: number; error?: string }> {
   const response = await fetch('https://indexing.googleapis.com/v3/urlNotifications:publish', {
     method: 'POST',
@@ -101,10 +130,7 @@ async function submitToGoogleIndexing(url: string, accessToken: string, type: 'U
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({
-      url: url,
-      type: type,
-    }),
+    body: JSON.stringify({ url, type }),
   });
   
   if (!response.ok) {
@@ -121,19 +147,27 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Verify admin authentication
+    const authResult = await verifyAdminAuth(req);
+    if (!authResult.authorized) {
+      console.log(`[sitemap-ping] Auth failed: ${authResult.error}`);
+      return new Response(
+        JSON.stringify({ success: false, error: authResult.error }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Parse request body for ping type and trigger info
     let pingType = 'manual';
-    let triggeredBy: string | null = null;
+    let triggeredBy: string | null = authResult.userId || null;
     let specificUrl: string | null = null;
     
     try {
       const body = await req.json();
       pingType = body.ping_type || 'manual';
-      triggeredBy = body.triggered_by || null;
       specificUrl = body.url || null;
     } catch {
       // No body or invalid JSON, use defaults
@@ -141,7 +175,6 @@ Deno.serve(async (req) => {
 
     console.log(`Pinging search engines (type: ${pingType}, triggered_by: ${triggeredBy})...`);
 
-    // Get site settings for canonical URL
     const { data: siteSettings } = await supabase
       .from('site_settings_public')
       .select('canonical_url')
@@ -153,7 +186,6 @@ Deno.serve(async (req) => {
       ? `${baseUrl}/sitemap.xml`
       : `${baseUrl}/sitemap`;
     
-    // Use specific URL if provided, otherwise use sitemap URL
     const urlToSubmit = specificUrl || sitemapUrl;
     const encodedSitemapUrl = encodeURIComponent(sitemapUrl);
 
@@ -166,8 +198,6 @@ Deno.serve(async (req) => {
         console.log('Submitting to Google Indexing API...');
         const credentials: ServiceAccountCredentials = JSON.parse(googleServiceAccount);
         const accessToken = await getGoogleAccessToken(credentials);
-        
-        // Submit the URL (sitemap or specific page)
         const googleResult = await submitToGoogleIndexing(urlToSubmit, accessToken);
         
         results.push({
@@ -176,36 +206,25 @@ Deno.serve(async (req) => {
           status: googleResult.status,
           note: googleResult.success ? 'Indexing API accepted' : googleResult.error,
         });
-        console.log(`Google Indexing API: ${googleResult.status} - ${googleResult.success ? 'Success' : googleResult.error}`);
+        console.log(`Google Indexing API: ${googleResult.status}`);
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         console.error('Google Indexing API failed:', errorMessage);
-        results.push({
-          engine: 'Google',
-          success: false,
-          error: errorMessage,
-        });
+        results.push({ engine: 'Google', success: false, error: errorMessage });
       }
     } else {
-      console.log('Google Indexing API: No service account configured');
       results.push({
         engine: 'Google',
         success: false,
-        note: 'Service account not configured. Add GOOGLE_INDEXING_SERVICE_ACCOUNT secret.',
+        note: 'Service account not configured',
       });
     }
 
-    // Bing using IndexNow protocol
+    // Bing via IndexNow
     try {
-      console.log('Pinging Bing via IndexNow...');
       const bingResponse = await fetch(
         `https://www.bing.com/indexnow?url=${encodeURIComponent(urlToSubmit)}&key=sitemap`,
-        { 
-          method: 'GET',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; SitemapPinger/1.0)'
-          }
-        }
+        { method: 'GET', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SitemapPinger/1.0)' } }
       );
       
       const isSuccess = bingResponse.status === 200 || bingResponse.status === 202;
@@ -215,88 +234,48 @@ Deno.serve(async (req) => {
         status: bingResponse.status,
         note: isSuccess ? 'IndexNow accepted' : undefined,
       });
-      console.log(`Bing IndexNow: ${bingResponse.status}`);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Bing ping failed:', errorMessage);
-      results.push({
-        engine: 'Bing',
-        success: false,
-        error: errorMessage,
-      });
+      results.push({ engine: 'Bing', success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
-    // Yandex webmaster ping
+    // Yandex
     try {
-      console.log('Pinging Yandex...');
       const yandexResponse = await fetch(
         `https://webmaster.yandex.com/ping?sitemap=${encodedSitemapUrl}`,
-        { 
-          method: 'GET',
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (compatible; SitemapPinger/1.0)'
-          }
-        }
+        { method: 'GET', headers: { 'User-Agent': 'Mozilla/5.0 (compatible; SitemapPinger/1.0)' } }
       );
-      results.push({
-        engine: 'Yandex',
-        success: yandexResponse.ok,
-        status: yandexResponse.status,
-      });
-      console.log(`Yandex ping: ${yandexResponse.status}`);
+      results.push({ engine: 'Yandex', success: yandexResponse.ok, status: yandexResponse.status });
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      console.error('Yandex ping failed:', errorMessage);
-      results.push({
-        engine: 'Yandex',
-        success: false,
-        error: errorMessage,
-      });
+      results.push({ engine: 'Yandex', success: false, error: error instanceof Error ? error.message : 'Unknown error' });
     }
 
     const successCount = results.filter(r => r.success).length;
-    const totalCount = results.length;
 
-    // Log ping to history table
-    const { error: insertError } = await supabase
+    await supabase
       .from('sitemap_ping_history')
       .insert({
         ping_type: pingType,
         triggered_by: triggeredBy,
         sitemap_url: urlToSubmit,
-        results: results,
+        results,
         success_count: successCount,
-        total_count: totalCount,
+        total_count: results.length,
       });
-
-    if (insertError) {
-      console.error('Error logging ping history:', insertError);
-    } else {
-      console.log('Ping history logged successfully');
-    }
-
-    console.log(`Ping complete: ${successCount}/${totalCount} successful`);
 
     return new Response(
       JSON.stringify({
         success: true,
         sitemapUrl: urlToSubmit,
         results,
-        summary: `${successCount}/${totalCount} search engines notified successfully`,
+        summary: `${successCount}/${results.length} search engines notified successfully`,
       }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Error pinging search engines:', error);
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify({ success: false, error: error instanceof Error ? error.message : 'Unknown error' }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

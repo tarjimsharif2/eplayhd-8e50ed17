@@ -2,8 +2,50 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-cron-token',
 };
+
+// Verify authorization - accepts either admin JWT or cron token
+async function verifyAuth(req: Request): Promise<{ authorized: boolean; error?: string }> {
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  const cronToken = Deno.env.get('CRON_SECRET_TOKEN');
+  
+  // Check cron token first (for automated calls)
+  const providedCronToken = req.headers.get('x-cron-token');
+  if (cronToken && providedCronToken === cronToken) {
+    return { authorized: true };
+  }
+  
+  // Check admin JWT
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { authorized: false, error: 'Missing authorization' };
+  }
+  
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+  
+  if (authError || !user) {
+    return { authorized: false, error: 'Invalid or expired token' };
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: roles } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .single();
+
+  if (!roles) {
+    return { authorized: false, error: 'Admin access required' };
+  }
+
+  return { authorized: true };
+}
 
 // Helper function to fetch with retry logic
 async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
@@ -35,52 +77,35 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
   throw lastError || new Error('Failed to fetch after retries');
 }
 
-// Normalize team name for matching - remove special chars and lowercase
+// Normalize team name for matching
 const normalizeTeamName = (name: string): string => {
   return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 };
 
-// Extract first meaningful word(s) from team name
-const getTeamKeywords = (name: string): string[] => {
-  const normalized = normalizeTeamName(name);
-  const words = normalized.split(/\s+/).filter(w => w.length >= 3);
-  return words;
-};
-
-// STRICT team name matching - requires BOTH first AND last words to match
-// This prevents "Melbourne Stars" from matching "Melbourne Renegades"
-// Also prevents short codes like "SYL", "CHA" from incorrectly matching
+// STRICT team name matching
 const teamsMatch = (name1: string, name2: string): boolean => {
   const n1 = normalizeTeamName(name1);
   const n2 = normalizeTeamName(name2);
   
   if (!n1 || !n2) return false;
-  
-  // Exact match
   if (n1 === n2) return true;
   
   const words1 = n1.split(' ').filter(w => w.length > 0);
   const words2 = n2.split(' ').filter(w => w.length > 0);
   
-  // If either is a short code (3 chars or less, single word), DON'T match
-  // Short codes like "SYL", "CHA", "MI" are too ambiguous for reliable matching
   if ((words1.length === 1 && n1.length <= 3) || (words2.length === 1 && n2.length <= 3)) {
     return false;
   }
   
-  // Get first and last words
   const firstWord1 = words1[0];
   const lastWord1 = words1[words1.length - 1];
   const firstWord2 = words2[0];
   const lastWord2 = words2[words2.length - 1];
   
-  // If both have 2+ words, BOTH first AND last words must match
   if (words1.length >= 2 && words2.length >= 2) {
     return firstWord1 === firstWord2 && lastWord1 === lastWord2;
   }
   
-  // If one is single word (4+ chars), check if it matches either first or last word of the other
-  // The single word must be at least 4 characters to be reliable
   if (words1.length === 1 && n1.length >= 4) {
     return firstWord2 === words1[0] || lastWord2 === words1[0];
   }
@@ -97,6 +122,16 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Verify authorization
+    const authResult = await verifyAuth(req);
+    if (!authResult.authorized) {
+      console.log(`[sync-api-scores] Auth failed: ${authResult.error}`);
+      return new Response(
+        JSON.stringify({ success: false, error: authResult.error }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);

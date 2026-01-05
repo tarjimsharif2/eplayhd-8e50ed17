@@ -5,12 +5,58 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Verify admin authentication
+async function verifyAdminAuth(req: Request): Promise<{ authorized: boolean; error?: string; userId?: string }> {
+  const authHeader = req.headers.get('Authorization');
+  if (!authHeader) {
+    return { authorized: false, error: 'Missing authorization header' };
+  }
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+  const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+  const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+  
+  const token = authHeader.replace('Bearer ', '');
+  const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey);
+  
+  const { data: { user }, error: authError } = await supabaseAuth.auth.getUser(token);
+  
+  if (authError || !user) {
+    return { authorized: false, error: 'Invalid or expired token' };
+  }
+
+  // Check if user is admin using service role client
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: roles } = await supabase
+    .from('user_roles')
+    .select('role')
+    .eq('user_id', user.id)
+    .eq('role', 'admin')
+    .single();
+
+  if (!roles) {
+    return { authorized: false, error: 'Admin access required' };
+  }
+
+  return { authorized: true, userId: user.id };
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
+    // Verify admin authentication
+    const authResult = await verifyAdminAuth(req);
+    if (!authResult.authorized) {
+      console.log(`[sync-match-nrr] Auth failed: ${authResult.error}`);
+      return new Response(
+        JSON.stringify({ success: false, error: authResult.error }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -135,11 +181,10 @@ Deno.serve(async (req) => {
     }
 
     // Calculate NRR contribution for this match
-    // NRR = (Runs scored / Overs faced) - (Runs conceded / Overs bowled)
     const calculateMatchNrr = (runsSc: number, oversFc: number, runsCon: number, oversBw: number): number => {
       if (oversFc <= 0 || oversBw <= 0) return 0;
       const nrr = (runsSc / oversFc) - (runsCon / oversBw);
-      return Math.round(nrr * 1000) / 1000; // Round to 3 decimal places
+      return Math.round(nrr * 1000) / 1000;
     };
 
     const teamAMatchNrr = calculateMatchNrr(teamARunsScored, teamAOversFaced, teamARunsConceded, teamAOversBowled);
@@ -147,9 +192,8 @@ Deno.serve(async (req) => {
 
     console.log(`[sync-match-nrr] Match NRR contribution - Team A: ${teamAMatchNrr}, Team B: ${teamBMatchNrr}`);
 
-    // Update points table entries - ADD to existing NRR
+    // Update points table entries
     const updateTeamNrr = async (teamId: string, runsScored: number, oversFaced: number, runsConceded: number, oversBowled: number) => {
-      // Get current entry
       const { data: entry, error: fetchError } = await supabase
         .from('tournament_points_table')
         .select('*')
@@ -167,13 +211,11 @@ Deno.serve(async (req) => {
         return false;
       }
 
-      // Add to cumulative runs/overs
       const newRunsScored = (entry.runs_scored || 0) + runsScored;
       const newOversFaced = (entry.overs_faced || 0) + oversFaced;
       const newRunsConceded = (entry.runs_conceded || 0) + runsConceded;
       const newOversBowled = (entry.overs_bowled || 0) + oversBowled;
 
-      // Recalculate NRR from cumulative totals
       let newNrr = 0;
       if (newOversFaced > 0 && newOversBowled > 0) {
         newNrr = (newRunsScored / newOversFaced) - (newRunsConceded / newOversBowled);
@@ -197,15 +239,13 @@ Deno.serve(async (req) => {
         return false;
       }
 
-      console.log(`[sync-match-nrr] Updated team ${teamId} - NRR: ${newNrr} (RS: ${newRunsScored}, OF: ${newOversFaced}, RC: ${newRunsConceded}, OB: ${newOversBowled})`);
+      console.log(`[sync-match-nrr] Updated team ${teamId} - NRR: ${newNrr}`);
       return true;
     };
 
-    // Update both teams
     const teamAUpdated = await updateTeamNrr(match.team_a_id, teamARunsScored, teamAOversFaced, teamARunsConceded, teamAOversBowled);
     const teamBUpdated = await updateTeamNrr(match.team_b_id, teamBRunsScored, teamBOversFaced, teamBRunsConceded, teamBOversBowled);
 
-    // Recalculate positions
     if (teamAUpdated || teamBUpdated) {
       const { error: rpcError } = await supabase.rpc('recalculate_tournament_positions', {
         p_tournament_id: match.tournament_id
@@ -222,18 +262,8 @@ Deno.serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'NRR synced to points table',
-        teamA: {
-          updated: teamAUpdated,
-          runsScored: teamARunsScored,
-          oversFaced: teamAOversFaced,
-          matchNrr: teamAMatchNrr,
-        },
-        teamB: {
-          updated: teamBUpdated,
-          runsScored: teamBRunsScored,
-          oversFaced: teamBOversFaced,
-          matchNrr: teamBMatchNrr,
-        },
+        teamA: { updated: teamAUpdated, matchNrr: teamAMatchNrr },
+        teamB: { updated: teamBUpdated, matchNrr: teamBMatchNrr },
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
