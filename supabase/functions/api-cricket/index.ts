@@ -183,12 +183,15 @@ Deno.serve(async (req) => {
 
       console.log(`Found matching event for sync: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);
 
-      // Determine match status
-      let status: 'upcoming' | 'live' | 'completed' = 'upcoming';
+      // Determine match status - IMPORTANT: Only change status if we have clear indication
+      // Don't default to 'upcoming' as it may override manual status
+      let status: 'upcoming' | 'live' | 'completed' | null = null;
       if (matchingEvent.event_live === '1') {
         status = 'live';
       } else if (matchingEvent.event_status === 'Finished' || matchingEvent.event_final_result) {
         status = 'completed';
+      } else if (matchingEvent.event_live === '0' && matchingEvent.event_status_info?.toLowerCase().includes('yet to begin')) {
+        status = 'upcoming';
       }
 
       // Extract overs from the extra field
@@ -228,16 +231,22 @@ Deno.serve(async (req) => {
         scoreB = `${scoreB} (${awayOvers} ov)`;
       }
 
-      // Update match in database
+      // Update match in database - only update status if we have a valid one
+      const updateData: any = {
+        score_a: scoreA,
+        score_b: scoreB,
+        last_api_sync: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Only update status if we determined a valid status from API
+      if (status !== null) {
+        updateData.status = status;
+      }
+      
       const { error: updateError } = await supabase
         .from('matches')
-        .update({
-          score_a: scoreA,
-          score_b: scoreB,
-          status: status,
-          last_api_sync: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', matchId);
 
       if (updateError) {
