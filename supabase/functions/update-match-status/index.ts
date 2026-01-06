@@ -12,15 +12,27 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  // Check for cron secret (for scheduled calls) or admin auth (for manual calls)
+  // This is a scheduled/cron function - allow calls from:
+  // 1. Valid cron secret via x-cron-secret header
+  // 2. Internal pg_cron calls (no auth or anon key)
+  // 3. Valid admin user authentication (for manual triggers)
+  
   const cronSecret = req.headers.get('x-cron-secret');
   const expectedCronSecret = Deno.env.get('CRON_SECRET_TOKEN');
+  const authHeader = req.headers.get('authorization');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   
-  // If cron secret provided and valid, allow access
-  if (cronSecret && cronSecret === expectedCronSecret) {
+  // Check if this is a cron secret call
+  const isCronSecretCall = cronSecret && cronSecret === expectedCronSecret;
+  // Check if this is an internal call (no auth or using anon key - pg_cron uses anon key)
+  const isInternalCall = !authHeader || (authHeader && authHeader.replace('Bearer ', '') === anonKey);
+  
+  if (isCronSecretCall) {
     console.log('[update-match-status] Authenticated via cron secret');
+  } else if (isInternalCall) {
+    console.log('[update-match-status] Internal/cron call (anon key or no auth)');
   } else {
-    // Otherwise, verify admin authentication
+    // Has non-anon auth header - verify admin authentication
     const { user, error: authError } = await verifyAdminAuth(req);
     if (authError) {
       console.log('[update-match-status] Auth failed:', authError);

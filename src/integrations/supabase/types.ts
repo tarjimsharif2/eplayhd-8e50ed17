@@ -1172,6 +1172,8 @@ export type Database = {
       }
     }
     Functions: {
+      call_sync_api_scores: { Args: never; Returns: undefined }
+      call_update_match_status: { Args: never; Returns: undefined }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
