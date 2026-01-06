@@ -1123,7 +1123,53 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      streaming_servers_public: {
+        Row: {
+          created_at: string | null
+          display_order: number | null
+          id: string | null
+          is_active: boolean | null
+          match_id: string | null
+          player_type: string | null
+          server_name: string | null
+          server_type: string | null
+          server_url: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string | null
+          is_active?: boolean | null
+          match_id?: string | null
+          player_type?: string | null
+          server_name?: string | null
+          server_type?: string | null
+          server_url?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          display_order?: number | null
+          id?: string | null
+          is_active?: boolean | null
+          match_id?: string | null
+          player_type?: string | null
+          server_name?: string | null
+          server_type?: string | null
+          server_url?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "streaming_servers_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       has_role: {
