@@ -41,16 +41,52 @@ const normalizeTeamName = (name: string): string => {
   return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 };
 
-// Extract first meaningful word(s) from team name
-const getTeamKeywords = (name: string): string[] => {
-  const normalized = normalizeTeamName(name);
-  const words = normalized.split(/\s+/).filter(w => w.length >= 3);
-  return words;
+// Common team name aliases for international teams
+const teamAliases: Record<string, string[]> = {
+  'australia': ['aus', 'australian', 'aussies', 'australia men', 'australia women'],
+  'england': ['eng', 'english', 'england men', 'england women', 'england lions'],
+  'india': ['ind', 'indian', 'india men', 'india women', 'team india'],
+  'pakistan': ['pak', 'pakistani', 'pakistan men', 'pakistan women'],
+  'south africa': ['sa', 'rsa', 'south african', 'proteas', 'south africa men'],
+  'new zealand': ['nz', 'nzl', 'kiwis', 'black caps', 'blackcaps', 'new zealand men'],
+  'west indies': ['wi', 'windies', 'caribbean', 'west indies men'],
+  'sri lanka': ['sl', 'srilanka', 'sri lankan', 'sri lanka men'],
+  'bangladesh': ['ban', 'bd', 'bangladeshi', 'tigers', 'bangladesh men'],
+  'afghanistan': ['afg', 'afghan', 'afghanistan men'],
+  'zimbabwe': ['zim', 'zimbabwean', 'zimbabwe men'],
+  'ireland': ['ire', 'irish', 'ireland men'],
+  'scotland': ['sco', 'scottish', 'scotland men'],
+  'netherlands': ['ned', 'holland', 'dutch', 'netherlands men'],
+  'uae': ['united arab emirates', 'emirates'],
+  'usa': ['united states', 'america', 'american'],
 };
 
-// STRICT team name matching - requires BOTH first AND last words to match
-// This prevents "Melbourne Stars" from matching "Melbourne Renegades"
-// Also prevents short codes like "SYL", "CHA" from incorrectly matching
+// Get canonical team name
+const getCanonicalName = (name: string): string => {
+  const normalized = normalizeTeamName(name);
+  
+  // Check if it matches any alias
+  for (const [canonical, aliases] of Object.entries(teamAliases)) {
+    if (normalized === canonical || aliases.includes(normalized)) {
+      return canonical;
+    }
+    // Also check if the normalized name starts with the canonical name
+    if (normalized.startsWith(canonical + ' ') || normalized.endsWith(' ' + canonical)) {
+      return canonical;
+    }
+    // Check if any alias is contained
+    for (const alias of aliases) {
+      if (normalized === alias || normalized.startsWith(alias + ' ') || normalized.endsWith(' ' + alias)) {
+        return canonical;
+      }
+    }
+  }
+  
+  return normalized;
+};
+
+// IMPROVED team name matching
+// Handles international team aliases and partial matches
 const teamsMatch = (name1: string, name2: string): boolean => {
   const n1 = normalizeTeamName(name1);
   const n2 = normalizeTeamName(name2);
@@ -60,12 +96,33 @@ const teamsMatch = (name1: string, name2: string): boolean => {
   // Exact match
   if (n1 === n2) return true;
   
+  // Canonical name match (handles aliases like AUS = Australia)
+  const canonical1 = getCanonicalName(n1);
+  const canonical2 = getCanonicalName(n2);
+  if (canonical1 === canonical2) return true;
+  
+  // Check if one contains the other (for cases like "Australia" matching "Australia Men")
+  if (n1.includes(n2) || n2.includes(n1)) return true;
+  
   const words1 = n1.split(' ').filter(w => w.length > 0);
   const words2 = n2.split(' ').filter(w => w.length > 0);
   
-  // If either is a short code (3 chars or less, single word), DON'T match
-  // Short codes like "SYL", "CHA", "MI" are too ambiguous for reliable matching
-  if ((words1.length === 1 && n1.length <= 3) || (words2.length === 1 && n2.length <= 3)) {
+  // If either is a short code (3 chars or less, single word), check aliases
+  if (words1.length === 1 && n1.length <= 3) {
+    // Check if short code matches any alias
+    for (const [canonical, aliases] of Object.entries(teamAliases)) {
+      if (aliases.includes(n1) && (n2.includes(canonical) || canonical2 === canonical)) {
+        return true;
+      }
+    }
+    return false;
+  }
+  if (words2.length === 1 && n2.length <= 3) {
+    for (const [canonical, aliases] of Object.entries(teamAliases)) {
+      if (aliases.includes(n2) && (n1.includes(canonical) || canonical1 === canonical)) {
+        return true;
+      }
+    }
     return false;
   }
   
@@ -81,7 +138,6 @@ const teamsMatch = (name1: string, name2: string): boolean => {
   }
   
   // If one is single word (4+ chars), check if it matches either first or last word of the other
-  // The single word must be at least 4 characters to be reliable
   if (words1.length === 1 && n1.length >= 4) {
     return firstWord2 === words1[0] || lastWord2 === words1[0];
   }
@@ -296,6 +352,14 @@ Deno.serve(async (req) => {
 
     const events = apiData.result || [];
     console.log(`[sync-api-scores] Got ${events.length} events from API`);
+    
+    // Log all unique team names from API for debugging
+    const apiTeams = new Set<string>();
+    events.forEach((e: any) => {
+      if (e.event_home_team) apiTeams.add(e.event_home_team);
+      if (e.event_away_team) apiTeams.add(e.event_away_team);
+    });
+    console.log(`[sync-api-scores] API Teams: ${Array.from(apiTeams).join(', ')}`);
 
     let syncedCount = 0;
 
@@ -307,8 +371,10 @@ Deno.serve(async (req) => {
       const teamBName = teamB?.name || '';
       const teamAShort = teamA?.short_name || '';
       const teamBShort = teamB?.short_name || '';
+      
+      console.log(`[sync-api-scores] Looking for: "${teamAName}" (${teamAShort}) vs "${teamBName}" (${teamBShort})`);
 
-      // Find matching event
+      // Find matching event with debug
       const matchingEvent = events.find((event: any) => {
         const homeTeam = event.event_home_team || '';
         const awayTeam = event.event_away_team || '';
