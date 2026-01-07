@@ -260,10 +260,12 @@ Deno.serve(async (req) => {
 
     // ============================================
     // 4. Auto-set STUMPS at stumps_time for live Test matches
+    // Only set STUMPS if stumps_time is TODAY (same calendar day in UTC)
+    // This prevents setting STUMPS based on yesterday's stumps_time
     // ============================================
     const { data: testMatchesForStumps, error: stumpsFetchError } = await supabase
       .from('matches')
-      .select('id, match_format, test_day, is_stumps, stumps_time, next_day_start')
+      .select('id, match_format, test_day, is_stumps, stumps_time, next_day_start, day_start_time')
       .eq('match_format', 'test')
       .eq('status', 'live')
       .eq('is_stumps', false)
@@ -276,22 +278,33 @@ Deno.serve(async (req) => {
       
       for (const match of testMatchesForStumps) {
         const stumpsTime = new Date(match.stumps_time);
+        const todayUTC = now.toISOString().split('T')[0]; // YYYY-MM-DD
+        const stumpsDateUTC = stumpsTime.toISOString().split('T')[0];
         
-        // If current time is past stumps_time, set STUMPS
-        if (now >= stumpsTime) {
+        // Only process stumps if:
+        // 1. stumps_time is TODAY (prevents triggering on old stumps_time)
+        // 2. Current time has passed stumps_time
+        if (stumpsDateUTC === todayUTC && now >= stumpsTime) {
+          // Calculate next day's stumps_time (same time, next day)
+          const nextDayStumpsTime = new Date(stumpsTime);
+          nextDayStumpsTime.setDate(nextDayStumpsTime.getDate() + 1);
+          
           const { error: updateError } = await supabase
             .from('matches')
             .update({
               is_stumps: true,
+              stumps_time: nextDayStumpsTime.toISOString(), // Update to tomorrow's stumps time
             })
             .eq('id', match.id);
 
           if (updateError) {
             console.error(`Error setting STUMPS for match ${match.id}:`, updateError);
           } else {
-            console.log(`Match ${match.id} Day ${match.test_day} - STUMPS called automatically`);
+            console.log(`Match ${match.id} Day ${match.test_day} - STUMPS called automatically. Next stumps: ${nextDayStumpsTime.toISOString()}`);
             updatedCount++;
           }
+        } else if (stumpsDateUTC !== todayUTC) {
+          console.log(`Match ${match.id}: stumps_time (${stumpsDateUTC}) is not today (${todayUTC}), skipping STUMPS check`);
         }
       }
     }
