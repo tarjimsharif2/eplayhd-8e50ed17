@@ -55,6 +55,13 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
     net_run_rate: 0,
   });
 
+  // Initialize series ID from tournament
+  useEffect(() => {
+    if ((tournament as any).series_id) {
+      setSeriesIdInput((tournament as any).series_id);
+    }
+  }, [tournament]);
+
   // Fetch points table entries for this tournament - sorted by position
   const { data: entries, isLoading } = useQuery({
     queryKey: ['tournament_points_table', tournament.id],
@@ -157,9 +164,27 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
     },
   });
 
+  // Save series ID to tournament
+  const saveSeriesId = useMutation({
+    mutationFn: async (seriesId: string) => {
+      const { error } = await supabase
+        .from('tournaments')
+        .update({ series_id: seriesId } as any)
+        .eq('id', tournament.id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+    },
+  });
+
   // Sync points table from RapidAPI (Cricbuzz)
   const syncFromApi = useMutation({
     mutationFn: async (seriesId: string) => {
+      // Save series ID for future use
+      await saveSeriesId.mutateAsync(seriesId);
+      
       const { data, error } = await supabase.functions.invoke('sync-points-table', {
         body: { tournamentId: tournament.id, seriesId }
       });
@@ -182,7 +207,6 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
           description: message
         });
         setSeriesIdDialogOpen(false);
-        setSeriesIdInput('');
       } else {
         toast({ title: "Sync failed", description: data.error || 'Unknown error', variant: "destructive" });
       }
@@ -250,8 +274,13 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
   };
 
   const handleSyncClick = () => {
-    // Open series ID dialog
-    setSeriesIdDialogOpen(true);
+    // If series ID already saved, sync directly
+    if ((tournament as any).series_id) {
+      syncFromApi.mutate((tournament as any).series_id);
+    } else {
+      // Open series ID dialog
+      setSeriesIdDialogOpen(true);
+    }
   };
 
   const handleSyncWithSeriesId = () => {
@@ -509,6 +538,11 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
               <code className="text-xs bg-muted px-1 py-0.5 rounded">cricbuzz.com/cricket-series/3718/...</code><br/>
               Then the Series ID is <strong>3718</strong>
             </p>
+            {(tournament as any).series_id && (
+              <p className="text-sm text-green-600 dark:text-green-400">
+                ✓ Saved Series ID: <strong>{(tournament as any).series_id}</strong>
+              </p>
+            )}
             <div className="space-y-2">
               <Label>Series ID</Label>
               <Input
