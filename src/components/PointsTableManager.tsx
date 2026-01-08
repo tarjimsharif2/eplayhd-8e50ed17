@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Plus, Edit2, Trash2, Loader2, RefreshCw, Download, CloudDownload } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, RefreshCw, CloudDownload, Settings2 } from "lucide-react";
 import { Tournament, Team } from "@/hooks/useSportsData";
 import SearchableSelect from "@/components/SearchableSelect";
 
@@ -322,6 +322,16 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
             )}
             Sync from API
           </Button>
+          {(tournament as any).series_id && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setSeriesIdDialogOpen(true)}
+              title="Change Series ID"
+            >
+              <Settings2 className="w-4 h-4" />
+            </Button>
+          )}
           {entries && entries.length > 1 && (
             <Button 
               variant="outline" 
