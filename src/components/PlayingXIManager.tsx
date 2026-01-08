@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,12 +9,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, RefreshCw } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from "@/hooks/useSportsData";
 import { useToast } from "@/hooks/use-toast";
-import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 
 interface Player {
   id: string;
@@ -33,7 +32,6 @@ interface PlayingXIManagerProps {
   teamA: Team;
   teamB: Team;
   cricbuzzMatchId?: string | null;
-  matchStatus?: string;
 }
 
 // Hooks for Playing XI management
@@ -150,11 +148,10 @@ const PLAYER_ROLES = [
   'Spin Bowler',
 ];
 
-const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, matchStatus }: PlayingXIManagerProps) => {
+const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIManagerProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: players, isLoading } = usePlayingXI(matchId);
-  const { data: siteSettings } = usePublicSiteSettings();
   const createPlayer = useCreatePlayer();
   const bulkCreatePlayers = useBulkCreatePlayers();
   const updatePlayer = useUpdatePlayer();
@@ -165,7 +162,6 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, matchStatus 
   const [activeTeam, setActiveTeam] = useState<string>(teamA.id);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [fetchingSquad, setFetchingSquad] = useState(false);
-  const [autoSyncAttempted, setAutoSyncAttempted] = useState(false);
   const [clearingSquad, setClearingSquad] = useState(false);
   const [form, setForm] = useState({
     player_name: '',
@@ -328,16 +324,9 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, matchStatus 
 
   // Fetch squad from RapidAPI (Cricbuzz)
   const handleFetchSquad = async () => {
-    if (!siteSettings?.rapidapi_enabled) {
-      toast({ title: "Error", description: "RapidAPI not enabled in site settings", variant: "destructive" });
-      return;
-    }
-
     setFetchingSquad(true);
 
     try {
-      const { data: session } = await supabase.auth.getSession();
-      
       const response = await supabase.functions.invoke('sync-playing-xi', {
         body: {
           matchId,
@@ -381,22 +370,6 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, matchStatus 
       setFetchingSquad(false);
     }
   };
-
-  // Auto-sync playing XI when match is live and no players exist
-  useEffect(() => {
-    const shouldAutoSync = 
-      matchStatus === 'live' && 
-      siteSettings?.rapidapi_enabled &&
-      !isLoading &&
-      players?.length === 0 &&
-      !autoSyncAttempted;
-
-    if (shouldAutoSync) {
-      setAutoSyncAttempted(true);
-      console.log('[PlayingXIManager] Auto-syncing playing XI for live match');
-      handleFetchSquad();
-    }
-  }, [matchStatus, siteSettings?.rapidapi_enabled, isLoading, players?.length, autoSyncAttempted]);
 
   // Clear all players from the squad
   const handleClearSquad = async () => {
