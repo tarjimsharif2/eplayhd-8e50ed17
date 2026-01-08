@@ -323,10 +323,22 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
   };
 
   // Fetch squad from RapidAPI (Cricbuzz)
-  const handleFetchSquad = async () => {
+  const handleFetchSquad = async (forceRefresh = false) => {
     setFetchingSquad(true);
 
     try {
+      // If force refresh, clear existing players first
+      if (forceRefresh && players && players.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('match_playing_xi')
+          .delete()
+          .eq('match_id', matchId);
+        
+        if (deleteError) {
+          throw new Error('Failed to clear existing players');
+        }
+      }
+
       const response = await supabase.functions.invoke('sync-playing-xi', {
         body: {
           matchId,
@@ -352,6 +364,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
           description: result.error || result.message,
           variant: result.alreadyExists ? "default" : "destructive"
         });
+        queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
         return;
       }
 
@@ -360,7 +373,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
 
       toast({ 
         title: "Squad synced!", 
-        description: `${result.playersAdded} players added from API`
+        description: `${result.playersAdded || 0} players added from API`
       });
 
     } catch (err: any) {
@@ -508,7 +521,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         <Button
           variant="outline"
           size="sm"
-          onClick={handleFetchSquad}
+          onClick={() => handleFetchSquad(players && players.length > 0)}
           disabled={fetchingSquad}
           className="gap-2"
         >
