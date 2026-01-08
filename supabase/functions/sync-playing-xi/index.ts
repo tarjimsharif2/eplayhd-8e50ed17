@@ -98,7 +98,8 @@ Deno.serve(async (req) => {
         JSON.stringify({ 
           success: true, 
           message: 'Playing XI already exists',
-          alreadyExists: true
+          alreadyExists: true,
+          playersAdded: 0
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -120,9 +121,10 @@ Deno.serve(async (req) => {
     }
 
     const rapidApiKey = settings.rapidapi_key;
+    let actualMatchId = cricbuzzMatchId;
 
     // We need a cricbuzz match ID
-    if (!cricbuzzMatchId) {
+    if (!actualMatchId) {
       // Try to find match from live matches API
       console.log(`[sync-playing-xi] No cricbuzz match ID, searching live matches for: ${teamAName} vs ${teamBName}`);
       
@@ -147,7 +149,6 @@ Deno.serve(async (req) => {
       console.log(`[sync-playing-xi] Live matches response received`);
       
       // Find matching match
-      let foundMatchId: string | null = null;
       const typeMatches = liveData.typeMatches || [];
       
       for (const typeMatch of typeMatches) {
@@ -165,192 +166,230 @@ Deno.serve(async (req) => {
             const team2Matches = teamsMatch(teamAName, teamAShortName, team2Name) || teamsMatch(teamBName, teamBShortName, team2Name);
             
             if (team1Matches && team2Matches) {
-              foundMatchId = matchInfo.matchId?.toString();
-              console.log(`[sync-playing-xi] Found match: ${foundMatchId} - ${team1Name} vs ${team2Name}`);
+              actualMatchId = matchInfo.matchId?.toString();
+              console.log(`[sync-playing-xi] Found match: ${actualMatchId} - ${team1Name} vs ${team2Name}`);
               break;
             }
           }
-          if (foundMatchId) break;
+          if (actualMatchId) break;
         }
-        if (foundMatchId) break;
+        if (actualMatchId) break;
       }
 
-      if (!foundMatchId) {
+      if (!actualMatchId) {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            error: `Match not found in live matches. Please set Cricbuzz Match ID manually.`
+            error: `Match not found in live matches. Please set Cricbuzz Match ID manually.`,
+            playersAdded: 0
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      // Use the found match ID
-      return await fetchAndSaveSquad(supabase, rapidApiKey, foundMatchId, matchId, teamAId, teamBId, teamAName, teamAShortName, teamBName, teamBShortName);
     }
 
-    // Use provided cricbuzz match ID
-    return await fetchAndSaveSquad(supabase, rapidApiKey, cricbuzzMatchId, matchId, teamAId, teamBId, teamAName, teamAShortName, teamBName, teamBShortName);
+    // Fetch squad using match info endpoint which includes playing XI
+    const matchInfoUrl = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${actualMatchId}`;
+    console.log(`[sync-playing-xi] Fetching match info: ${matchInfoUrl}`);
+    
+    const matchInfoResponse = await fetchWithRetry(matchInfoUrl, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+        'x-rapidapi-key': rapidApiKey,
+      },
+    });
+
+    if (!matchInfoResponse.ok) {
+      console.error(`[sync-playing-xi] Match info API error: ${matchInfoResponse.status}`);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to fetch match info', playersAdded: 0 }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const matchInfoText = await matchInfoResponse.text();
+    console.log(`[sync-playing-xi] Match info response (first 1000 chars):`, matchInfoText.substring(0, 1000));
+    
+    let matchInfo;
+    try {
+      matchInfo = JSON.parse(matchInfoText);
+    } catch (e) {
+      console.error(`[sync-playing-xi] Failed to parse match info:`, e);
+      return new Response(
+        JSON.stringify({ success: false, error: 'Failed to parse match info', playersAdded: 0 }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Now try to get squad from team endpoints
+    const team1Id = matchInfo.matchInfo?.team1?.id || matchInfo.matchInfo?.team1?.teamId;
+    const team2Id = matchInfo.matchInfo?.team2?.id || matchInfo.matchInfo?.team2?.teamId;
+    
+    console.log(`[sync-playing-xi] Team IDs: team1=${team1Id}, team2=${team2Id}`);
+
+    const playersToAdd: any[] = [];
+
+    // Try squad endpoint with team IDs
+    for (const [teamNum, teamApiId] of [[1, team1Id], [2, team2Id]]) {
+      if (!teamApiId) continue;
+      
+      try {
+        const squadUrl = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${actualMatchId}/team/${teamNum}`;
+        console.log(`[sync-playing-xi] Fetching team ${teamNum} squad: ${squadUrl}`);
+        
+        const squadResponse = await fetchWithRetry(squadUrl, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+            'x-rapidapi-key': rapidApiKey,
+          },
+        });
+
+        if (!squadResponse.ok) {
+          console.log(`[sync-playing-xi] Team ${teamNum} squad response not ok: ${squadResponse.status}`);
+          continue;
+        }
+
+        const squadText = await squadResponse.text();
+        console.log(`[sync-playing-xi] Team ${teamNum} squad response (first 500 chars):`, squadText.substring(0, 500));
+        
+        if (!squadText || squadText.trim() === '') {
+          console.log(`[sync-playing-xi] Team ${teamNum} squad response is empty`);
+          continue;
+        }
+
+        let squadData;
+        try {
+          squadData = JSON.parse(squadText);
+        } catch (e) {
+          console.error(`[sync-playing-xi] Failed to parse team ${teamNum} squad:`, e);
+          continue;
+        }
+
+        // Extract playing XI from squad data
+        const playingXI = squadData.players?.['playing XI'] || 
+                          squadData.players?.playingXI || 
+                          squadData.playingXI ||
+                          [];
+        
+        const teamDetails = squadData.teamDetails || {};
+        const apiTeamName = teamDetails.teamName || teamDetails.teamSName || '';
+        
+        console.log(`[sync-playing-xi] Team ${teamNum} (${apiTeamName}): found ${playingXI.length} playing XI players`);
+
+        if (playingXI.length === 0) {
+          // Try to get from players object with different keys
+          const allPlayers = squadData.players || {};
+          for (const key of Object.keys(allPlayers)) {
+            if (key.toLowerCase().includes('playing') || key.toLowerCase().includes('xi')) {
+              const players = allPlayers[key];
+              if (Array.isArray(players) && players.length > 0) {
+                console.log(`[sync-playing-xi] Found ${players.length} players in ${key}`);
+                for (let i = 0; i < Math.min(players.length, 11); i++) {
+                  const player = players[i];
+                  const playerName = player.name || player.fullName || '';
+                  if (!playerName) continue;
+                  
+                  // Determine local team ID
+                  let localTeamId: string | null = null;
+                  if (teamsMatch(teamAName, teamAShortName, apiTeamName)) {
+                    localTeamId = teamAId;
+                  } else if (teamsMatch(teamBName, teamBShortName, apiTeamName)) {
+                    localTeamId = teamBId;
+                  } else {
+                    localTeamId = teamNum === 1 ? teamAId : teamBId;
+                  }
+                  
+                  playersToAdd.push({
+                    match_id: matchId,
+                    team_id: localTeamId,
+                    player_name: playerName,
+                    player_role: player.role || null,
+                    is_captain: player.captain === true || player.isCaptain === true,
+                    is_vice_captain: false,
+                    is_wicket_keeper: player.keeper === true || player.isKeeper === true,
+                    batting_order: i + 1,
+                  });
+                }
+              }
+            }
+          }
+        } else {
+          // Process playing XI array
+          for (let i = 0; i < playingXI.length; i++) {
+            const player = playingXI[i];
+            const playerName = player.name || player.fullName || '';
+            if (!playerName) continue;
+            
+            // Determine local team ID
+            let localTeamId: string | null = null;
+            if (teamsMatch(teamAName, teamAShortName, apiTeamName)) {
+              localTeamId = teamAId;
+            } else if (teamsMatch(teamBName, teamBShortName, apiTeamName)) {
+              localTeamId = teamBId;
+            } else {
+              localTeamId = teamNum === 1 ? teamAId : teamBId;
+            }
+            
+            playersToAdd.push({
+              match_id: matchId,
+              team_id: localTeamId,
+              player_name: playerName,
+              player_role: player.role || null,
+              is_captain: player.captain === true || player.isCaptain === true,
+              is_vice_captain: false,
+              is_wicket_keeper: player.keeper === true || player.isKeeper === true,
+              batting_order: i + 1,
+            });
+          }
+        }
+      } catch (err) {
+        console.error(`[sync-playing-xi] Error processing team ${teamNum}:`, err);
+      }
+    }
+
+    if (playersToAdd.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'No playing XI data available. The match may not have started or lineup not announced yet.',
+          playersAdded: 0
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Insert players
+    const { error: insertError } = await supabase
+      .from('match_playing_xi')
+      .insert(playersToAdd);
+
+    if (insertError) {
+      console.error('[sync-playing-xi] Insert error:', insertError);
+      return new Response(
+        JSON.stringify({ success: false, error: insertError.message, playersAdded: 0 }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[sync-playing-xi] Saved ${playersToAdd.length} players for match ${matchId}`);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: `Playing XI synced successfully`,
+        playersAdded: playersToAdd.length,
+      }),
+      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error: unknown) {
     console.error('[sync-playing-xi] Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
+      JSON.stringify({ success: false, error: errorMessage, playersAdded: 0 }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
-
-async function fetchAndSaveSquad(
-  supabase: any,
-  rapidApiKey: string,
-  cricbuzzMatchId: string,
-  matchId: string,
-  teamAId: string,
-  teamBId: string,
-  teamAName: string,
-  teamAShortName: string,
-  teamBName: string,
-  teamBShortName: string
-): Promise<Response> {
-  // Fetch squad from Cricbuzz
-  const squadUrl = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzMatchId}/team/1`;
-  const squadUrl2 = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzMatchId}/team/2`;
-  
-  console.log(`[sync-playing-xi] Fetching squad for match: ${cricbuzzMatchId}`);
-  
-  const [response1, response2] = await Promise.all([
-    fetchWithRetry(squadUrl, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
-        'x-rapidapi-key': rapidApiKey,
-      },
-    }),
-    fetchWithRetry(squadUrl2, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
-        'x-rapidapi-key': rapidApiKey,
-      },
-    }),
-  ]);
-
-  if (!response1.ok && !response2.ok) {
-    console.error(`[sync-playing-xi] Squad API error: ${response1.status}, ${response2.status}`);
-    return new Response(
-      JSON.stringify({ success: false, error: 'Failed to fetch squad data' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  const playersToAdd: any[] = [];
-  
-  // Process team 1
-  if (response1.ok) {
-    const team1Data = await response1.json();
-    console.log(`[sync-playing-xi] Team 1 response:`, JSON.stringify(team1Data).substring(0, 500));
-    
-    const players1 = await processTeamSquad(team1Data, matchId, teamAId, teamBId, teamAName, teamAShortName, teamBName, teamBShortName);
-    playersToAdd.push(...players1);
-  }
-  
-  // Process team 2
-  if (response2.ok) {
-    const team2Data = await response2.json();
-    console.log(`[sync-playing-xi] Team 2 response:`, JSON.stringify(team2Data).substring(0, 500));
-    
-    const players2 = await processTeamSquad(team2Data, matchId, teamAId, teamBId, teamAName, teamAShortName, teamBName, teamBShortName);
-    playersToAdd.push(...players2);
-  }
-
-  if (playersToAdd.length === 0) {
-    return new Response(
-      JSON.stringify({ success: false, error: 'No squad data available. Match may not have started yet.' }),
-      { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  // Insert players
-  const { error: insertError } = await supabase
-    .from('match_playing_xi')
-    .insert(playersToAdd);
-
-  if (insertError) {
-    console.error('[sync-playing-xi] Insert error:', insertError);
-    return new Response(
-      JSON.stringify({ success: false, error: insertError.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-
-  console.log(`[sync-playing-xi] Saved ${playersToAdd.length} players for match ${matchId}`);
-
-  return new Response(
-    JSON.stringify({
-      success: true,
-      message: `Playing XI synced successfully`,
-      playersAdded: playersToAdd.length,
-    }),
-    { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  );
-}
-
-function processTeamSquad(
-  teamData: any,
-  matchId: string,
-  teamAId: string,
-  teamBId: string,
-  teamAName: string,
-  teamAShortName: string,
-  teamBName: string,
-  teamBShortName: string
-): any[] {
-  const players: any[] = [];
-  
-  // Get playing XI from the response
-  const playingXI = teamData.players?.['playing XI'] || teamData.players?.playingXI || [];
-  const teamInfo = teamData.teamDetails || {};
-  const apiTeamName = teamInfo.teamName || teamInfo.teamSName || '';
-  
-  console.log(`[sync-playing-xi] Processing team: ${apiTeamName}, playing XI count: ${playingXI.length}`);
-  
-  if (playingXI.length === 0) return players;
-  
-  // Determine which local team this matches
-  let localTeamId: string | null = null;
-  
-  if (teamsMatch(teamAName, teamAShortName, apiTeamName)) {
-    localTeamId = teamAId;
-  } else if (teamsMatch(teamBName, teamBShortName, apiTeamName)) {
-    localTeamId = teamBId;
-  }
-  
-  if (!localTeamId) {
-    console.log(`[sync-playing-xi] Could not match team: ${apiTeamName} to either ${teamAName} or ${teamBName}`);
-    return players;
-  }
-  
-  playingXI.forEach((player: any, index: number) => {
-    const playerName = player.name || player.fullName || '';
-    const role = player.role || '';
-    const isCaptain = player.captain === true || player.isCaptain === true;
-    const isKeeper = player.keeper === true || player.isKeeper === true || role.toLowerCase().includes('keeper');
-    
-    if (!playerName) return;
-    
-    players.push({
-      match_id: matchId,
-      team_id: localTeamId,
-      player_name: playerName,
-      player_role: role || null,
-      is_captain: isCaptain,
-      is_vice_captain: false,
-      is_wicket_keeper: isKeeper,
-      batting_order: index + 1,
-    });
-  });
-  
-  return players;
-}
