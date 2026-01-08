@@ -41,24 +41,23 @@ const normalizeTeamName = (name: string): string => {
   return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 };
 
-// Flexible team name matching
-const teamsMatch = (name1: string, name2: string): boolean => {
-  const n1 = normalizeTeamName(name1);
-  const n2 = normalizeTeamName(name2);
+// Strict team name matching - must match short_name exactly or full name must include/be included
+const teamsMatch = (dbTeam: { name: string; short_name: string }, apiTeamName: string, apiTeamFullName?: string): boolean => {
+  const dbShort = (dbTeam.short_name || '').toLowerCase().trim();
+  const dbName = normalizeTeamName(dbTeam.name);
+  const apiShort = (apiTeamName || '').toLowerCase().trim();
+  const apiName = normalizeTeamName(apiTeamFullName || '');
   
-  if (!n1 || !n2) return false;
-  if (n1 === n2) return true;
-  if (n1.includes(n2) || n2.includes(n1)) return true;
+  if (!dbShort || !apiShort) return false;
   
-  const words1 = n1.split(/\s+/).filter(w => w.length >= 3);
-  const words2 = n2.split(/\s+/).filter(w => w.length >= 3);
+  // Exact short name match - most reliable
+  if (dbShort === apiShort) return true;
   
-  for (const w1 of words1) {
-    for (const w2 of words2) {
-      if (w1 === w2 || (w1.length >= 4 && w2.length >= 4 && (w1.includes(w2) || w2.includes(w1)))) {
-        return true;
-      }
-    }
+  // Check if full names match
+  if (apiName && dbName) {
+    if (dbName === apiName) return true;
+    // Only match if both words in one are contained in the other
+    if (dbName.includes(apiName) || apiName.includes(dbName)) return true;
   }
   
   return false;
@@ -188,18 +187,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get current points table entries to preserve NRR
-    const { data: existingEntries } = await supabase
-      .from('tournament_points_table')
-      .select('*')
-      .eq('tournament_id', tournamentId);
-
-    const existingNrrMap = new Map<string, number>();
-    if (existingEntries) {
-      existingEntries.forEach(entry => {
-        existingNrrMap.set(entry.team_id, entry.net_run_rate || 0);
-      });
-    }
 
     let updatedCount = 0;
     let insertedCount = 0;
@@ -211,21 +198,22 @@ Deno.serve(async (req) => {
       
       for (const standing of groupTable) {
         const apiTeamName = standing.teamName || '';
+        const apiTeamFullName = standing.teamFullName || '';
         
         if (!apiTeamName) continue;
 
-        // Find matching team in our database
+        // Find matching team in our database using strict matching
         const matchingTeam = teams.find(team => 
-          teamsMatch(team.name, apiTeamName) || teamsMatch(team.short_name, apiTeamName)
+          teamsMatch(team, apiTeamName, apiTeamFullName)
         );
 
         if (!matchingTeam) {
-          console.log(`[sync-points-table] No matching team found for: ${apiTeamName}`);
+          console.log(`[sync-points-table] No matching team found for: ${apiTeamName} (${apiTeamFullName})`);
           skippedTeams.push(apiTeamName);
           continue;
         }
 
-        console.log(`[sync-points-table] Matched ${apiTeamName} -> ${matchingTeam.name}`);
+        console.log(`[sync-points-table] Matched ${apiTeamName} (${apiTeamFullName}) -> ${matchingTeam.name} (${matchingTeam.short_name})`);
 
         // Parse Cricbuzz standing data
         const played = parseInt(standing.matchesPlayed || 0) || 0;
@@ -235,9 +223,9 @@ Deno.serve(async (req) => {
         const noResult = parseInt(standing.noRes || standing.noResult || 0) || 0;
         const points = parseInt(standing.points || 0) || 0;
         const position = parseInt(standing.position || 0) || 0;
-
-        // Preserve existing NRR - don't overwrite from API
-        const existingNrr = existingNrrMap.get(matchingTeam.id) || 0;
+        
+        // Get NRR from API - parse the string to float
+        const apiNrr = parseFloat(standing.nrr || '0') || 0;
 
         // Check if entry exists
         const { data: existing } = await supabase
@@ -257,8 +245,8 @@ Deno.serve(async (req) => {
           tied,
           no_result: noResult,
           points,
-          // Keep existing NRR, don't replace from API
-          net_run_rate: existing?.net_run_rate ?? existingNrr,
+          // Use API NRR directly
+          net_run_rate: apiNrr,
           updated_at: new Date().toISOString(),
         };
 
