@@ -35,6 +35,8 @@ export interface PublicSiteSettings {
   cricket_api_enabled: boolean;
   // API Cricket enabled flag (api-cricket.com)
   api_cricket_enabled: boolean;
+  // RapidAPI enabled flag (for Cricbuzz)
+  rapidapi_enabled: boolean;
   // Custom code injection
   custom_header_code: string | null;
   custom_footer_code: string | null;
