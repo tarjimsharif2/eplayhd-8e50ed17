@@ -532,22 +532,20 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, matchStatus 
     <div className="space-y-6">
       {/* Squad Action Buttons */}
       <div className="flex items-center justify-end gap-4 flex-wrap">
-        {siteSettings?.rapidapi_enabled && (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleFetchSquad}
-            disabled={fetchingSquad}
-            className="gap-2"
-          >
-            {fetchingSquad ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <CloudDownload className="w-4 h-4" />
-            )}
-            {players && players.length > 0 ? 'Refresh Squad' : 'Sync Playing XI'}
-          </Button>
-        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleFetchSquad}
+          disabled={fetchingSquad}
+          className="gap-2"
+        >
+          {fetchingSquad ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <CloudDownload className="w-4 h-4" />
+          )}
+          {players && players.length > 0 ? 'Refresh Squad' : 'Sync from API'}
+        </Button>
         {players && players.length > 0 && (
           <Button
             variant="destructive"
