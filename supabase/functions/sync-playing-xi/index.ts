@@ -356,13 +356,15 @@ Deno.serve(async (req) => {
         }
 
         // If still empty, try series squad endpoint using seriesId
-        if ((!squadData || Object.keys(squadData).length === 0) && matchInfo.seriesid && apiId) {
-          console.log(`[sync-playing-xi] Trying series squad for series ${matchInfo.seriesid}, team ${apiId}`);
+        // First get list of squads, then find matching team
+        if ((!squadData || Object.keys(squadData).length === 0) && matchInfo.seriesid) {
+          console.log(`[sync-playing-xi] Trying series squads for series ${matchInfo.seriesid}`);
           try {
-            const seriesSquadUrl = `https://cricbuzz-cricket.p.rapidapi.com/series/v1/${matchInfo.seriesid}/squads/${apiId}`;
-            console.log(`[sync-playing-xi] Fetching series squad: ${seriesSquadUrl}`);
+            // First get list of all squads in the series
+            const seriesSquadsListUrl = `https://cricbuzz-cricket.p.rapidapi.com/series/v1/${matchInfo.seriesid}/squads`;
+            console.log(`[sync-playing-xi] Fetching series squads list: ${seriesSquadsListUrl}`);
             
-            const seriesSquadResponse = await fetchWithRetry(seriesSquadUrl, {
+            const squadListResponse = await fetchWithRetry(seriesSquadsListUrl, {
               method: 'GET',
               headers: {
                 'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
@@ -370,21 +372,62 @@ Deno.serve(async (req) => {
               },
             });
             
-            if (seriesSquadResponse.ok) {
-              const seriesSquadText = await seriesSquadResponse.text();
-              console.log(`[sync-playing-xi] Series squad response (first 800 chars):`, seriesSquadText.substring(0, 800));
+            if (squadListResponse.ok) {
+              const squadListText = await squadListResponse.text();
+              console.log(`[sync-playing-xi] Series squads list (first 1000 chars):`, squadListText.substring(0, 1000));
               
-              if (seriesSquadText && seriesSquadText.trim() !== '') {
+              if (squadListText && squadListText.trim() !== '') {
                 try {
-                  const seriesSquadData = JSON.parse(seriesSquadText);
-                  // Series squad format: player array
-                  const players = seriesSquadData.player || [];
-                  if (players.length > 0) {
-                    squadData = { players: { squad: players }, teamDetails: { teamName: apiName } };
-                    console.log(`[sync-playing-xi] Found ${players.length} players from series squad for team ${teamNum}`);
+                  const squadListData = JSON.parse(squadListText);
+                  const squads = squadListData.squads || [];
+                  
+                  // Find the matching squad for this team
+                  let matchingSquadId = null;
+                  for (const squad of squads) {
+                    const squadName = squad.squadName || squad.teamName || '';
+                    console.log(`[sync-playing-xi] Checking squad: ${squadName} (id: ${squad.squadId})`);
+                    
+                    if (teamsMatch(apiName, '', squadName)) {
+                      matchingSquadId = squad.squadId;
+                      console.log(`[sync-playing-xi] Found matching squad: ${squadName} -> ${matchingSquadId}`);
+                      break;
+                    }
+                  }
+                  
+                  if (matchingSquadId) {
+                    // Now fetch the actual squad players
+                    const seriesSquadUrl = `https://cricbuzz-cricket.p.rapidapi.com/series/v1/${matchInfo.seriesid}/squads/${matchingSquadId}`;
+                    console.log(`[sync-playing-xi] Fetching series squad: ${seriesSquadUrl}`);
+                    
+                    const seriesSquadResponse = await fetchWithRetry(seriesSquadUrl, {
+                      method: 'GET',
+                      headers: {
+                        'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+                        'x-rapidapi-key': rapidApiKey,
+                      },
+                    });
+                    
+                    if (seriesSquadResponse.ok) {
+                      const seriesSquadText = await seriesSquadResponse.text();
+                      console.log(`[sync-playing-xi] Series squad response (first 1000 chars):`, seriesSquadText.substring(0, 1000));
+                      
+                      if (seriesSquadText && seriesSquadText.trim() !== '') {
+                        try {
+                          const seriesSquadData = JSON.parse(seriesSquadText);
+                          // Series squad format: player array directly
+                          const players = seriesSquadData.player || [];
+                          if (players.length > 0) {
+                            squadData = { players: { squad: players }, teamDetails: { teamName: apiName } };
+                            console.log(`[sync-playing-xi] Found ${players.length} players from series squad for team ${teamNum}`);
+                          }
+                        } catch (e) {
+                          console.error(`[sync-playing-xi] Failed to parse series squad:`, e);
+                        }
+                      }
+                    }
                   }
                 } catch (e) {
-                  console.error(`[sync-playing-xi] Failed to parse series squad:`, e);
+                  console.error(`[sync-playing-xi] Failed to parse squads list:`, e);
                 }
               }
             }
