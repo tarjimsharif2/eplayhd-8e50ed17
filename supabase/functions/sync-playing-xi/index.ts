@@ -282,9 +282,10 @@ Deno.serve(async (req) => {
     ];
     
     for (const teamConfig of teamConfigs) {
-      const { teamNum, apiName } = teamConfig;
+      const { teamNum, apiId, apiName } = teamConfig;
       
       try {
+        // First try match-specific squad
         const squadUrl = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${actualMatchId}/team/${teamNum}`;
         console.log(`[sync-playing-xi] Fetching team ${teamNum} squad: ${squadUrl}`);
         
@@ -296,47 +297,129 @@ Deno.serve(async (req) => {
           },
         });
 
-        if (!squadResponse.ok) {
-          console.log(`[sync-playing-xi] Team ${teamNum} squad response not ok: ${squadResponse.status}`);
-          continue;
-        }
-
-        const squadText = await squadResponse.text();
-        console.log(`[sync-playing-xi] Team ${teamNum} squad response (first 500 chars):`, squadText.substring(0, 500));
+        let squadData: any = null;
         
-        if (!squadText || squadText.trim() === '') {
-          console.log(`[sync-playing-xi] Team ${teamNum} squad response is empty`);
+        if (squadResponse.ok) {
+          const squadText = await squadResponse.text();
+          console.log(`[sync-playing-xi] Team ${teamNum} squad response (first 500 chars):`, squadText.substring(0, 500));
+          
+          if (squadText && squadText.trim() !== '') {
+            try {
+              squadData = JSON.parse(squadText);
+            } catch (e) {
+              console.error(`[sync-playing-xi] Failed to parse team ${teamNum} squad:`, e);
+            }
+          } else {
+            console.log(`[sync-playing-xi] Team ${teamNum} squad response is empty`);
+          }
+        } else {
+          console.log(`[sync-playing-xi] Team ${teamNum} squad response not ok: ${squadResponse.status}`);
+        }
+
+        // If match-specific squad is empty, try hsquad (historic squad) endpoint
+        if (!squadData || Object.keys(squadData).length === 0) {
+          console.log(`[sync-playing-xi] Trying hsquad endpoint for team ${teamNum}`);
+          try {
+            const hsquadUrl = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${actualMatchId}/hsquad`;
+            const hsquadResponse = await fetchWithRetry(hsquadUrl, {
+              method: 'GET',
+              headers: {
+                'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+                'x-rapidapi-key': rapidApiKey,
+              },
+            });
+            
+            if (hsquadResponse.ok) {
+              const hsquadText = await hsquadResponse.text();
+              console.log(`[sync-playing-xi] hsquad response (first 500 chars):`, hsquadText.substring(0, 500));
+              
+              if (hsquadText && hsquadText.trim() !== '') {
+                try {
+                  const hsquadData = JSON.parse(hsquadText);
+                  // hsquad returns players for both teams
+                  const team1Players = hsquadData.team1?.players || [];
+                  const team2Players = hsquadData.team2?.players || [];
+                  const playersArray = teamNum === 1 ? team1Players : team2Players;
+                  
+                  if (playersArray.length > 0) {
+                    squadData = { players: { squad: playersArray } };
+                    console.log(`[sync-playing-xi] Found ${playersArray.length} players from hsquad for team ${teamNum}`);
+                  }
+                } catch (e) {
+                  console.error(`[sync-playing-xi] Failed to parse hsquad:`, e);
+                }
+              }
+            }
+          } catch (e) {
+            console.error(`[sync-playing-xi] hsquad error:`, e);
+          }
+        }
+
+        // If still empty, try series squad endpoint using seriesId
+        if ((!squadData || Object.keys(squadData).length === 0) && matchInfo.seriesid && apiId) {
+          console.log(`[sync-playing-xi] Trying series squad for series ${matchInfo.seriesid}, team ${apiId}`);
+          try {
+            const seriesSquadUrl = `https://cricbuzz-cricket.p.rapidapi.com/series/v1/${matchInfo.seriesid}/squads/${apiId}`;
+            console.log(`[sync-playing-xi] Fetching series squad: ${seriesSquadUrl}`);
+            
+            const seriesSquadResponse = await fetchWithRetry(seriesSquadUrl, {
+              method: 'GET',
+              headers: {
+                'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+                'x-rapidapi-key': rapidApiKey,
+              },
+            });
+            
+            if (seriesSquadResponse.ok) {
+              const seriesSquadText = await seriesSquadResponse.text();
+              console.log(`[sync-playing-xi] Series squad response (first 800 chars):`, seriesSquadText.substring(0, 800));
+              
+              if (seriesSquadText && seriesSquadText.trim() !== '') {
+                try {
+                  const seriesSquadData = JSON.parse(seriesSquadText);
+                  // Series squad format: player array
+                  const players = seriesSquadData.player || [];
+                  if (players.length > 0) {
+                    squadData = { players: { squad: players }, teamDetails: { teamName: apiName } };
+                    console.log(`[sync-playing-xi] Found ${players.length} players from series squad for team ${teamNum}`);
+                  }
+                } catch (e) {
+                  console.error(`[sync-playing-xi] Failed to parse series squad:`, e);
+                }
+              }
+            }
+          } catch (e) {
+            console.error(`[sync-playing-xi] Series squad error:`, e);
+          }
+        }
+
+        if (!squadData) {
+          console.log(`[sync-playing-xi] No squad data found for team ${teamNum}`);
           continue;
         }
 
-        let squadData;
-        try {
-          squadData = JSON.parse(squadText);
-        } catch (e) {
-          console.error(`[sync-playing-xi] Failed to parse team ${teamNum} squad:`, e);
-          continue;
-        }
-
-        // Extract playing XI from squad data
+        // Extract playing XI or squad
         const playingXI = squadData.players?.['playing XI'] || 
                           squadData.players?.playingXI || 
                           squadData.playingXI ||
+                          squadData.players?.squad ||
                           [];
         
         const teamDetails = squadData.teamDetails || {};
         const detailsTeamName = teamDetails.teamName || teamDetails.teamSName || apiName || '';
         
-        console.log(`[sync-playing-xi] Team ${teamNum} (${detailsTeamName}): found ${playingXI.length} playing XI players`);
+        console.log(`[sync-playing-xi] Team ${teamNum} (${detailsTeamName}): found ${playingXI.length} players`);
 
         if (playingXI.length === 0) {
           // Try to get from players object with different keys
           const allPlayers = squadData.players || {};
           for (const key of Object.keys(allPlayers)) {
-            if (key.toLowerCase().includes('playing') || key.toLowerCase().includes('xi')) {
+            if (key.toLowerCase().includes('playing') || key.toLowerCase().includes('xi') || key.toLowerCase().includes('squad')) {
               const players = allPlayers[key];
               if (Array.isArray(players) && players.length > 0) {
                 console.log(`[sync-playing-xi] Found ${players.length} players in ${key}`);
-                for (let i = 0; i < Math.min(players.length, 11); i++) {
+                const maxPlayers = Math.min(players.length, 15); // Get up to 15 squad members
+                for (let i = 0; i < maxPlayers; i++) {
                   const player = players[i];
                   const playerName = player.name || player.fullName || '';
                   if (!playerName) continue;
@@ -367,8 +450,9 @@ Deno.serve(async (req) => {
             }
           }
         } else {
-          // Process playing XI array
-          for (let i = 0; i < playingXI.length; i++) {
+          // Process playing XI/squad array
+          const maxPlayers = Math.min(playingXI.length, 15);
+          for (let i = 0; i < maxPlayers; i++) {
             const player = playingXI[i];
             const playerName = player.name || player.fullName || '';
             if (!playerName) continue;
