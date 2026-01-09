@@ -56,45 +56,9 @@ Deno.serve(async (req) => {
     let updatedCount = 0;
 
     // ============================================
-    // 1. Auto-start matches based on match_start_time
-    // ============================================
-    const { data: matchesToStart, error: startFetchError } = await supabase
-      .from('matches')
-      .select('id, match_format, match_start_time, status, day_start_time')
-      .eq('status', 'upcoming')
-      .not('match_start_time', 'is', null)
-      .lte('match_start_time', now.toISOString());
-
-    if (startFetchError) {
-      console.error('Error fetching upcoming matches:', startFetchError);
-    } else if (matchesToStart && matchesToStart.length > 0) {
-      console.log(`Found ${matchesToStart.length} matches to auto-start`);
-      
-      for (const match of matchesToStart) {
-        const updateData: Record<string, unknown> = { status: 'live' };
-        
-        // For Test matches, set to Day 1
-        if (match.match_format === 'test') {
-          updateData.test_day = 1;
-        }
-
-        const { error: updateError } = await supabase
-          .from('matches')
-          .update(updateData)
-          .eq('id', match.id);
-
-        if (updateError) {
-          console.error(`Error starting match ${match.id}:`, updateError);
-        } else {
-          console.log(`Match ${match.id} auto-started${match.match_format === 'test' ? ' (Day 1)' : ''}`);
-          updatedCount++;
-        }
-      }
-    }
-
-    // ============================================
-    // 2. Auto-complete matches based on match_end_time or calculated duration
-    // This applies to BOTH 'live' AND 'upcoming' matches that have passed their end time
+    // 1. Auto-complete matches FIRST - before auto-start
+    // This prevents race condition where old matches are started then immediately completed
+    // Applies to BOTH 'live' AND 'upcoming' matches that have passed their end time
     // Uses default durations based on match format if no explicit end time is set
     // ============================================
     
@@ -113,6 +77,8 @@ Deno.serve(async (req) => {
       .in('status', ['live', 'upcoming'])
       .neq('match_format', 'test'); // Don't auto-complete Test matches by time
 
+    const completedMatchIds: string[] = [];
+    
     if (completeFetchError) {
       console.error('Error fetching matches for completion check:', completeFetchError);
     } else if (matchesToComplete && matchesToComplete.length > 0) {
@@ -166,6 +132,94 @@ Deno.serve(async (req) => {
             console.error(`Error completing match ${match.id}:`, updateError);
           } else {
             console.log(`Match ${match.id} auto-completed - ${completionReason}`);
+            completedMatchIds.push(match.id);
+            updatedCount++;
+          }
+        }
+      }
+    }
+
+    // ============================================
+    // 2. Auto-start matches based on match_start_time
+    // ONLY start matches that weren't just completed above
+    // ============================================
+    const { data: matchesToStart, error: startFetchError } = await supabase
+      .from('matches')
+      .select('id, match_format, match_start_time, status, day_start_time, match_end_time, match_duration_minutes')
+      .eq('status', 'upcoming')
+      .not('match_start_time', 'is', null)
+      .lte('match_start_time', now.toISOString());
+
+    if (startFetchError) {
+      console.error('Error fetching upcoming matches:', startFetchError);
+    } else if (matchesToStart && matchesToStart.length > 0) {
+      // Filter out matches that were just completed above
+      const validMatchesToStart = matchesToStart.filter(m => !completedMatchIds.includes(m.id));
+      
+      if (validMatchesToStart.length > 0) {
+        console.log(`Found ${validMatchesToStart.length} matches to auto-start`);
+        
+        for (const match of validMatchesToStart) {
+          // Additional check: Don't start if match should already be completed
+          let shouldSkip = false;
+          
+          if (match.match_end_time) {
+            const endTime = new Date(match.match_end_time);
+            if (now >= endTime) {
+              shouldSkip = true;
+              console.log(`Skipping match ${match.id} - already past end time`);
+            }
+          } else if (match.match_start_time && match.match_duration_minutes) {
+            const startTime = new Date(match.match_start_time);
+            const durationMs = match.match_duration_minutes * 60 * 1000;
+            const calculatedEndTime = new Date(startTime.getTime() + durationMs);
+            if (now >= calculatedEndTime) {
+              shouldSkip = true;
+              console.log(`Skipping match ${match.id} - already past calculated duration`);
+            }
+          } else if (match.match_start_time && match.match_format && match.match_format !== 'test') {
+            const defaultDuration = defaultDurations[match.match_format?.toLowerCase()];
+            if (defaultDuration) {
+              const startTime = new Date(match.match_start_time);
+              const durationMs = defaultDuration * 60 * 1000;
+              const calculatedEndTime = new Date(startTime.getTime() + durationMs);
+              if (now >= calculatedEndTime) {
+                shouldSkip = true;
+                console.log(`Skipping match ${match.id} - already past default ${match.match_format} duration`);
+              }
+            }
+          }
+          
+          if (shouldSkip) {
+            // Mark as completed instead of starting
+            const { error: updateError } = await supabase
+              .from('matches')
+              .update({ status: 'completed' })
+              .eq('id', match.id);
+            
+            if (!updateError) {
+              console.log(`Match ${match.id} marked as completed (was upcoming, past end time)`);
+              updatedCount++;
+            }
+            continue;
+          }
+          
+          const updateData: Record<string, unknown> = { status: 'live' };
+          
+          // For Test matches, set to Day 1
+          if (match.match_format === 'test') {
+            updateData.test_day = 1;
+          }
+
+          const { error: updateError } = await supabase
+            .from('matches')
+            .update(updateData)
+            .eq('id', match.id);
+
+          if (updateError) {
+            console.error(`Error starting match ${match.id}:`, updateError);
+          } else {
+            console.log(`Match ${match.id} auto-started${match.match_format === 'test' ? ' (Day 1)' : ''}`);
             updatedCount++;
           }
         }
