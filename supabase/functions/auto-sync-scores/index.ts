@@ -12,22 +12,29 @@ Deno.serve(async (req) => {
   }
 
   // This is a scheduled/cron function - allow calls from:
-  // 1. Valid cron secret via x-cron-secret header
-  // 2. Internal pg_cron calls (no auth or anon key)
-  // 3. Valid admin user authentication (for manual triggers)
+  // 1. Valid token via query parameter (?token=xxx)
+  // 2. Valid cron secret via x-cron-secret header
+  // 3. Internal pg_cron calls (no auth or anon key)
+  // 4. Valid admin user authentication (for manual triggers)
   
+  const url = new URL(req.url);
+  const queryToken = url.searchParams.get('token');
   const cronSecret = req.headers.get('x-cron-secret');
   const expectedCronSecret = Deno.env.get('CRON_SECRET_TOKEN');
   const authHeader = req.headers.get('authorization');
   const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
   
-  // Check if this is a cron secret call
+  // Check if this is a token query param call
+  const isTokenCall = queryToken && queryToken === expectedCronSecret;
+  // Check if this is a cron secret header call
   const isCronSecretCall = cronSecret && cronSecret === expectedCronSecret;
   // Check if this is an internal call (no auth or using anon key - pg_cron uses anon key)
   const isInternalCall = !authHeader || (authHeader && authHeader.replace('Bearer ', '') === anonKey);
   
-  if (isCronSecretCall) {
-    console.log('[auto-sync-scores] Authenticated via cron secret');
+  if (isTokenCall) {
+    console.log('[auto-sync-scores] Authenticated via query token');
+  } else if (isCronSecretCall) {
+    console.log('[auto-sync-scores] Authenticated via cron secret header');
   } else if (isInternalCall) {
     console.log('[auto-sync-scores] Internal/cron call (anon key or no auth)');
   } else {
