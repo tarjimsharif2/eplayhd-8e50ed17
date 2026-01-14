@@ -350,6 +350,7 @@ export type Database = {
           match_time: string
           next_day_start: string | null
           page_type: string | null
+          result_margin: string | null
           score_a: string | null
           score_b: string | null
           seo_description: string | null
@@ -390,6 +391,7 @@ export type Database = {
           match_time: string
           next_day_start?: string | null
           page_type?: string | null
+          result_margin?: string | null
           score_a?: string | null
           score_b?: string | null
           seo_description?: string | null
@@ -430,6 +432,7 @@ export type Database = {
           match_time?: string
           next_day_start?: string | null
           page_type?: string | null
+          result_margin?: string | null
           score_a?: string | null
           score_b?: string | null
           seo_description?: string | null

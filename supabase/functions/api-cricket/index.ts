@@ -309,10 +309,16 @@ Deno.serve(async (req) => {
           updateData.match_result = 'no_result';
         } else {
           // Try to match winner team from result text
-          const winnerMatch = resultText.match(/^(.+?)\s+won\s+by/i);
+          // Pattern: "Team won by X runs/wickets"
+          const winnerMatch = resultText.match(/^(.+?)\s+won\s+by\s+(.+)$/i);
           if (winnerMatch) {
             const winnerName = winnerMatch[1].trim();
+            const margin = winnerMatch[2].trim(); // e.g., "7 wickets", "50 runs"
             const winnerNormalized = normalizeTeamName(winnerName);
+            
+            // Store the winning margin
+            updateData.result_margin = `by ${margin}`;
+            console.log(`[api-cricket] Winning margin: by ${margin}`);
             
             // Check which team won
             const teamAMatches = teamANormalized.includes(winnerNormalized) || 
