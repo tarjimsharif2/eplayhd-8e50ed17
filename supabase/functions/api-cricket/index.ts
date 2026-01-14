@@ -196,16 +196,11 @@ Deno.serve(async (req) => {
       console.log(`Found matching event for sync: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);
       console.log(`Our teams: teamA="${teamAName}", teamB="${teamBName}"`);
 
-      // Determine match status - IMPORTANT: Only change status if we have clear indication
-      // Don't default to 'upcoming' as it may override manual status
-      let status: 'upcoming' | 'live' | 'completed' | null = null;
-      if (matchingEvent.event_live === '1') {
-        status = 'live';
-      } else if (matchingEvent.event_status === 'Finished' || matchingEvent.event_final_result) {
-        status = 'completed';
-      } else if (matchingEvent.event_live === '0' && matchingEvent.event_status_info?.toLowerCase().includes('yet to begin')) {
-        status = 'upcoming';
-      }
+      // NOTE: We do NOT update match status from API anymore.
+      // Match status (upcoming/live/completed) is managed ONLY by update-match-status function
+      // based on match_start_time, match_end_time, and match_duration_minutes.
+      // This ensures matches complete according to scheduled time, not when API says "Finished".
+      // We only sync scores here.
 
       // CRITICAL FIX: Map API home/away to our team_a/team_b correctly
       // API's home_team may not be our team_a!
@@ -290,18 +285,14 @@ Deno.serve(async (req) => {
       
       console.log(`[api-cricket] Final scores: score_a="${scoreA}" (${teamAName}), score_b="${scoreB}" (${teamBName})`);
 
-      // Update match in database - only update status if we have a valid one
+      // Update match in database - ONLY update scores, NOT status
+      // Status is managed by update-match-status function based on scheduled times
       const updateData: any = {
         score_a: scoreA,
         score_b: scoreB,
         last_api_sync: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      
-      // Only update status if we determined a valid status from API
-      if (status !== null) {
-        updateData.status = status;
-      }
       
       const { error: updateError } = await supabase
         .from('matches')
