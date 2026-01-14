@@ -194,6 +194,7 @@ Deno.serve(async (req) => {
       }
 
       console.log(`Found matching event for sync: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);
+      console.log(`Our teams: teamA="${teamAName}", teamB="${teamBName}"`);
 
       // Determine match status - IMPORTANT: Only change status if we have clear indication
       // Don't default to 'upcoming' as it may override manual status
@@ -206,13 +207,41 @@ Deno.serve(async (req) => {
         status = 'upcoming';
       }
 
+      // CRITICAL FIX: Map API home/away to our team_a/team_b correctly
+      // API's home_team may not be our team_a!
+      const apiHomeTeam = matchingEvent.event_home_team || '';
+      const apiAwayTeam = matchingEvent.event_away_team || '';
+      
+      // Determine which API team maps to our team_a and team_b
+      const teamAMatchesHome = teamANormalized && (
+        normalizeTeamName(apiHomeTeam).includes(teamANormalized) || 
+        teamANormalized.includes(normalizeTeamName(apiHomeTeam).split(' ')[0])
+      );
+      const teamAMatchesAway = teamANormalized && (
+        normalizeTeamName(apiAwayTeam).includes(teamANormalized) || 
+        teamANormalized.includes(normalizeTeamName(apiAwayTeam).split(' ')[0])
+      );
+      
+      // Determine the mapping
+      let apiTeamForA: 'home' | 'away' = 'home';
+      let apiTeamForB: 'home' | 'away' = 'away';
+      
+      if (teamAMatchesAway && !teamAMatchesHome) {
+        // Team A is the away team in API
+        apiTeamForA = 'away';
+        apiTeamForB = 'home';
+        console.log(`[api-cricket] Team mapping: teamA="${teamAName}" -> API away, teamB="${teamBName}" -> API home`);
+      } else {
+        console.log(`[api-cricket] Team mapping: teamA="${teamAName}" -> API home, teamB="${teamBName}" -> API away`);
+      }
+
       // Extract overs from the extra field
       let homeOvers: string | null = null;
       let awayOvers: string | null = null;
       
       if (matchingEvent.extra && typeof matchingEvent.extra === 'object') {
-        const homeTeamLower = (matchingEvent.event_home_team || '').toLowerCase();
-        const awayTeamLower = (matchingEvent.event_away_team || '').toLowerCase();
+        const homeTeamLower = apiHomeTeam.toLowerCase();
+        const awayTeamLower = apiAwayTeam.toLowerCase();
         
         Object.entries(matchingEvent.extra).forEach(([inningsKey, inningsData]: [string, any]) => {
           if (Array.isArray(inningsData) && inningsData.length > 0) {
@@ -232,16 +261,34 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Format scores with overs
-      let scoreA = matchingEvent.event_home_final_result || null;
-      let scoreB = matchingEvent.event_away_final_result || null;
+      // Get raw scores from API
+      const apiHomeScore = matchingEvent.event_home_final_result || null;
+      const apiAwayScore = matchingEvent.event_away_final_result || null;
       
-      if (scoreA && homeOvers) {
-        scoreA = `${scoreA} (${homeOvers} ov)`;
+      // Format scores with overs
+      let formattedHomeScore = apiHomeScore;
+      let formattedAwayScore = apiAwayScore;
+      
+      if (formattedHomeScore && homeOvers) {
+        formattedHomeScore = `${formattedHomeScore} (${homeOvers} ov)`;
       }
-      if (scoreB && awayOvers) {
-        scoreB = `${scoreB} (${awayOvers} ov)`;
+      if (formattedAwayScore && awayOvers) {
+        formattedAwayScore = `${formattedAwayScore} (${awayOvers} ov)`;
       }
+      
+      // CRITICAL: Map to correct team based on our mapping
+      let scoreA: string | null = null;
+      let scoreB: string | null = null;
+      
+      if (apiTeamForA === 'home') {
+        scoreA = formattedHomeScore;
+        scoreB = formattedAwayScore;
+      } else {
+        scoreA = formattedAwayScore;
+        scoreB = formattedHomeScore;
+      }
+      
+      console.log(`[api-cricket] Final scores: score_a="${scoreA}" (${teamAName}), score_b="${scoreB}" (${teamBName})`);
 
       // Update match in database - only update status if we have a valid one
       const updateData: any = {
