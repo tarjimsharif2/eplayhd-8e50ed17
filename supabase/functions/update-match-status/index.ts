@@ -60,6 +60,11 @@ Deno.serve(async (req) => {
     // This prevents race condition where old matches are started then immediately completed
     // Applies to BOTH 'live' AND 'upcoming' matches that have passed their end time
     // Uses default durations based on match format if no explicit end time is set
+    // 
+    // IMPORTANT: For matches with api_score_enabled = true, we DON'T auto-complete
+    // based on time alone. Those matches will be completed by the api-cricket sync
+    // when the API reports the match as 'Finished'. This prevents completing matches
+    // with incomplete scores.
     // ============================================
     
     // Default match durations in minutes by format
@@ -71,9 +76,11 @@ Deno.serve(async (req) => {
       // Test matches are handled separately (not auto-completed by duration)
     };
     
+    // CRITICAL: Exclude matches with api_score_enabled = true from time-based auto-completion
+    // These matches should only be completed when the API reports them as 'Finished'
     const { data: matchesToComplete, error: completeFetchError } = await supabase
       .from('matches')
-      .select('id, match_end_time, match_start_time, match_duration_minutes, match_format, status')
+      .select('id, match_end_time, match_start_time, match_duration_minutes, match_format, status, api_score_enabled')
       .in('status', ['live', 'upcoming'])
       .neq('match_format', 'test'); // Don't auto-complete Test matches by time
 
@@ -85,6 +92,13 @@ Deno.serve(async (req) => {
       console.log(`Checking ${matchesToComplete.length} matches for auto-complete...`);
       
       for (const match of matchesToComplete) {
+        // CRITICAL: Skip time-based auto-completion for API-synced matches
+        // These matches will be completed when api-cricket reports event_status === 'Finished'
+        if (match.api_score_enabled) {
+          console.log(`Match ${match.id}: Skipping time-based auto-complete (api_score_enabled = true, will be completed by API sync)`);
+          continue;
+        }
+        
         let shouldComplete = false;
         let completionReason = '';
 
@@ -131,7 +145,7 @@ Deno.serve(async (req) => {
           if (updateError) {
             console.error(`Error completing match ${match.id}:`, updateError);
           } else {
-            console.log(`Match ${match.id} auto-completed - ${completionReason}`);
+            console.log(`Match ${match.id} auto-completed (no API sync) - ${completionReason}`);
             completedMatchIds.push(match.id);
             updatedCount++;
           }
@@ -145,7 +159,7 @@ Deno.serve(async (req) => {
     // ============================================
     const { data: matchesToStart, error: startFetchError } = await supabase
       .from('matches')
-      .select('id, match_format, match_start_time, status, day_start_time, match_end_time, match_duration_minutes')
+      .select('id, match_format, match_start_time, status, day_start_time, match_end_time, match_duration_minutes, api_score_enabled')
       .eq('status', 'upcoming')
       .not('match_start_time', 'is', null)
       .lte('match_start_time', now.toISOString());
@@ -161,44 +175,49 @@ Deno.serve(async (req) => {
         
         for (const match of validMatchesToStart) {
           // Additional check: Don't start if match should already be completed
+          // BUT: Skip this check for api_score_enabled matches - let API determine completion
           let shouldSkip = false;
           
-          if (match.match_end_time) {
-            const endTime = new Date(match.match_end_time);
-            if (now >= endTime) {
-              shouldSkip = true;
-              console.log(`Skipping match ${match.id} - already past end time`);
-            }
-          } else if (match.match_start_time && match.match_duration_minutes) {
-            const startTime = new Date(match.match_start_time);
-            const durationMs = match.match_duration_minutes * 60 * 1000;
-            const calculatedEndTime = new Date(startTime.getTime() + durationMs);
-            if (now >= calculatedEndTime) {
-              shouldSkip = true;
-              console.log(`Skipping match ${match.id} - already past calculated duration`);
-            }
-          } else if (match.match_start_time && match.match_format && match.match_format !== 'test') {
-            const defaultDuration = defaultDurations[match.match_format?.toLowerCase()];
-            if (defaultDuration) {
+          // For API-synced matches, don't time-check for completion - just start them
+          // The API sync will handle completion when it reports 'Finished'
+          if (!match.api_score_enabled) {
+            if (match.match_end_time) {
+              const endTime = new Date(match.match_end_time);
+              if (now >= endTime) {
+                shouldSkip = true;
+                console.log(`Skipping match ${match.id} - already past end time`);
+              }
+            } else if (match.match_start_time && match.match_duration_minutes) {
               const startTime = new Date(match.match_start_time);
-              const durationMs = defaultDuration * 60 * 1000;
+              const durationMs = match.match_duration_minutes * 60 * 1000;
               const calculatedEndTime = new Date(startTime.getTime() + durationMs);
               if (now >= calculatedEndTime) {
                 shouldSkip = true;
-                console.log(`Skipping match ${match.id} - already past default ${match.match_format} duration`);
+                console.log(`Skipping match ${match.id} - already past calculated duration`);
+              }
+            } else if (match.match_start_time && match.match_format && match.match_format !== 'test') {
+              const defaultDuration = defaultDurations[match.match_format?.toLowerCase()];
+              if (defaultDuration) {
+                const startTime = new Date(match.match_start_time);
+                const durationMs = defaultDuration * 60 * 1000;
+                const calculatedEndTime = new Date(startTime.getTime() + durationMs);
+                if (now >= calculatedEndTime) {
+                  shouldSkip = true;
+                  console.log(`Skipping match ${match.id} - already past default ${match.match_format} duration`);
+                }
               }
             }
           }
           
           if (shouldSkip) {
-            // Mark as completed instead of starting
+            // Mark as completed instead of starting (only for non-API matches)
             const { error: updateError } = await supabase
               .from('matches')
               .update({ status: 'completed' })
               .eq('id', match.id);
             
             if (!updateError) {
-              console.log(`Match ${match.id} marked as completed (was upcoming, past end time)`);
+              console.log(`Match ${match.id} marked as completed (was upcoming, past end time, no API sync)`);
               updatedCount++;
             }
             continue;
