@@ -28,6 +28,7 @@ export interface Tournament {
   slug: string | null;
   is_active: boolean;
   show_in_menu: boolean;
+  show_in_homepage: boolean;
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;

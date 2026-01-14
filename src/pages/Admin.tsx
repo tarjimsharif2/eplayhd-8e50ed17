@@ -186,6 +186,7 @@ const Admin = () => {
     slug: '',
     is_active: true,
     show_in_menu: true,
+    show_in_homepage: true,
     seo_title: '',
     seo_description: '',
     seo_keywords: '',
@@ -904,6 +905,7 @@ const Admin = () => {
         slug: tournamentForm.slug || generateSlug(tournamentForm.name),
         is_active: tournamentForm.is_active,
         show_in_menu: tournamentForm.show_in_menu,
+        show_in_homepage: tournamentForm.show_in_homepage,
         seo_title: tournamentForm.seo_title || null,
         seo_description: tournamentForm.seo_description || null,
         seo_keywords: tournamentForm.seo_keywords || null,
@@ -948,6 +950,7 @@ const Admin = () => {
       slug: tournament.slug || '',
       is_active: tournament.is_active ?? true,
       show_in_menu: tournament.show_in_menu ?? true,
+      show_in_homepage: (tournament as any).show_in_homepage ?? true,
       seo_title: tournament.seo_title || '',
       seo_description: tournament.seo_description || '',
       seo_keywords: tournament.seo_keywords || '',
@@ -1009,7 +1012,7 @@ const Admin = () => {
 
   const resetTournamentForm = () => {
     setEditingTournament(null);
-    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, seo_title: '', seo_description: '', seo_keywords: '' });
+    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, show_in_homepage: true, seo_title: '', seo_description: '', seo_keywords: '' });
   };
 
   // Banner handlers
@@ -2488,15 +2491,27 @@ const Admin = () => {
                       {/* Display Settings */}
                       <div className="border-t pt-4 mt-4">
                         <h4 className="font-medium mb-3 text-sm text-muted-foreground">Display Settings</h4>
-                        <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
-                          <div className="space-y-0.5">
-                            <Label className="text-base font-medium">Show in Menu</Label>
-                            <p className="text-sm text-muted-foreground">Display this tournament in the navigation menu dropdown</p>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                            <div className="space-y-0.5">
+                              <Label className="text-base font-medium">Show in Menu</Label>
+                              <p className="text-sm text-muted-foreground">Display this tournament in the navigation menu dropdown</p>
+                            </div>
+                            <Switch
+                              checked={tournamentForm.show_in_menu}
+                              onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, show_in_menu: checked })}
+                            />
                           </div>
-                          <Switch
-                            checked={tournamentForm.show_in_menu}
-                            onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, show_in_menu: checked })}
-                          />
+                          <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                            <div className="space-y-0.5">
+                              <Label className="text-base font-medium">Show in Homepage</Label>
+                              <p className="text-sm text-muted-foreground">Display this tournament in the Live Tournaments list on homepage</p>
+                            </div>
+                            <Switch
+                              checked={tournamentForm.show_in_homepage}
+                              onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, show_in_homepage: checked })}
+                            />
+                          </div>
                         </div>
                       </div>
                       
