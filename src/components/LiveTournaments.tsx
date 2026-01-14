@@ -23,23 +23,30 @@ export const useActiveTournaments = () => {
         ?.map(m => m.tournament_id)
         .filter(Boolean) || [];
 
-      // Also get tournaments marked as active
+      // Get tournaments marked as active AND show_in_homepage = true
       const { data, error } = await supabase
         .from('tournaments')
         .select('*')
         .eq('is_active', true)
+        .neq('show_in_homepage', false) // Only show if show_in_homepage is true or null
         .order('name');
       
       if (error) throw error;
 
-      // Combine with live match tournaments
-      const allActiveTournaments = data as Tournament[];
-      
-      // Mark which have live matches
-      return allActiveTournaments.map(t => ({
+      // Combine with live match tournaments and mark which have live matches
+      const allActiveTournaments = (data as Tournament[]).map(t => ({
         ...t,
         hasLiveMatches: liveIds.includes(t.id)
       }));
+      
+      // Sort: Live tournaments first, then alphabetically by name
+      return allActiveTournaments.sort((a, b) => {
+        // Live matches first
+        if (a.hasLiveMatches && !b.hasLiveMatches) return -1;
+        if (!a.hasLiveMatches && b.hasLiveMatches) return 1;
+        // Then alphabetically
+        return a.name.localeCompare(b.name);
+      });
     },
   });
 };
