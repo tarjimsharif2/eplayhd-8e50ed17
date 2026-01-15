@@ -1071,6 +1071,7 @@ export type Database = {
           end_date: string | null
           id: string
           is_active: boolean | null
+          is_completed: boolean | null
           logo_url: string | null
           name: string
           season: string
@@ -1092,6 +1093,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean | null
+          is_completed?: boolean | null
           logo_url?: string | null
           name: string
           season: string
@@ -1113,6 +1115,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           is_active?: boolean | null
+          is_completed?: boolean | null
           logo_url?: string | null
           name?: string
           season?: string

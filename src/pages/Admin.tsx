@@ -187,6 +187,7 @@ const Admin = () => {
     is_active: true,
     show_in_menu: true,
     show_in_homepage: true,
+    is_completed: false,
     seo_title: '',
     seo_description: '',
     seo_keywords: '',
@@ -910,6 +911,7 @@ const Admin = () => {
         is_active: tournamentForm.is_active,
         show_in_menu: tournamentForm.show_in_menu,
         show_in_homepage: tournamentForm.show_in_homepage,
+        is_completed: tournamentForm.is_completed,
         seo_title: tournamentForm.seo_title || null,
         seo_description: tournamentForm.seo_description || null,
         seo_keywords: tournamentForm.seo_keywords || null,
@@ -959,6 +961,7 @@ const Admin = () => {
       is_active: tournament.is_active ?? true,
       show_in_menu: tournament.show_in_menu ?? true,
       show_in_homepage: tournament.show_in_homepage ?? true,
+      is_completed: tournament.is_completed ?? false,
       seo_title: tournament.seo_title || '',
       seo_description: tournament.seo_description || '',
       seo_keywords: tournament.seo_keywords || '',
@@ -1024,7 +1027,7 @@ const Admin = () => {
 
   const resetTournamentForm = () => {
     setEditingTournament(null);
-    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, show_in_homepage: true, seo_title: '', seo_description: '', seo_keywords: '', total_matches: null, start_date: '', end_date: '', description: '' });
+    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, show_in_homepage: true, is_completed: false, seo_title: '', seo_description: '', seo_keywords: '', total_matches: null, start_date: '', end_date: '', description: '' });
   };
 
   // Banner handlers
@@ -2566,6 +2569,16 @@ const Admin = () => {
                               onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, show_in_homepage: checked })}
                             />
                           </div>
+                          <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm border-orange-500/30 bg-orange-500/5">
+                            <div className="space-y-0.5">
+                              <Label className="text-base font-medium text-orange-600 dark:text-orange-400">Tournament Completed</Label>
+                              <p className="text-sm text-muted-foreground">Mark as completed when all matches are finished. Completed tournaments won't show in Points Table manager</p>
+                            </div>
+                            <Switch
+                              checked={tournamentForm.is_completed}
+                              onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, is_completed: checked })}
+                            />
+                          </div>
                         </div>
                       </div>
                       
@@ -2743,9 +2756,9 @@ const Admin = () => {
 
               {tournamentsLoading || teamsLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
-              ) : tournaments && tournaments.length > 0 ? (
+              ) : tournaments && tournaments.filter(t => !t.is_completed).length > 0 ? (
                 <div className="space-y-6">
-                  {tournaments.map((tournament) => (
+                  {tournaments.filter(t => !t.is_completed).map((tournament) => (
                     <Card key={tournament.id}>
                       <CardContent className="p-6">
                         <PointsTableManager 

@@ -36,6 +36,7 @@ export interface Tournament {
   start_date: string | null;
   end_date: string | null;
   description: string | null;
+  is_completed: boolean;
   created_at: string;
   updated_at: string;
 }
