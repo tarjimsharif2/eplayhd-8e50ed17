@@ -239,57 +239,6 @@ const TournamentPage = () => {
             </Card>
           </motion.div>
 
-          {/* Participating Teams */}
-          {participatingTeams.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="mb-8"
-            >
-              <Card className="border-border/50 bg-card/80 backdrop-blur">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Users className="w-5 h-5 text-primary" />
-                    <h2 className="font-display text-xl text-gradient">Participating Teams</h2>
-                    <Badge variant="secondary" className="ml-2">{participatingTeams.length} Teams</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {participatingTeams.map((team, index) => (
-                      <motion.div
-                        key={team.id}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="flex flex-col items-center p-3 rounded-xl bg-background/50 border border-border/30 hover:border-primary/50 transition-colors"
-                      >
-                        {team.logo_url ? (
-                          <img 
-                            src={team.logo_url} 
-                            alt={team.name} 
-                            className="w-12 h-12 object-contain mb-2"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-2">
-                            <span className="text-lg font-bold text-primary">{team.short_name.charAt(0)}</span>
-                          </div>
-                        )}
-                        <span className="text-xs font-medium text-center text-muted-foreground">{team.short_name}</span>
-                      </motion.div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* Points Table */}
-          <div className="mb-8">
-            <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
-          </div>
-
-          <AdSlot position="in_article" className="mb-6" />
-
           {/* Match Tabs */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -379,6 +328,57 @@ const TournamentPage = () => {
               </TabsContent>
             </Tabs>
           </motion.div>
+
+          <AdSlot position="in_article" className="my-6" />
+
+          {/* Points Table */}
+          <div className="mb-8">
+            <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
+          </div>
+
+          {/* Participating Teams */}
+          {participatingTeams.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.3 }}
+              className="mb-8"
+            >
+              <Card className="border-border/50 bg-card/80 backdrop-blur">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Users className="w-5 h-5 text-primary" />
+                    <h2 className="font-display text-xl text-gradient">Participating Teams</h2>
+                    <Badge variant="secondary" className="ml-2">{participatingTeams.length} Teams</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {participatingTeams.map((team, index) => (
+                      <motion.div
+                        key={team.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="flex flex-col items-center p-3 rounded-xl bg-background/50 border border-border/30 hover:border-primary/50 transition-colors"
+                      >
+                        {team.logo_url ? (
+                          <img 
+                            src={team.logo_url} 
+                            alt={team.name} 
+                            className="w-12 h-12 object-contain mb-2"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-2">
+                            <span className="text-lg font-bold text-primary">{team.short_name.charAt(0)}</span>
+                          </div>
+                        )}
+                        <span className="text-xs font-medium text-center text-foreground">{team.name}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
         </div>
       </main>
 
