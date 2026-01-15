@@ -132,10 +132,15 @@ const TournamentPage = () => {
     return dateA.localeCompare(dateB);
   });
 
-  // SEO - use tournament's custom SEO if available
-  const seoTitle = tournament.seo_title || `${tournament.name} - ${tournament.season} | ${siteSettings?.site_name || 'Live Sports'}`;
-  const seoDescription = tournament.seo_description || `Follow ${tournament.name} ${tournament.season}. Live scores, match schedules, points table and streaming links.`;
-  const seoKeywords = tournament.seo_keywords || `${tournament.name}, ${tournament.sport}, ${tournament.season}, live scores, points table`;
+  // SEO - use tournament's custom SEO if available, with enhanced keywords
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    return new Date(dateStr).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' });
+  };
+  
+  const seoTitle = tournament.seo_title || `${tournament.name} ${tournament.season} - Live Scores, Schedule & Points Table | ${siteSettings?.site_name || 'Live Sports'}`;
+  const seoDescription = tournament.seo_description || tournament.description || `Watch ${tournament.name} ${tournament.season} live. Get live scores, match schedules, points table, team standings and streaming links. ${tournament.start_date && tournament.end_date ? `Tournament runs from ${formatDate(tournament.start_date)} to ${formatDate(tournament.end_date)}.` : ''} ${tournament.total_matches ? `Total ${tournament.total_matches} matches.` : ''}`;
+  const seoKeywords = tournament.seo_keywords || `${tournament.name}, ${tournament.name} ${tournament.season}, ${tournament.sport}, ${tournament.sport} live, live scores, points table, ${tournament.name} schedule, ${tournament.name} live streaming, ${tournament.name} today match`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -174,7 +179,7 @@ const TournamentPage = () => {
                   )}
                   <div className="text-center md:text-left flex-1">
                     <h1 className="font-display text-3xl text-gradient mb-2">{tournament.name}</h1>
-                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
+                    <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 mb-2">
                       <Badge variant="secondary">{tournament.sport}</Badge>
                       <Badge variant="outline" className="gap-1">
                         <Calendar className="w-3 h-3" />
@@ -187,12 +192,35 @@ const TournamentPage = () => {
                         </Badge>
                       )}
                     </div>
+                    {/* Tournament Dates */}
+                    {(tournament.start_date || tournament.end_date) && (
+                      <p className="text-sm text-muted-foreground">
+                        {tournament.start_date && tournament.end_date ? (
+                          <>📅 {formatDate(tournament.start_date)} - {formatDate(tournament.end_date)}</>
+                        ) : tournament.start_date ? (
+                          <>📅 Starts: {formatDate(tournament.start_date)}</>
+                        ) : (
+                          <>📅 Ends: {formatDate(tournament.end_date)}</>
+                        )}
+                      </p>
+                    )}
                   </div>
                   <div className="text-center">
-                    <div className="text-3xl font-bold text-primary">{matches.length}</div>
+                    <div className="text-3xl font-bold text-primary">
+                      {tournament.total_matches ?? matches.length}
+                    </div>
                     <div className="text-sm text-muted-foreground">Total Matches</div>
                   </div>
                 </div>
+                
+                {/* Tournament Description */}
+                {tournament.description && (
+                  <div className="mt-4 pt-4 border-t border-border/50">
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {tournament.description}
+                    </p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </motion.div>

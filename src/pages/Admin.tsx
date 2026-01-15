@@ -190,6 +190,10 @@ const Admin = () => {
     seo_title: '',
     seo_description: '',
     seo_keywords: '',
+    total_matches: null as number | null,
+    start_date: '' as string | null,
+    end_date: '' as string | null,
+    description: '',
   });
 
   const [bannerForm, setBannerForm] = useState({
@@ -909,6 +913,10 @@ const Admin = () => {
         seo_title: tournamentForm.seo_title || null,
         seo_description: tournamentForm.seo_description || null,
         seo_keywords: tournamentForm.seo_keywords || null,
+        total_matches: tournamentForm.total_matches || null,
+        start_date: tournamentForm.start_date || null,
+        end_date: tournamentForm.end_date || null,
+        description: tournamentForm.description || null,
       };
       const tournamentSlug = tournamentData.slug;
       
@@ -950,10 +958,14 @@ const Admin = () => {
       slug: tournament.slug || '',
       is_active: tournament.is_active ?? true,
       show_in_menu: tournament.show_in_menu ?? true,
-      show_in_homepage: (tournament as any).show_in_homepage ?? true,
+      show_in_homepage: tournament.show_in_homepage ?? true,
       seo_title: tournament.seo_title || '',
       seo_description: tournament.seo_description || '',
       seo_keywords: tournament.seo_keywords || '',
+      total_matches: tournament.total_matches ?? null,
+      start_date: tournament.start_date || '',
+      end_date: tournament.end_date || '',
+      description: tournament.description || '',
     });
     setTournamentDialogOpen(true);
   };
@@ -1012,7 +1024,7 @@ const Admin = () => {
 
   const resetTournamentForm = () => {
     setEditingTournament(null);
-    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, show_in_homepage: true, seo_title: '', seo_description: '', seo_keywords: '' });
+    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, show_in_homepage: true, seo_title: '', seo_description: '', seo_keywords: '', total_matches: null, start_date: '', end_date: '', description: '' });
   };
 
   // Banner handlers
@@ -2488,6 +2500,48 @@ const Admin = () => {
                         </div>
                       </div>
 
+                      {/* Tournament Details */}
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="font-medium mb-3 text-sm text-muted-foreground">Tournament Details</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-2">
+                            <Label>Total Matches</Label>
+                            <Input 
+                              type="number" 
+                              placeholder="e.g., 34" 
+                              value={tournamentForm.total_matches ?? ''} 
+                              onChange={(e) => setTournamentForm({ ...tournamentForm, total_matches: e.target.value ? parseInt(e.target.value) : null })} 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Start Date</Label>
+                            <Input 
+                              type="date" 
+                              value={tournamentForm.start_date || ''} 
+                              onChange={(e) => setTournamentForm({ ...tournamentForm, start_date: e.target.value || null })} 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>End Date</Label>
+                            <Input 
+                              type="date" 
+                              value={tournamentForm.end_date || ''} 
+                              onChange={(e) => setTournamentForm({ ...tournamentForm, end_date: e.target.value || null })} 
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-2 mt-4">
+                          <Label>Tournament Description (SEO Friendly)</Label>
+                          <Textarea 
+                            placeholder="Write a detailed SEO-friendly description about the tournament. Include key information like format, participating teams, venue, etc." 
+                            value={tournamentForm.description} 
+                            onChange={(e) => setTournamentForm({ ...tournamentForm, description: e.target.value })}
+                            rows={4}
+                          />
+                          <p className="text-xs text-muted-foreground">This description will be shown on the tournament page and helps with search engine optimization.</p>
+                        </div>
+                      </div>
+
                       {/* Display Settings */}
                       <div className="border-t pt-4 mt-4">
                         <h4 className="font-medium mb-3 text-sm text-muted-foreground">Display Settings</h4>
@@ -2526,6 +2580,7 @@ const Admin = () => {
                               value={tournamentForm.seo_title} 
                               onChange={(e) => setTournamentForm({ ...tournamentForm, seo_title: e.target.value })} 
                             />
+                            <p className="text-xs text-muted-foreground">Max 60 characters recommended for Google</p>
                           </div>
                           <div className="space-y-2">
                             <Label>SEO Description</Label>
@@ -2535,14 +2590,16 @@ const Admin = () => {
                               onChange={(e) => setTournamentForm({ ...tournamentForm, seo_description: e.target.value })}
                               rows={3}
                             />
+                            <p className="text-xs text-muted-foreground">{tournamentForm.seo_description.length}/160 characters</p>
                           </div>
                           <div className="space-y-2">
                             <Label>SEO Keywords</Label>
                             <Input 
-                              placeholder="e.g., BPL 2025, Bangladesh Premier League, cricket live" 
+                              placeholder="e.g., BPL 2025, Bangladesh Premier League, cricket live, T20" 
                               value={tournamentForm.seo_keywords} 
                               onChange={(e) => setTournamentForm({ ...tournamentForm, seo_keywords: e.target.value })} 
                             />
+                            <p className="text-xs text-muted-foreground">Comma-separated keywords for better SEO ranking</p>
                           </div>
                         </div>
                       </div>

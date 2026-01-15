@@ -32,6 +32,10 @@ export interface Tournament {
   seo_title: string | null;
   seo_description: string | null;
   seo_keywords: string | null;
+  total_matches: number | null;
+  start_date: string | null;
+  end_date: string | null;
+  description: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -1067,6 +1067,8 @@ export type Database = {
       tournaments: {
         Row: {
           created_at: string
+          description: string | null
+          end_date: string | null
           id: string
           is_active: boolean | null
           logo_url: string | null
@@ -1080,10 +1082,14 @@ export type Database = {
           show_in_menu: boolean | null
           slug: string | null
           sport: string
+          start_date: string | null
+          total_matches: number | null
           updated_at: string
         }
         Insert: {
           created_at?: string
+          description?: string | null
+          end_date?: string | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
@@ -1097,10 +1103,14 @@ export type Database = {
           show_in_menu?: boolean | null
           slug?: string | null
           sport?: string
+          start_date?: string | null
+          total_matches?: number | null
           updated_at?: string
         }
         Update: {
           created_at?: string
+          description?: string | null
+          end_date?: string | null
           id?: string
           is_active?: boolean | null
           logo_url?: string | null
@@ -1114,6 +1124,8 @@ export type Database = {
           show_in_menu?: boolean | null
           slug?: string | null
           sport?: string
+          start_date?: string | null
+          total_matches?: number | null
           updated_at?: string
         }
         Relationships: []

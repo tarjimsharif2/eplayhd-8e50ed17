@@ -1,0 +1,6 @@
+-- Add new columns for tournament details and SEO
+ALTER TABLE public.tournaments 
+ADD COLUMN IF NOT EXISTS total_matches INTEGER DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS start_date DATE DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS end_date DATE DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS description TEXT DEFAULT NULL;
