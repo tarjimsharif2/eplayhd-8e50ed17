@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SEOHead from '@/components/SEOHead';
@@ -14,7 +14,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Tournament, Match } from '@/hooks/useSportsData';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useRealtimeLiveMatches } from '@/hooks/useRealtimeMatch';
-import { Trophy, Calendar, Loader2, Radio } from 'lucide-react';
+import { Trophy, Calendar, Loader2, Radio, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const TournamentPage = () => {
@@ -120,6 +120,20 @@ const TournamentPage = () => {
   // STUMPS matches are included in live matches
   const stumpsMatches = liveMatches.filter(m => m.is_stumps);
 
+  // Get unique participating teams from matches
+  const participatingTeams = useMemo(() => {
+    const teamMap = new Map<string, { id: string; name: string; short_name: string; logo_url: string | null }>();
+    matches.forEach(match => {
+      if (match.team_a && !teamMap.has(match.team_a.id)) {
+        teamMap.set(match.team_a.id, match.team_a);
+      }
+      if (match.team_b && !teamMap.has(match.team_b.id)) {
+        teamMap.set(match.team_b.id, match.team_b);
+      }
+    });
+    return Array.from(teamMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [matches]);
+
   // Sort all matches by status: Live -> Upcoming -> Completed, then by start time
   const sortedAllMatches = [...matches].sort((a, b) => {
     const statusOrder: Record<string, number> = { 'live': 0, 'upcoming': 1, 'completed': 2 };
@@ -224,6 +238,50 @@ const TournamentPage = () => {
               </CardContent>
             </Card>
           </motion.div>
+
+          {/* Participating Teams */}
+          {participatingTeams.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+              className="mb-8"
+            >
+              <Card className="border-border/50 bg-card/80 backdrop-blur">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Users className="w-5 h-5 text-primary" />
+                    <h2 className="font-display text-xl text-gradient">Participating Teams</h2>
+                    <Badge variant="secondary" className="ml-2">{participatingTeams.length} Teams</Badge>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    {participatingTeams.map((team, index) => (
+                      <motion.div
+                        key={team.id}
+                        initial={{ opacity: 0, scale: 0.9 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ delay: index * 0.05 }}
+                        className="flex flex-col items-center p-3 rounded-xl bg-background/50 border border-border/30 hover:border-primary/50 transition-colors"
+                      >
+                        {team.logo_url ? (
+                          <img 
+                            src={team.logo_url} 
+                            alt={team.name} 
+                            className="w-12 h-12 object-contain mb-2"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-2">
+                            <span className="text-lg font-bold text-primary">{team.short_name.charAt(0)}</span>
+                          </div>
+                        )}
+                        <span className="text-xs font-medium text-center text-muted-foreground">{team.short_name}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
           {/* Points Table */}
           <div className="mb-8">
