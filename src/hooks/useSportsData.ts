@@ -37,6 +37,8 @@ export interface Tournament {
   end_date: string | null;
   description: string | null;
   is_completed: boolean;
+  total_teams: number | null;
+  total_venues: number | null;
   created_at: string;
   updated_at: string;
 }

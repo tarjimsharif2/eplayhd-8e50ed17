@@ -1085,6 +1085,8 @@ export type Database = {
           sport: string
           start_date: string | null
           total_matches: number | null
+          total_teams: number | null
+          total_venues: number | null
           updated_at: string
         }
         Insert: {
@@ -1107,6 +1109,8 @@ export type Database = {
           sport?: string
           start_date?: string | null
           total_matches?: number | null
+          total_teams?: number | null
+          total_venues?: number | null
           updated_at?: string
         }
         Update: {
@@ -1129,6 +1133,8 @@ export type Database = {
           sport?: string
           start_date?: string | null
           total_matches?: number | null
+          total_teams?: number | null
+          total_venues?: number | null
           updated_at?: string
         }
         Relationships: []

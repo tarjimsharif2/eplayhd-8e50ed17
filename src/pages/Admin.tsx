@@ -195,6 +195,8 @@ const Admin = () => {
     start_date: '' as string | null,
     end_date: '' as string | null,
     description: '',
+    total_teams: null as number | null,
+    total_venues: null as number | null,
   });
 
   const [bannerForm, setBannerForm] = useState({
@@ -919,6 +921,8 @@ const Admin = () => {
         start_date: tournamentForm.start_date || null,
         end_date: tournamentForm.end_date || null,
         description: tournamentForm.description || null,
+        total_teams: tournamentForm.total_teams || null,
+        total_venues: tournamentForm.total_venues || null,
       };
       const tournamentSlug = tournamentData.slug;
       
@@ -969,6 +973,8 @@ const Admin = () => {
       start_date: tournament.start_date || '',
       end_date: tournament.end_date || '',
       description: tournament.description || '',
+      total_teams: tournament.total_teams ?? null,
+      total_venues: tournament.total_venues ?? null,
     });
     setTournamentDialogOpen(true);
   };
@@ -1027,7 +1033,7 @@ const Admin = () => {
 
   const resetTournamentForm = () => {
     setEditingTournament(null);
-    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, show_in_homepage: true, is_completed: false, seo_title: '', seo_description: '', seo_keywords: '', total_matches: null, start_date: '', end_date: '', description: '' });
+    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, show_in_homepage: true, is_completed: false, seo_title: '', seo_description: '', seo_keywords: '', total_matches: null, start_date: '', end_date: '', description: '', total_teams: null, total_venues: null });
   };
 
   // Banner handlers
@@ -2506,7 +2512,7 @@ const Admin = () => {
                       {/* Tournament Details */}
                       <div className="border-t pt-4 mt-4">
                         <h4 className="font-medium mb-3 text-sm text-muted-foreground">Tournament Details</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                           <div className="space-y-2">
                             <Label>Total Matches</Label>
                             <Input 
@@ -2514,6 +2520,24 @@ const Admin = () => {
                               placeholder="e.g., 34" 
                               value={tournamentForm.total_matches ?? ''} 
                               onChange={(e) => setTournamentForm({ ...tournamentForm, total_matches: e.target.value ? parseInt(e.target.value) : null })} 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Total Teams</Label>
+                            <Input 
+                              type="number" 
+                              placeholder="e.g., 6" 
+                              value={tournamentForm.total_teams ?? ''} 
+                              onChange={(e) => setTournamentForm({ ...tournamentForm, total_teams: e.target.value ? parseInt(e.target.value) : null })} 
+                            />
+                          </div>
+                          <div className="space-y-2">
+                            <Label>Total Venues</Label>
+                            <Input 
+                              type="number" 
+                              placeholder="e.g., 3" 
+                              value={tournamentForm.total_venues ?? ''} 
+                              onChange={(e) => setTournamentForm({ ...tournamentForm, total_venues: e.target.value ? parseInt(e.target.value) : null })} 
                             />
                           </div>
                           <div className="space-y-2">

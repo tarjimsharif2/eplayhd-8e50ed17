@@ -243,7 +243,7 @@ const TournamentPage = () => {
                   <div className="flex items-center gap-2 mb-4">
                     <Users className="w-5 h-5 text-primary" />
                     <h2 className="font-display text-xl text-gradient">Participating Teams</h2>
-                    <Badge variant="secondary" className="ml-2">{participatingTeams.length} Teams</Badge>
+                    <Badge variant="secondary" className="ml-2">{tournament.total_teams ?? participatingTeams.length} Teams</Badge>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {participatingTeams.map((team, index) => (
