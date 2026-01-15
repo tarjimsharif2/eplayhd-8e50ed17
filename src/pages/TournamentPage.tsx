@@ -382,10 +382,10 @@ const TournamentPage = () => {
             </Tabs>
           </motion.div>
 
-          <AdSlot position="in_article" className="my-6" />
+          <AdSlot position="in_article" className="my-4" />
 
           {/* Points Table */}
-          <div className="mb-8">
+          <div className="mt-6 mb-8">
             <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
           </div>
 
