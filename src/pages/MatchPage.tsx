@@ -9,6 +9,7 @@ import PlayingXI from '@/components/PlayingXI';
 import PointsTable from '@/components/PointsTable';
 import ManualScoreCard from '@/components/ManualScoreCard';
 import ApiCricketLiveScore from '@/components/ApiCricketLiveScore';
+import SponsorNotice from '@/components/SponsorNotice';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -165,6 +166,9 @@ const MatchPage = () => {
       
       <main className="flex-1 py-6">
         <div className="container mx-auto px-4 max-w-6xl">
+          {/* Sponsor Notice - Before Stream */}
+          <SponsorNotice position="before_stream" matchId={match.id} />
+
           {/* Video Player Section - FIRST */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -197,6 +201,9 @@ const MatchPage = () => {
             </Card>
           </motion.div>
 
+          {/* Sponsor Notice - Before Servers */}
+          <SponsorNotice position="before_servers" matchId={match.id} />
+
           {/* Server Selection */}
           {servers && servers.length > 0 && (
             <motion.div
@@ -223,6 +230,9 @@ const MatchPage = () => {
               </div>
             </motion.div>
           )}
+
+          {/* Sponsor Notice - Before Scoreboard */}
+          <SponsorNotice position="before_scoreboard" matchId={match.id} />
 
           {/* Live Score from API Cricket - Now positioned under server selection */}
           {match?.api_score_enabled && match.team_a && match.team_b && (

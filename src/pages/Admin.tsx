@@ -47,6 +47,7 @@ import AdsSettingsManager from "@/components/AdsSettingsManager";
 import AutoScoreSyncManager from "@/components/AutoScoreSyncManager";
 import { useStreamingServerCounts } from "@/hooks/useStreamingServerCounts";
 import SitemapManager from "@/components/SitemapManager";
+import SponsorNoticeManager from "@/components/SponsorNoticeManager";
 
 
 const Admin = () => {
@@ -1252,6 +1253,9 @@ const Admin = () => {
                 </TabsTrigger>
                 <TabsTrigger value="sitemap" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                   Sitemap
+                </TabsTrigger>
+                <TabsTrigger value="sponsor" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Sponsor Notice
                 </TabsTrigger>
                 <TabsTrigger value="settings" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                   Settings
@@ -3142,6 +3146,11 @@ const Admin = () => {
 
             <TabsContent value="sitemap" className="space-y-6">
               <SitemapManager />
+            </TabsContent>
+
+            {/* Sponsor Notice Tab */}
+            <TabsContent value="sponsor" className="space-y-6">
+              <SponsorNoticeManager />
             </TabsContent>
 
             <TabsContent value="settings" className="space-y-6">
