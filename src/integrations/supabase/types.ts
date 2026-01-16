@@ -861,6 +861,62 @@ export type Database = {
         }
         Relationships: []
       }
+      sponsor_notices: {
+        Row: {
+          background_color: string | null
+          content: string
+          created_at: string
+          display_order: number | null
+          display_type: string
+          id: string
+          is_active: boolean | null
+          is_global: boolean | null
+          match_id: string | null
+          position: string
+          text_color: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          background_color?: string | null
+          content: string
+          created_at?: string
+          display_order?: number | null
+          display_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_global?: boolean | null
+          match_id?: string | null
+          position?: string
+          text_color?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          background_color?: string | null
+          content?: string
+          created_at?: string
+          display_order?: number | null
+          display_type?: string
+          id?: string
+          is_active?: boolean | null
+          is_global?: boolean | null
+          match_id?: string | null
+          position?: string
+          text_color?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsor_notices_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       sports: {
         Row: {
           created_at: string
