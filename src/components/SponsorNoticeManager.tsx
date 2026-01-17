@@ -52,14 +52,14 @@ const SponsorNoticeManager = () => {
   });
 
   const positionOptions = [
-    { value: 'before_stream', label: 'স্ট্রিম প্লেয়ারের আগে' },
-    { value: 'before_servers', label: 'সার্ভার সিলেক্টের আগে' },
-    { value: 'before_scoreboard', label: 'স্কোরবোর্ডের আগে' },
+    { value: 'before_stream', label: 'Before Stream Player' },
+    { value: 'before_servers', label: 'Before Server Selection' },
+    { value: 'before_scoreboard', label: 'Before Scoreboard' },
   ];
 
   const displayTypeOptions = [
-    { value: 'static', label: 'স্থির লেখা' },
-    { value: 'marquee', label: 'চলন্ত লেখা (Marquee)' },
+    { value: 'static', label: 'Static Text' },
+    { value: 'marquee', label: 'Scrolling Text (Marquee)' },
   ];
 
   useEffect(() => {
@@ -203,42 +203,42 @@ const SponsorNoticeManager = () => {
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Megaphone className="w-5 h-5 text-primary" />
-                স্পন্সার নোটিশ ম্যানেজার
+                Sponsor Notice Manager
               </CardTitle>
-              <CardDescription>স্ট্রিম পেজে স্পন্সার টেক্সট/ব্যানার যোগ ও ম্যানেজ করুন</CardDescription>
+              <CardDescription>Add and manage sponsor text/banners on stream pages</CardDescription>
             </div>
             <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
               <DialogTrigger asChild>
                 <Button variant="gradient">
                   <Plus className="w-4 h-4 mr-2" />
-                  নোটিশ যোগ করুন
+                  Add Notice
                 </Button>
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>{editingNotice ? 'নোটিশ এডিট করুন' : 'নতুন নোটিশ যোগ করুন'}</DialogTitle>
-                  <DialogDescription>নোটিশের বিস্তারিত তথ্য পূরণ করুন</DialogDescription>
+                  <DialogTitle>{editingNotice ? 'Edit Notice' : 'Add New Notice'}</DialogTitle>
+                  <DialogDescription>Fill in the notice details</DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div className="space-y-2">
-                    <Label>টাইটেল</Label>
+                    <Label>Title</Label>
                     <Input
-                      placeholder="নোটিশের টাইটেল"
+                      placeholder="Notice title"
                       value={form.title}
                       onChange={(e) => setForm({ ...form, title: e.target.value })}
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label>কন্টেন্ট (HTML সাপোর্টেড)</Label>
+                    <Label>Content (HTML Supported)</Label>
                     <Textarea
-                      placeholder="<span style='color: yellow;'>স্পন্সার:</span> ePlayHD.com"
+                      placeholder="<span style='color: yellow;'>Sponsor:</span> ePlayHD.com"
                       value={form.content}
                       onChange={(e) => setForm({ ...form, content: e.target.value })}
                       rows={3}
                     />
                     <p className="text-xs text-muted-foreground">
-                      HTML ট্যাগ ব্যবহার করতে পারবেন। যেমন: &lt;b&gt;, &lt;span style="color: red;"&gt;, &lt;a href="..."&gt;
+                      You can use HTML tags like: &lt;b&gt;, &lt;span style="color: red;"&gt;, &lt;a href="..."&gt;
                     </p>
                   </div>
 
@@ -280,7 +280,7 @@ const SponsorNoticeManager = () => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label>টেক্সট কালার</Label>
+                      <Label>Text Color</Label>
                       <div className="flex gap-2">
                         <Input
                           type="color"
@@ -297,7 +297,7 @@ const SponsorNoticeManager = () => {
                     </div>
 
                     <div className="space-y-2">
-                      <Label>ব্যাকগ্রাউন্ড কালার</Label>
+                      <Label>Background Color</Label>
                       <div className="flex gap-2">
                         <Input
                           type="color"
@@ -329,7 +329,7 @@ const SponsorNoticeManager = () => {
                         checked={form.is_global}
                         onCheckedChange={(checked) => setForm({ ...form, is_global: checked, match_id: checked ? null : form.match_id })}
                       />
-                      <Label>সব ম্যাচে দেখাবে (Global)</Label>
+                      <Label>Show on All Matches (Global)</Label>
                     </div>
                     <div className="flex items-center gap-2">
                       <Switch
@@ -342,10 +342,10 @@ const SponsorNoticeManager = () => {
 
                   {!form.is_global && (
                     <div className="space-y-2">
-                      <Label>নির্দিষ্ট ম্যাচ সিলেক্ট করুন</Label>
+                      <Label>Select Specific Match</Label>
                       <Select value={form.match_id || ''} onValueChange={(v) => setForm({ ...form, match_id: v || null })}>
                         <SelectTrigger>
-                          <SelectValue placeholder="ম্যাচ সিলেক্ট করুন" />
+                          <SelectValue placeholder="Select a match" />
                         </SelectTrigger>
                         <SelectContent>
                           {matches?.map(match => (
@@ -362,7 +362,7 @@ const SponsorNoticeManager = () => {
                   <div className="space-y-2">
                     <Label className="flex items-center gap-2">
                       <Eye className="w-4 h-4" />
-                      প্রিভিউ
+                      Preview
                     </Label>
                     <div
                       className="rounded-lg overflow-hidden"
@@ -373,14 +373,14 @@ const SponsorNoticeManager = () => {
                           <div
                             className="whitespace-nowrap animate-marquee"
                             style={{ color: form.text_color }}
-                            dangerouslySetInnerHTML={{ __html: form.content || 'প্রিভিউ টেক্সট...' }}
+                            dangerouslySetInnerHTML={{ __html: form.content || 'Preview text...' }}
                           />
                         </div>
                       ) : (
                         <div
                           className="py-2 px-4 text-center"
                           style={{ color: form.text_color }}
-                          dangerouslySetInnerHTML={{ __html: form.content || 'প্রিভিউ টেক্সট...' }}
+                          dangerouslySetInnerHTML={{ __html: form.content || 'Preview text...' }}
                         />
                       )}
                     </div>
@@ -388,11 +388,11 @@ const SponsorNoticeManager = () => {
                 </div>
                 <DialogFooter>
                   <Button variant="outline" onClick={() => { setDialogOpen(false); resetForm(); }}>
-                    বাতিল
+                    Cancel
                   </Button>
                   <Button variant="gradient" onClick={handleSave} disabled={saving}>
                     {saving && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                    {editingNotice ? 'আপডেট করুন' : 'যোগ করুন'}
+                    {editingNotice ? 'Update' : 'Add'}
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -402,7 +402,7 @@ const SponsorNoticeManager = () => {
         <CardContent>
           {notices.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
-              কোন নোটিশ নেই। নতুন নোটিশ যোগ করুন!
+              No notices yet. Add a new notice!
             </p>
           ) : (
             <div className="space-y-3">

@@ -16,6 +16,7 @@ import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useRealtimeLiveMatches } from '@/hooks/useRealtimeMatch';
 import { Trophy, Calendar, Loader2, Radio, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
+import DOMPurify from 'dompurify';
 
 const TournamentPage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -400,9 +401,22 @@ const TournamentPage = () => {
               <Card className="border-border/50 bg-card/80 backdrop-blur">
                 <CardContent className="p-6">
                   <h2 className="font-display text-xl text-gradient mb-4">About Tournament</h2>
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    {tournament.description}
-                  </p>
+                  <div 
+                    className="text-sm text-muted-foreground leading-relaxed prose prose-sm prose-invert max-w-none
+                      prose-headings:text-foreground prose-headings:font-display prose-headings:mb-3 prose-headings:mt-4
+                      prose-p:text-muted-foreground prose-p:mb-3
+                      prose-strong:text-foreground prose-strong:font-semibold
+                      prose-em:text-primary/80
+                      prose-a:text-primary prose-a:underline hover:prose-a:text-primary/80
+                      prose-ul:text-muted-foreground prose-ol:text-muted-foreground
+                      prose-li:text-muted-foreground"
+                    dangerouslySetInnerHTML={{ 
+                      __html: DOMPurify.sanitize(tournament.description, {
+                        ALLOWED_TAGS: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'a', 'ul', 'ol', 'li', 'span', 'div', 'article', 'section'],
+                        ALLOWED_ATTR: ['href', 'target', 'rel', 'style', 'class']
+                      }) 
+                    }}
+                  />
                 </CardContent>
               </Card>
             </motion.div>
