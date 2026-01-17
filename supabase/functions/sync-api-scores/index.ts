@@ -997,32 +997,16 @@ Deno.serve(async (req) => {
       console.log(`[sync-api-scores] Final processed: teamA(${teamAName}) scores=${teamAScores.length}, teamB(${teamBName}) scores=${teamBScores.length}`);
 
       // Also store home/away for the API scores table (for compatibility)
-      // But we derive these FROM the scorecard teams, not API's home/away
-      let homeScore: string | null = null;
-      let homeOvers: string | null = null;
-      let awayScore: string | null = null;
-      let awayOvers: string | null = null;
+// CRITICAL FIX: Store scores in match_api_scores mapped to team_a/team_b 
+      // NOT using API's home/away which can be swapped
+      // This ensures client-side always gets correctly mapped scores
       
-      const apiHomeTeam = detailedEvent.event_home_team || '';
-      const apiAwayTeam = detailedEvent.event_away_team || '';
+      // For the match_api_scores table, we now store:
+      // - home_team = team_a name, home_score = score_a 
+      // - away_team = team_b name, away_score = score_b
+      // This makes the client-side logic simple: home = teamA, away = teamB
       
-      for (const stats of inningsStats) {
-        if (teamsMatch(stats.teamName, apiHomeTeam)) {
-          homeScore = homeScore ? `${homeScore} & ${stats.scoreWithOvers}` : stats.scoreWithOvers;
-          homeOvers = stats.overs;
-        } else if (teamsMatch(stats.teamName, apiAwayTeam)) {
-          awayScore = awayScore ? `${awayScore} & ${stats.scoreWithOvers}` : stats.scoreWithOvers;
-          awayOvers = stats.overs;
-        }
-      }
-
-      // Fallback only if no scorecard data at all
-      if (!homeScore && !awayScore && detailedEvent.event_home_final_result) {
-        homeScore = detailedEvent.event_home_final_result;
-        awayScore = detailedEvent.event_away_final_result;
-      }
-
-      console.log(`[sync-api-scores] Final scores: scoreA="${scoreA}", scoreB="${scoreB}" | home="${homeScore}", away="${awayScore}"`);
+      console.log(`[sync-api-scores] Final mapped scores: team_a="${teamAName}" score_a="${scoreA}", team_b="${teamBName}" score_b="${scoreB}"`);
 
       // Determine match status
       let matchStatus: 'upcoming' | 'live' | 'completed' = 'upcoming';
@@ -1032,17 +1016,18 @@ Deno.serve(async (req) => {
         matchStatus = 'completed';
       }
 
-      // Upsert to match_api_scores
+      // Upsert to match_api_scores - STORE AS team_a/team_b (not API's home/away)
       const { error: upsertError } = await supabase
         .from('match_api_scores')
         .upsert({
           match_id: match.id,
-          home_team: detailedEvent.event_home_team,
-          away_team: detailedEvent.event_away_team,
-          home_score: homeScore,
-          away_score: awayScore,
-          home_overs: homeOvers,
-          away_overs: awayOvers,
+          // Store team_a as home, team_b as away for consistent client-side mapping
+          home_team: teamAName,
+          away_team: teamBName,
+          home_score: scoreA,  // team_a's score
+          away_score: scoreB,  // team_b's score
+          home_overs: oversA,
+          away_overs: oversB,
           status: detailedEvent.event_status,
           status_info: detailedEvent.event_status_info,
           event_live: detailedEvent.event_live === '1',
