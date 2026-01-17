@@ -231,12 +231,10 @@ const ApiCricketLiveScore = ({
     return score?.replace(/\s*\(\d+\.?\d*\s*ov\)/, '').trim() || '';
   };
 
-  // Get scores for display - ALWAYS use batsmen innings data to match teams correctly
-  // This ensures the score is shown for the correct team based on who is batting
-  // NOT based on home/away designation which can be swapped
+  // Get scores for display - hook now returns correctly mapped homeScore=teamA, awayScore=teamB
+  // Use innings data for detailed scorecard display, but scores are already correctly mapped
   const getDisplayScores = () => {
-    // First try to get scores from calculated innings stats (based on batsmen data)
-    // This is the most accurate as it uses actual player team data
+    // First try to get scores from calculated innings stats (for detailed multi-innings display)
     if (inningsStats.length > 0) {
       const teamAScore = getTeamScoreFromInnings(teamAName);
       const teamBScore = getTeamScoreFromInnings(teamBName);
@@ -250,46 +248,21 @@ const ApiCricketLiveScore = ({
       }
     }
     
-    // Fallback: Match API home/away with actual team names (not position)
-    // Check if homeTeam matches teamA or teamB and assign accordingly
+    // Use homeScore/awayScore directly - they are now correctly mapped to teamA/teamB by the hook
     if (scoreData?.homeScore || scoreData?.awayScore) {
-      const homeMatchesTeamA = teamsMatch(scoreData?.homeTeam || '', teamAName);
-      const homeMatchesTeamB = teamsMatch(scoreData?.homeTeam || '', teamBName);
-      const awayMatchesTeamA = teamsMatch(scoreData?.awayTeam || '', teamAName);
-      const awayMatchesTeamB = teamsMatch(scoreData?.awayTeam || '', teamBName);
-      
-      let teamAScoreStr = '-';
-      let teamAOvers: string | null = null;
-      let teamBScoreStr = '-';
-      let teamBOvers: string | null = null;
-      
-      // Assign scores based on team name matching, not position
-      if (homeMatchesTeamA && scoreData?.homeScore) {
-        teamAScoreStr = cleanScore(scoreData.homeScore);
-        teamAOvers = parseScoreOvers(scoreData.homeScore) || scoreData.homeOvers || null;
-      } else if (awayMatchesTeamA && scoreData?.awayScore) {
-        teamAScoreStr = cleanScore(scoreData.awayScore);
-        teamAOvers = parseScoreOvers(scoreData.awayScore) || scoreData.awayOvers || null;
-      }
-      
-      if (homeMatchesTeamB && scoreData?.homeScore) {
-        teamBScoreStr = cleanScore(scoreData.homeScore);
-        teamBOvers = parseScoreOvers(scoreData.homeScore) || scoreData.homeOvers || null;
-      } else if (awayMatchesTeamB && scoreData?.awayScore) {
-        teamBScoreStr = cleanScore(scoreData.awayScore);
-        teamBOvers = parseScoreOvers(scoreData.awayScore) || scoreData.awayOvers || null;
-      }
+      const teamAOvers = parseScoreOvers(scoreData?.homeScore || '') || scoreData?.homeOvers || null;
+      const teamBOvers = parseScoreOvers(scoreData?.awayScore || '') || scoreData?.awayOvers || null;
       
       return {
         teamA: {
-          score: teamAScoreStr,
+          score: cleanScore(scoreData?.homeScore || '-'),
           overs: teamAOvers,
-          allScores: teamAScoreStr !== '-' ? [teamAScoreStr + (teamAOvers ? ` (${teamAOvers} ov)` : '')] : [],
+          allScores: scoreData?.homeScore ? [scoreData.homeScore] : [],
         },
         teamB: {
-          score: teamBScoreStr,
+          score: cleanScore(scoreData?.awayScore || '-'),
           overs: teamBOvers,
-          allScores: teamBScoreStr !== '-' ? [teamBScoreStr + (teamBOvers ? ` (${teamBOvers} ov)` : '')] : [],
+          allScores: scoreData?.awayScore ? [scoreData.awayScore] : [],
         },
       };
     }

@@ -80,6 +80,38 @@ export const useApiCricketScore = ({
   
   const { data: siteSettings } = usePublicSiteSettings();
 
+  // Normalize team name for matching
+  const normalizeTeamName = (name: string): string => {
+    return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+  };
+
+  // Check if two team names match
+  const teamsMatch = (name1: string, name2: string): boolean => {
+    const n1 = normalizeTeamName(name1);
+    const n2 = normalizeTeamName(name2);
+    
+    if (!n1 || !n2) return false;
+    if (n1 === n2) return true;
+    
+    const words1 = n1.split(' ').filter(w => w.length > 0);
+    const words2 = n2.split(' ').filter(w => w.length > 0);
+    
+    // Get first and last words for matching
+    if (words1.length >= 2 && words2.length >= 2) {
+      return words1[0] === words2[0] && words1[words1.length - 1] === words2[words2.length - 1];
+    }
+    
+    // Single word with 4+ chars
+    if (words1.length === 1 && n1.length >= 4) {
+      return words2.includes(words1[0]);
+    }
+    if (words2.length === 1 && n2.length >= 4) {
+      return words1.includes(words2[0]);
+    }
+    
+    return false;
+  };
+
   // Fetch scores from database only (synced by server-side cron job)
   const fetchFromDatabase = useCallback(async () => {
     if (!matchId) return null;
@@ -112,18 +144,52 @@ export const useApiCricketScore = ({
 
       if (matchError || !match) return null;
 
-      // If we have detailed API scores, use them
+      const teamAInfo = match.team_a as any;
+      const teamBInfo = match.team_b as any;
+
+      // If we have detailed API scores, use them with correct team mapping
       if (apiScores) {
+        // Determine which API side (home/away) corresponds to which database team (A/B)
+        // by matching team names
+        const homeMatchesTeamA = teamsMatch(apiScores.home_team || '', teamAInfo?.name || teamAName);
+        const awayMatchesTeamA = teamsMatch(apiScores.away_team || '', teamAInfo?.name || teamAName);
+        
+        // Map scores to correct teams based on name matching
+        let teamAScore: string;
+        let teamAOvers: string | null;
+        let teamBScore: string;
+        let teamBOvers: string | null;
+        
+        if (homeMatchesTeamA) {
+          // home = teamA, away = teamB
+          teamAScore = apiScores.home_score || '';
+          teamAOvers = apiScores.home_overs || null;
+          teamBScore = apiScores.away_score || '';
+          teamBOvers = apiScores.away_overs || null;
+        } else if (awayMatchesTeamA) {
+          // away = teamA, home = teamB  
+          teamAScore = apiScores.away_score || '';
+          teamAOvers = apiScores.away_overs || null;
+          teamBScore = apiScores.home_score || '';
+          teamBOvers = apiScores.home_overs || null;
+        } else {
+          // Can't determine mapping, use home=A, away=B as fallback
+          teamAScore = apiScores.home_score || '';
+          teamAOvers = apiScores.home_overs || null;
+          teamBScore = apiScores.away_score || '';
+          teamBOvers = apiScores.away_overs || null;
+        }
+
         return {
-          homeTeam: apiScores.home_team || '',
-          awayTeam: apiScores.away_team || '',
-          homeTeamLogo: (match.team_a as any)?.logo_url,
-          awayTeamLogo: (match.team_b as any)?.logo_url,
-          // Use API scores directly - don't fallback to match scores to avoid duplication
-          homeScore: apiScores.home_score || '',
-          awayScore: apiScores.away_score || '',
-          homeOvers: apiScores.home_overs,
-          awayOvers: apiScores.away_overs,
+          // Return with teamA/teamB naming for consistency
+          homeTeam: teamAInfo?.name || teamAName,
+          awayTeam: teamBInfo?.name || teamBName,
+          homeTeamLogo: teamAInfo?.logo_url,
+          awayTeamLogo: teamBInfo?.logo_url,
+          homeScore: teamAScore,
+          awayScore: teamBScore,
+          homeOvers: teamAOvers,
+          awayOvers: teamBOvers,
           status: apiScores.status || (match.status === 'live' ? 'Live' : match.status === 'completed' ? 'Finished' : 'Upcoming'),
           statusInfo: apiScores.status_info,
           eventLive: apiScores.event_live || match.status === 'live',
@@ -141,10 +207,10 @@ export const useApiCricketScore = ({
       if (!match.score_a && !match.score_b) return null;
 
       return {
-        homeTeam: (match.team_a as any)?.name || teamAName,
-        awayTeam: (match.team_b as any)?.name || teamBName,
-        homeTeamLogo: (match.team_a as any)?.logo_url,
-        awayTeamLogo: (match.team_b as any)?.logo_url,
+        homeTeam: teamAInfo?.name || teamAName,
+        awayTeam: teamBInfo?.name || teamBName,
+        homeTeamLogo: teamAInfo?.logo_url,
+        awayTeamLogo: teamBInfo?.logo_url,
         homeScore: match.score_a || '-',
         awayScore: match.score_b || '-',
         status: match.status === 'live' ? 'Live' : match.status === 'completed' ? 'Finished' : 'Upcoming',
