@@ -17,6 +17,7 @@ export interface SavedStreamingServer {
   clearkey_key_id: string | null;
   clearkey_key: string | null;
   tags: string[];
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -31,7 +32,8 @@ export const useSavedStreamingServers = (searchQuery?: string) => {
         .order('server_name');
       
       if (searchQuery && searchQuery.trim()) {
-        query = query.ilike('server_name', `%${searchQuery}%`);
+        // Search in both server_name and notes
+        query = query.or(`server_name.ilike.%${searchQuery}%,notes.ilike.%${searchQuery}%`);
       }
       
       const { data, error } = await query;

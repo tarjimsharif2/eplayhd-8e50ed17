@@ -24,7 +24,7 @@ import {
   SavedStreamingServer
 } from "@/hooks/useSavedStreamingServers";
 import { Match } from "@/hooks/useSportsData";
-import { Plus, Edit2, Trash2, Tv, Loader2, ExternalLink, Play, Search, BookmarkPlus, Library, Copy } from "lucide-react";
+import { Plus, Edit2, Trash2, Tv, Loader2, ExternalLink, Play, Search, BookmarkPlus, Library, Copy, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeaderEditor, { HeaderItem, headersToServerForm, serverFormToHeaders } from "@/components/HeaderEditor";
 
@@ -44,6 +44,7 @@ type ServerFormType = {
   cookie_value: string;
   user_agent: string;
   ad_block_enabled: boolean;
+  notes: string;
 };
 
 const defaultServerForm: ServerFormType = {
@@ -57,6 +58,7 @@ const defaultServerForm: ServerFormType = {
   cookie_value: '',
   user_agent: '',
   ad_block_enabled: false,
+  notes: '',
 };
 
 
@@ -107,6 +109,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       cookie_value: server.cookie_value || '',
       user_agent: server.user_agent || '',
       ad_block_enabled: server.ad_block_enabled || false,
+      notes: '',
     });
     setFormHeaders(serverFormToHeaders({
       referer_value: server.referer_value || '',
@@ -131,6 +134,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       cookie_value: saved.cookie_value || '',
       user_agent: saved.user_agent || '',
       ad_block_enabled: saved.ad_block_enabled || false,
+      notes: saved.notes || '',
     });
     setFormHeaders(serverFormToHeaders({
       referer_value: saved.referer_value || '',
@@ -220,6 +224,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       clearkey_key_id: null,
       clearkey_key: null,
       tags: editingSavedServer?.tags || [],
+      notes: serverForm.notes || null,
     };
 
     try {
@@ -263,6 +268,7 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
         clearkey_key_id: null,
         clearkey_key: null,
         tags: [],
+        notes: null,
       });
       toast({ title: "Server saved to library" });
     } catch (error: any) {
@@ -534,51 +540,68 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
             <ScrollArea className="h-[300px]">
               <div className="space-y-3 pr-4">
                 {savedServers?.map((saved) => (
-                  <Card key={saved.id}>
-                    <CardContent className="p-3 sm:p-4">
-                      <div className="flex flex-col gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className="font-medium truncate">{saved.server_name}</span>
-                            <Badge variant="outline" className={`${getTypeColor(saved.server_type)} text-xs`}>
-                              {saved.server_type.toUpperCase()}
-                            </Badge>
+                  <Card key={saved.id} className="overflow-hidden">
+                    <CardContent className="p-3">
+                      <div className="flex flex-col gap-2">
+                        {/* Header row: Name + Type badge */}
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+                              <span className="font-medium text-sm truncate">{saved.server_name}</span>
+                              <Badge variant="outline" className={`${getTypeColor(saved.server_type)} text-[10px] px-1.5 py-0`}>
+                                {saved.server_type.toUpperCase()}
+                              </Badge>
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{saved.server_url}</p>
                           </div>
-                          <p className="text-sm text-muted-foreground truncate">{saved.server_url}</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-2">
+                        
+                        {/* Notes section - displayed if present */}
+                        {saved.notes && (
+                          <div className="flex items-start gap-1.5 bg-muted/50 rounded-md px-2 py-1.5">
+                            <FileText className="w-3 h-3 text-muted-foreground mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-muted-foreground line-clamp-2">{saved.notes}</p>
+                          </div>
+                        )}
+                        
+                        {/* Action buttons - compact horizontal layout */}
+                        <div className="flex items-center gap-1.5 pt-1">
                           <Button
                             variant="gradient"
                             size="sm"
                             onClick={() => handleUseSavedServer(saved)}
-                            className="flex-1 sm:flex-none"
+                            className="flex-1 h-8 text-xs"
                             disabled={createServer.isPending}
                           >
-                            <Copy className="w-4 h-4 mr-1" />
-                            <span>Use</span>
+                            <Copy className="w-3 h-3 mr-1" />
+                            Use
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
+                            className="h-8 w-8"
                             onClick={() => window.open(saved.server_url, '_blank')}
                             title="Preview URL"
                           >
-                            <ExternalLink className="w-4 h-4" />
+                            <ExternalLink className="w-3.5 h-3.5" />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
+                            className="h-8 w-8"
                             onClick={() => handleEditSaved(saved)}
+                            title="Edit"
                           >
-                            <Edit2 className="w-4 h-4" />
+                            <Edit2 className="w-3.5 h-3.5" />
                           </Button>
                           <Button
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
                             onClick={() => handleDeleteSavedServer(saved.id)}
-                            className="text-destructive hover:text-destructive"
+                            title="Delete"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
                       </div>
@@ -666,6 +689,22 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
           </DialogHeader>
           
           {renderServerForm()}
+
+          {/* Notes field for saved servers */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Notes
+            </Label>
+            <Input
+              placeholder="e.g., IPL 2025, BPL, PSL, Star Sports HD..."
+              value={serverForm.notes}
+              onChange={(e) => setServerForm({ ...serverForm, notes: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              Add a note to remember which tournament or channel this server is for
+            </p>
+          </div>
 
           <DialogFooter className="flex-col sm:flex-row gap-2">
             <Button variant="outline" onClick={() => {

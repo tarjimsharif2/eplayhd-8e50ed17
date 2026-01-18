@@ -520,6 +520,7 @@ export type Database = {
           drm_license_url: string | null
           drm_scheme: string | null
           id: string
+          notes: string | null
           origin_value: string | null
           player_type: string | null
           referer_value: string | null
@@ -539,6 +540,7 @@ export type Database = {
           drm_license_url?: string | null
           drm_scheme?: string | null
           id?: string
+          notes?: string | null
           origin_value?: string | null
           player_type?: string | null
           referer_value?: string | null
@@ -558,6 +560,7 @@ export type Database = {
           drm_license_url?: string | null
           drm_scheme?: string | null
           id?: string
+          notes?: string | null
           origin_value?: string | null
           player_type?: string | null
           referer_value?: string | null
