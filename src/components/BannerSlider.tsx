@@ -34,11 +34,11 @@ const BannerSlider = () => {
 
   const handleClick = (banner: Banner) => {
     if (banner.banner_type === 'match' && banner.match_id && banner.match) {
-      // Navigate to match page
-      const matchSlug = banner.match.id;
+      // Navigate to match page using slug
+      const matchSlug = banner.match.slug || banner.match.id;
       navigate(`/match/${matchSlug}`);
     } else if (banner.banner_type === 'tournament' && banner.tournament_id && banner.tournament) {
-      // Navigate to tournament page
+      // Navigate to tournament page using slug
       const tournamentSlug = banner.tournament.slug || banner.tournament.id;
       navigate(`/tournament/${tournamentSlug}`);
     } else if (banner.link_url) {

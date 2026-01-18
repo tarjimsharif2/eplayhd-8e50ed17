@@ -2970,7 +2970,12 @@ const Admin = () => {
                       {bannerForm.banner_type === 'match' && (
                         <div className="space-y-2">
                           <Label>Select Match</Label>
-                          <Select
+                          <SearchableSelect
+                            options={(matches || []).map(match => ({
+                              value: match.id,
+                              label: `${match.team_a?.short_name || 'TBA'} vs ${match.team_b?.short_name || 'TBA'}`,
+                              sublabel: `${match.status.charAt(0).toUpperCase() + match.status.slice(1)} • ${match.tournament?.name || 'No Tournament'} • ${match.match_format || 'Match'}`,
+                            }))}
                             value={bannerForm.match_id}
                             onValueChange={(value) => {
                               const selectedMatch = matches?.find(m => m.id === value);
@@ -2986,23 +2991,10 @@ const Admin = () => {
                                 });
                               }
                             }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Search and select match..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {matches?.slice(0, 50).map((match) => (
-                                <SelectItem key={match.id} value={match.id}>
-                                  <span className="flex items-center gap-2">
-                                    <span>{match.team_a?.short_name} vs {match.team_b?.short_name}</span>
-                                    <Badge variant={match.status === 'live' ? 'live' : match.status === 'upcoming' ? 'upcoming' : 'completed'} className="text-xs">
-                                      {match.status}
-                                    </Badge>
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Search and select match..."
+                            searchPlaceholder="Search by team name..."
+                            emptyText="No matches found"
+                          />
                         </div>
                       )}
 
@@ -3010,7 +3002,13 @@ const Admin = () => {
                       {bannerForm.banner_type === 'tournament' && (
                         <div className="space-y-2">
                           <Label>Select Tournament</Label>
-                          <Select
+                          <SearchableSelect
+                            options={(tournaments || []).map(tournament => ({
+                              value: tournament.id,
+                              label: tournament.name,
+                              sublabel: `${tournament.sport} • ${tournament.season}`,
+                              imageUrl: tournament.logo_url,
+                            }))}
                             value={bannerForm.tournament_id}
                             onValueChange={(value) => {
                               const selectedTournament = tournaments?.find(t => t.id === value);
@@ -3024,21 +3022,10 @@ const Admin = () => {
                                 });
                               }
                             }}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="Search and select tournament..." />
-                            </SelectTrigger>
-                            <SelectContent>
-                              {tournaments?.map((tournament) => (
-                                <SelectItem key={tournament.id} value={tournament.id}>
-                                  <span className="flex items-center gap-2">
-                                    <span>{tournament.name}</span>
-                                    <span className="text-xs text-muted-foreground">({tournament.season})</span>
-                                  </span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            placeholder="Search and select tournament..."
+                            searchPlaceholder="Search by tournament name..."
+                            emptyText="No tournaments found"
+                          />
                         </div>
                       )}
 
