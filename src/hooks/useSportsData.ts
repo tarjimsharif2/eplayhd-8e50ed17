@@ -96,8 +96,16 @@ export interface Banner {
   link_url: string | null;
   is_active: boolean;
   display_order: number;
+  banner_type: 'match' | 'tournament' | 'custom';
+  match_id: string | null;
+  tournament_id: string | null;
+  subtitle: string | null;
+  badge_type: 'none' | 'live' | 'upcoming' | 'watch_now';
   created_at: string;
   updated_at: string;
+  // Joined relations
+  match?: Match;
+  tournament?: Tournament;
 }
 
 export interface Innings {
@@ -462,7 +470,15 @@ export const useBanners = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('banners')
-        .select('*')
+        .select(`
+          *,
+          match:matches(id, team_a_id, team_b_id, status, match_date, match_time, venue, tournament_id, 
+            team_a:teams!matches_team_a_id_fkey(id, name, short_name, logo_url),
+            team_b:teams!matches_team_b_id_fkey(id, name, short_name, logo_url),
+            tournament:tournaments(id, name, sport)
+          ),
+          tournament:tournaments(id, name, sport, logo_url, season)
+        `)
         .order('display_order');
       
       if (error) throw error;
@@ -477,7 +493,15 @@ export const useActiveBanners = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('banners')
-        .select('*')
+        .select(`
+          *,
+          match:matches(id, team_a_id, team_b_id, status, match_date, match_time, venue, tournament_id, match_format,
+            team_a:teams!matches_team_a_id_fkey(id, name, short_name, logo_url),
+            team_b:teams!matches_team_b_id_fkey(id, name, short_name, logo_url),
+            tournament:tournaments(id, name, sport)
+          ),
+          tournament:tournaments(id, name, sport, logo_url, season)
+        `)
         .eq('is_active', true)
         .order('display_order');
       

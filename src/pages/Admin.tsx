@@ -206,6 +206,11 @@ const Admin = () => {
     link_url: '',
     is_active: true,
     display_order: 0,
+    banner_type: 'custom' as 'match' | 'tournament' | 'custom',
+    match_id: '' as string,
+    tournament_id: '' as string,
+    subtitle: '',
+    badge_type: 'none' as 'none' | 'live' | 'upcoming' | 'watch_now',
   });
 
   const [sportForm, setSportForm] = useState({
@@ -1037,12 +1042,19 @@ const Admin = () => {
     setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, show_in_homepage: true, is_completed: false, seo_title: '', seo_description: '', seo_keywords: '', total_matches: null, start_date: '', end_date: '', description: '', total_teams: null, total_venues: null });
   };
 
-  // Banner handlers
   const handleSaveBanner = async () => {
     try {
       const bannerData = {
-        ...bannerForm,
+        title: bannerForm.title,
+        image_url: bannerForm.image_url,
         link_url: bannerForm.link_url || null,
+        is_active: bannerForm.is_active,
+        display_order: bannerForm.display_order,
+        banner_type: bannerForm.banner_type,
+        match_id: bannerForm.banner_type === 'match' ? (bannerForm.match_id || null) : null,
+        tournament_id: bannerForm.banner_type === 'tournament' ? (bannerForm.tournament_id || null) : null,
+        subtitle: bannerForm.subtitle || null,
+        badge_type: bannerForm.badge_type,
       };
       
       if (editingBanner) {
@@ -1067,6 +1079,11 @@ const Admin = () => {
       link_url: banner.link_url || '',
       is_active: banner.is_active,
       display_order: banner.display_order,
+      banner_type: banner.banner_type || 'custom',
+      match_id: banner.match_id || '',
+      tournament_id: banner.tournament_id || '',
+      subtitle: banner.subtitle || '',
+      badge_type: banner.badge_type || 'none',
     });
     setBannerDialogOpen(true);
   };
@@ -1082,7 +1099,18 @@ const Admin = () => {
 
   const resetBannerForm = () => {
     setEditingBanner(null);
-    setBannerForm({ title: '', image_url: '', link_url: '', is_active: true, display_order: 0 });
+    setBannerForm({ 
+      title: '', 
+      image_url: '', 
+      link_url: '', 
+      is_active: true, 
+      display_order: 0,
+      banner_type: 'custom',
+      match_id: '',
+      tournament_id: '',
+      subtitle: '',
+      badge_type: 'none',
+    });
   };
 
   // Sport handlers
@@ -2905,27 +2933,162 @@ const Admin = () => {
                       Add Banner
                     </Button>
                   </DialogTrigger>
-                  <DialogContent>
+                  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>{editingBanner ? 'Edit Banner' : 'Add New Banner'}</DialogTitle>
                       <DialogDescription>
-                        Fill in the banner details below
+                        Create banners for matches, tournaments, or custom links
                       </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4">
+                      {/* Banner Type Selection */}
                       <div className="space-y-2">
-                        <Label>Title</Label>
-                        <Input placeholder="Banner title" value={bannerForm.title} onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })} />
+                        <Label>Banner Type</Label>
+                        <Select
+                          value={bannerForm.banner_type}
+                          onValueChange={(value: 'match' | 'tournament' | 'custom') => {
+                            setBannerForm({ 
+                              ...bannerForm, 
+                              banner_type: value,
+                              match_id: '',
+                              tournament_id: '',
+                            });
+                          }}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select banner type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="match">Match</SelectItem>
+                            <SelectItem value="tournament">Tournament</SelectItem>
+                            <SelectItem value="custom">Custom Link</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
+
+                      {/* Match Search - show only for match type */}
+                      {bannerForm.banner_type === 'match' && (
+                        <div className="space-y-2">
+                          <Label>Select Match</Label>
+                          <Select
+                            value={bannerForm.match_id}
+                            onValueChange={(value) => {
+                              const selectedMatch = matches?.find(m => m.id === value);
+                              if (selectedMatch) {
+                                const matchTitle = `${selectedMatch.team_a?.short_name || 'TBA'} vs ${selectedMatch.team_b?.short_name || 'TBA'}`;
+                                const matchSubtitle = `${selectedMatch.tournament?.sport || 'Cricket'} • ${selectedMatch.match_format || 'Match'}`;
+                                setBannerForm({ 
+                                  ...bannerForm, 
+                                  match_id: value,
+                                  title: bannerForm.title || matchTitle,
+                                  subtitle: bannerForm.subtitle || matchSubtitle,
+                                  badge_type: selectedMatch.status === 'live' ? 'live' : selectedMatch.status === 'upcoming' ? 'upcoming' : 'watch_now',
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Search and select match..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {matches?.slice(0, 50).map((match) => (
+                                <SelectItem key={match.id} value={match.id}>
+                                  <span className="flex items-center gap-2">
+                                    <span>{match.team_a?.short_name} vs {match.team_b?.short_name}</span>
+                                    <Badge variant={match.status === 'live' ? 'live' : match.status === 'upcoming' ? 'upcoming' : 'completed'} className="text-xs">
+                                      {match.status}
+                                    </Badge>
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Tournament Search - show only for tournament type */}
+                      {bannerForm.banner_type === 'tournament' && (
+                        <div className="space-y-2">
+                          <Label>Select Tournament</Label>
+                          <Select
+                            value={bannerForm.tournament_id}
+                            onValueChange={(value) => {
+                              const selectedTournament = tournaments?.find(t => t.id === value);
+                              if (selectedTournament) {
+                                setBannerForm({ 
+                                  ...bannerForm, 
+                                  tournament_id: value,
+                                  title: bannerForm.title || selectedTournament.name,
+                                  subtitle: bannerForm.subtitle || `${selectedTournament.sport} • ${selectedTournament.season}`,
+                                  badge_type: 'watch_now',
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Search and select tournament..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {tournaments?.map((tournament) => (
+                                <SelectItem key={tournament.id} value={tournament.id}>
+                                  <span className="flex items-center gap-2">
+                                    <span>{tournament.name}</span>
+                                    <span className="text-xs text-muted-foreground">({tournament.season})</span>
+                                  </span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Custom Link URL - show only for custom type */}
+                      {bannerForm.banner_type === 'custom' && (
+                        <div className="space-y-2">
+                          <Label>Link URL</Label>
+                          <Input placeholder="https://..." value={bannerForm.link_url} onChange={(e) => setBannerForm({ ...bannerForm, link_url: e.target.value })} />
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Title</Label>
+                          <Input placeholder="Banner title" value={bannerForm.title} onChange={(e) => setBannerForm({ ...bannerForm, title: e.target.value })} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Subtitle (optional)</Label>
+                          <Input placeholder="Cricket • T20 • Series" value={bannerForm.subtitle} onChange={(e) => setBannerForm({ ...bannerForm, subtitle: e.target.value })} />
+                        </div>
+                      </div>
+
                       <div className="space-y-2">
                         <Label>Image URL</Label>
                         <Input placeholder="https://..." value={bannerForm.image_url} onChange={(e) => setBannerForm({ ...bannerForm, image_url: e.target.value })} />
+                        {bannerForm.image_url && (
+                          <div className="w-full aspect-[21/9] rounded-lg overflow-hidden bg-muted mt-2">
+                            <img src={bannerForm.image_url} alt="Preview" className="w-full h-full object-cover" />
+                          </div>
+                        )}
                       </div>
-                      <div className="space-y-2">
-                        <Label>Link URL (optional)</Label>
-                        <Input placeholder="https://..." value={bannerForm.link_url} onChange={(e) => setBannerForm({ ...bannerForm, link_url: e.target.value })} />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <div className="space-y-2">
+                          <Label>Badge Type</Label>
+                          <Select
+                            value={bannerForm.badge_type}
+                            onValueChange={(value: 'none' | 'live' | 'upcoming' | 'watch_now') => setBannerForm({ ...bannerForm, badge_type: value })}
+                          >
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select badge" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No Badge</SelectItem>
+                              <SelectItem value="live">🔴 Live</SelectItem>
+                              <SelectItem value="upcoming">⏰ Upcoming</SelectItem>
+                              <SelectItem value="watch_now">▶️ Watch Now</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                         <div className="space-y-2">
                           <Label>Display Order</Label>
                           <Input type="number" value={bannerForm.display_order} onChange={(e) => setBannerForm({ ...bannerForm, display_order: parseInt(e.target.value) || 0 })} />
@@ -2967,17 +3130,28 @@ const Admin = () => {
                       <Card className="hover:border-primary/50 transition-colors">
                         <CardContent className="p-4">
                           <div className="flex flex-col md:flex-row md:items-center gap-4">
-                            <div className="w-full md:w-48 h-24 rounded-lg overflow-hidden bg-muted">
+                            <div className="w-full md:w-48 h-24 rounded-lg overflow-hidden bg-muted relative">
                               <img src={banner.image_url} alt={banner.title} className="w-full h-full object-cover" />
-                            </div>
-                            <div className="flex-1">
-                              <p className="font-semibold text-lg">{banner.title}</p>
-                              <p className="text-muted-foreground text-sm">Order: {banner.display_order}</p>
-                              {banner.link_url && (
-                                <p className="text-primary text-sm truncate">{banner.link_url}</p>
+                              {banner.badge_type && banner.badge_type !== 'none' && (
+                                <div className="absolute top-1 left-1">
+                                  <Badge variant={banner.badge_type === 'live' ? 'live' : banner.badge_type === 'upcoming' ? 'upcoming' : 'default'} className="text-xs">
+                                    {banner.badge_type === 'live' ? '🔴 Live' : banner.badge_type === 'upcoming' ? '⏰ Upcoming' : '▶️ Watch'}
+                                  </Badge>
+                                </div>
                               )}
                             </div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-semibold text-lg truncate">{banner.title}</p>
+                              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                                <span className="capitalize">{banner.banner_type || 'custom'}</span>
+                                <span>•</span>
+                                <span>Order: {banner.display_order}</span>
+                              </div>
+                              {banner.subtitle && (
+                                <p className="text-primary text-sm truncate">{banner.subtitle}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
                               <Badge variant={banner.is_active ? 'upcoming' : 'completed'}>
                                 {banner.is_active ? 'Active' : 'Inactive'}
                               </Badge>
