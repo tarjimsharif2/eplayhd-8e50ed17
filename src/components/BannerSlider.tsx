@@ -46,12 +46,27 @@ const BannerSlider = () => {
     }
   };
 
+  // Auto-determine badge based on match status (overrides manual badge for match banners)
+  const getAutoBadge = (banner: Banner): Banner['badge_type'] => {
+    // For match banners, use match status to determine badge
+    if (banner.banner_type === 'match' && banner.match) {
+      const matchStatus = banner.match.status;
+      if (matchStatus === 'live') return 'live';
+      if (matchStatus === 'upcoming') return 'upcoming';
+      if (matchStatus === 'completed') return 'watch_now'; // Show "Watch Now" for completed matches (highlights)
+      return 'watch_now';
+    }
+    
+    // For tournament/custom banners, use manual badge
+    return banner.badge_type || 'none';
+  };
+
   const getBadgeContent = (badge: Banner['badge_type']) => {
     switch (badge) {
       case 'live':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-destructive text-destructive-foreground px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg">
-            <Radio className="w-3.5 h-3.5 animate-pulse" />
+          <span className="inline-flex items-center gap-1.5 bg-destructive text-destructive-foreground px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg animate-pulse">
+            <Radio className="w-3.5 h-3.5" />
             LIVE
           </span>
         );
@@ -136,16 +151,19 @@ const BannerSlider = () => {
                 </p>
               )}
               
-              {/* Badge Button */}
-              {currentBanner.badge_type && currentBanner.badge_type !== 'none' && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.9 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.3, delay: 0.4 }}
-                >
-                  {getBadgeContent(currentBanner.badge_type)}
-                </motion.div>
-              )}
+              {/* Badge Button - Auto badge for match banners */}
+              {(() => {
+                const autoBadge = getAutoBadge(currentBanner);
+                return autoBadge && autoBadge !== 'none' ? (
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.9 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.3, delay: 0.4 }}
+                  >
+                    {getBadgeContent(autoBadge)}
+                  </motion.div>
+                ) : null;
+              })()}
             </motion.div>
           </div>
 
