@@ -996,8 +996,82 @@ Deno.serve(async (req) => {
       
       console.log(`[sync-api-scores] Final processed: teamA(${teamAName}) scores=${teamAScores.length}, teamB(${teamBName}) scores=${teamBScores.length}`);
 
-      // Also store home/away for the API scores table (for compatibility)
-// CRITICAL FIX: Store scores in match_api_scores mapped to team_a/team_b 
+      // ============================================
+      // FALLBACK: If scorecard is empty, use event_home_final_result / event_away_final_result
+      // This handles cases where API provides final scores but not detailed scorecard
+      // ============================================
+      if (!scoreA && !scoreB) {
+        console.log(`[sync-api-scores] Scorecard empty, checking for fallback final result fields...`);
+        
+        const apiHomeTeam = detailedEvent.event_home_team || '';
+        const apiAwayTeam = detailedEvent.event_away_team || '';
+        const homeResult = detailedEvent.event_home_final_result || '';
+        const awayResult = detailedEvent.event_away_final_result || '';
+        
+        console.log(`[sync-api-scores] API home="${apiHomeTeam}" result="${homeResult}", away="${apiAwayTeam}" result="${awayResult}"`);
+        
+        // Map API home/away to our teamA/teamB
+        const isTeamAHome = teamsMatch(teamAName, apiHomeTeam) || teamsMatch(teamAShort, apiHomeTeam);
+        const isTeamAAway = teamsMatch(teamAName, apiAwayTeam) || teamsMatch(teamAShort, apiAwayTeam);
+        const isTeamBHome = teamsMatch(teamBName, apiHomeTeam) || teamsMatch(teamBShort, apiHomeTeam);
+        const isTeamBAway = teamsMatch(teamBName, apiAwayTeam) || teamsMatch(teamBShort, apiAwayTeam);
+        
+        // Determine which API result goes to which team
+        if (isTeamAHome && isTeamBAway) {
+          // TeamA is API's home, TeamB is API's away
+          scoreA = homeResult || null;
+          scoreB = awayResult || null;
+          console.log(`[sync-api-scores] Fallback: teamA(home)="${scoreA}", teamB(away)="${scoreB}"`);
+        } else if (isTeamAAway && isTeamBHome) {
+          // TeamA is API's away, TeamB is API's home
+          scoreA = awayResult || null;
+          scoreB = homeResult || null;
+          console.log(`[sync-api-scores] Fallback: teamA(away)="${scoreA}", teamB(home)="${scoreB}"`);
+        } else {
+          console.log(`[sync-api-scores] Fallback: Could not map API teams to our teams`);
+        }
+      }
+      // Also handle case where only one score is missing (partial scorecard)
+      else if (!scoreA && scoreB) {
+        console.log(`[sync-api-scores] Only teamB score found, checking for teamA fallback...`);
+        
+        const apiHomeTeam = detailedEvent.event_home_team || '';
+        const apiAwayTeam = detailedEvent.event_away_team || '';
+        const homeResult = detailedEvent.event_home_final_result || '';
+        const awayResult = detailedEvent.event_away_final_result || '';
+        
+        const isTeamAHome = teamsMatch(teamAName, apiHomeTeam) || teamsMatch(teamAShort, apiHomeTeam);
+        const isTeamAAway = teamsMatch(teamAName, apiAwayTeam) || teamsMatch(teamAShort, apiAwayTeam);
+        
+        if (isTeamAHome && homeResult) {
+          scoreA = homeResult;
+          console.log(`[sync-api-scores] Fallback for teamA (home): "${scoreA}"`);
+        } else if (isTeamAAway && awayResult) {
+          scoreA = awayResult;
+          console.log(`[sync-api-scores] Fallback for teamA (away): "${scoreA}"`);
+        }
+      }
+      else if (scoreA && !scoreB) {
+        console.log(`[sync-api-scores] Only teamA score found, checking for teamB fallback...`);
+        
+        const apiHomeTeam = detailedEvent.event_home_team || '';
+        const apiAwayTeam = detailedEvent.event_away_team || '';
+        const homeResult = detailedEvent.event_home_final_result || '';
+        const awayResult = detailedEvent.event_away_final_result || '';
+        
+        const isTeamBHome = teamsMatch(teamBName, apiHomeTeam) || teamsMatch(teamBShort, apiHomeTeam);
+        const isTeamBAway = teamsMatch(teamBName, apiAwayTeam) || teamsMatch(teamBShort, apiAwayTeam);
+        
+        if (isTeamBHome && homeResult) {
+          scoreB = homeResult;
+          console.log(`[sync-api-scores] Fallback for teamB (home): "${scoreB}"`);
+        } else if (isTeamBAway && awayResult) {
+          scoreB = awayResult;
+          console.log(`[sync-api-scores] Fallback for teamB (away): "${scoreB}"`);
+        }
+      }
+      
+      // CRITICAL FIX: Store scores in match_api_scores mapped to team_a/team_b 
       // NOT using API's home/away which can be swapped
       // This ensures client-side always gets correctly mapped scores
       
