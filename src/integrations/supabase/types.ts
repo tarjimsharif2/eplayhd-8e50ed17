@@ -43,36 +43,66 @@ export type Database = {
       }
       banners: {
         Row: {
+          badge_type: string | null
+          banner_type: string | null
           created_at: string
           display_order: number | null
           id: string
           image_url: string
           is_active: boolean | null
           link_url: string | null
+          match_id: string | null
+          subtitle: string | null
           title: string
+          tournament_id: string | null
           updated_at: string
         }
         Insert: {
+          badge_type?: string | null
+          banner_type?: string | null
           created_at?: string
           display_order?: number | null
           id?: string
           image_url: string
           is_active?: boolean | null
           link_url?: string | null
+          match_id?: string | null
+          subtitle?: string | null
           title: string
+          tournament_id?: string | null
           updated_at?: string
         }
         Update: {
+          badge_type?: string | null
+          banner_type?: string | null
           created_at?: string
           display_order?: number | null
           id?: string
           image_url?: string
           is_active?: boolean | null
           link_url?: string | null
+          match_id?: string | null
+          subtitle?: string | null
           title?: string
+          tournament_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "banners_match_id_fkey"
+            columns: ["match_id"]
+            isOneToOne: false
+            referencedRelation: "matches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "banners_tournament_id_fkey"
+            columns: ["tournament_id"]
+            isOneToOne: false
+            referencedRelation: "tournaments"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       dynamic_pages: {
         Row: {
