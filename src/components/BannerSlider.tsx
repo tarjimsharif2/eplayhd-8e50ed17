@@ -33,18 +33,25 @@ const BannerSlider = () => {
   };
 
   const handleClick = (banner: Banner) => {
-    if (banner.banner_type === 'match' && banner.match_id && banner.match) {
-      // Only navigate if match has a slug
-      if (banner.match.slug) {
-        navigate(`/match/${banner.match.slug}`);
+    // Priority 1: Use match/tournament slug if available
+    if (banner.banner_type === 'match' && banner.match?.slug) {
+      navigate(`/match/${banner.match.slug}`);
+      return;
+    }
+    
+    if (banner.banner_type === 'tournament' && banner.tournament?.slug) {
+      navigate(`/tournament/${banner.tournament.slug}`);
+      return;
+    }
+    
+    // Priority 2: Use link_url for internal or external navigation
+    if (banner.link_url) {
+      // Check if it's an internal link (starts with /)
+      if (banner.link_url.startsWith('/')) {
+        navigate(banner.link_url);
+      } else {
+        window.open(banner.link_url, '_blank', 'noopener,noreferrer');
       }
-    } else if (banner.banner_type === 'tournament' && banner.tournament_id && banner.tournament) {
-      // Only navigate if tournament has a slug
-      if (banner.tournament.slug) {
-        navigate(`/tournament/${banner.tournament.slug}`);
-      }
-    } else if (banner.link_url) {
-      window.open(banner.link_url, '_blank', 'noopener,noreferrer');
     }
   };
 
