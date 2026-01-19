@@ -1,5 +1,6 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useEffect } from 'react';
 
 // Public site settings (excludes sensitive fields like cricket_api_key)
 export interface PublicSiteSettings {
@@ -45,6 +46,31 @@ export interface PublicSiteSettings {
 }
 
 export const usePublicSiteSettings = () => {
+  const queryClient = useQueryClient();
+
+  // Subscribe to realtime changes on site_settings_public
+  useEffect(() => {
+    const channel = supabase
+      .channel('site_settings_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'site_settings_public',
+        },
+        () => {
+          // Invalidate and refetch when settings change
+          queryClient.invalidateQueries({ queryKey: ['site_settings_public'] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   return useQuery({
     queryKey: ['site_settings_public'],
     queryFn: async (): Promise<PublicSiteSettings | null> => {
@@ -58,5 +84,7 @@ export const usePublicSiteSettings = () => {
       if (error) throw error;
       return data as PublicSiteSettings | null;
     },
+    staleTime: 1000 * 60, // Consider fresh for 1 minute
+    refetchOnWindowFocus: true,
   });
 };
