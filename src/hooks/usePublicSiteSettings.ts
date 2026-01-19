@@ -40,6 +40,8 @@ export interface PublicSiteSettings {
   // Custom code injection
   custom_header_code: string | null;
   custom_footer_code: string | null;
+  // Banner slider settings
+  slider_duration_seconds: number | null;
 }
 
 export const usePublicSiteSettings = () => {

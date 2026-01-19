@@ -639,6 +639,7 @@ export type Database = {
           site_keywords: string | null
           site_name: string
           site_title: string
+          slider_duration_seconds: number | null
           smtp_enabled: boolean | null
           smtp_from_email: string | null
           smtp_from_name: string | null
@@ -686,6 +687,7 @@ export type Database = {
           site_keywords?: string | null
           site_name?: string
           site_title?: string
+          slider_duration_seconds?: number | null
           smtp_enabled?: boolean | null
           smtp_from_email?: string | null
           smtp_from_name?: string | null
@@ -733,6 +735,7 @@ export type Database = {
           site_keywords?: string | null
           site_name?: string
           site_title?: string
+          slider_duration_seconds?: number | null
           smtp_enabled?: boolean | null
           smtp_from_email?: string | null
           smtp_from_name?: string | null
@@ -780,6 +783,7 @@ export type Database = {
           site_keywords: string | null
           site_name: string | null
           site_title: string | null
+          slider_duration_seconds: number | null
           social_links: Json | null
           telegram_link: string | null
           twitter_handle: string | null
@@ -817,6 +821,7 @@ export type Database = {
           site_keywords?: string | null
           site_name?: string | null
           site_title?: string | null
+          slider_duration_seconds?: number | null
           social_links?: Json | null
           telegram_link?: string | null
           twitter_handle?: string | null
@@ -854,6 +859,7 @@ export type Database = {
           site_keywords?: string | null
           site_name?: string | null
           site_title?: string | null
+          slider_duration_seconds?: number | null
           social_links?: Json | null
           telegram_link?: string | null
           twitter_handle?: string | null

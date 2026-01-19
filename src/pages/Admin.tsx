@@ -256,6 +256,8 @@ const Admin = () => {
     // Custom code injection
     custom_header_code: '',
     custom_footer_code: '',
+    // Banner slider settings
+    slider_duration_seconds: 6,
   });
   
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -297,6 +299,7 @@ const Admin = () => {
         ads_txt_content: (siteSettings as any).ads_txt_content || '',
         custom_header_code: siteSettings.custom_header_code || '',
         custom_footer_code: siteSettings.custom_footer_code || '',
+        slider_duration_seconds: (siteSettings as any).slider_duration_seconds || 6,
       });
     }
   }, [siteSettings]);
@@ -1205,6 +1208,8 @@ const Admin = () => {
         // Custom code injection
         custom_header_code: siteSettingsForm.custom_header_code || null,
         custom_footer_code: siteSettingsForm.custom_footer_code || null,
+        // Banner slider settings
+        slider_duration_seconds: siteSettingsForm.slider_duration_seconds || 6,
       } as any);
       toast({ title: "Site settings updated successfully" });
     } catch (error: any) {
@@ -3380,6 +3385,21 @@ const Admin = () => {
                             value={siteSettingsForm.telegram_link} 
                             onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, telegram_link: e.target.value })} 
                           />
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        <div className="space-y-2">
+                          <Label>Banner Slider Duration (seconds)</Label>
+                          <Input 
+                            type="number"
+                            min={2}
+                            max={30}
+                            placeholder="6" 
+                            value={siteSettingsForm.slider_duration_seconds} 
+                            onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, slider_duration_seconds: parseInt(e.target.value) || 6 })} 
+                          />
+                          <p className="text-xs text-muted-foreground">Auto-slide interval for banner carousel (2-30 seconds)</p>
                         </div>
                       </div>
 

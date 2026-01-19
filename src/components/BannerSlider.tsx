@@ -4,21 +4,26 @@ import { useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Play, Clock, Radio } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 
 const BannerSlider = () => {
   const { data: banners, isLoading } = useActiveBanners();
+  const { data: siteSettings } = usePublicSiteSettings();
   const [currentIndex, setCurrentIndex] = useState(0);
   const navigate = useNavigate();
+
+  // Get slider duration from settings (default 6 seconds)
+  const sliderDuration = ((siteSettings as any)?.slider_duration_seconds || 6) * 1000;
 
   useEffect(() => {
     if (!banners || banners.length <= 1) return;
     
     const interval = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % banners.length);
-    }, 6000);
+    }, sliderDuration);
 
     return () => clearInterval(interval);
-  }, [banners]);
+  }, [banners, sliderDuration]);
 
   if (isLoading || !banners || banners.length === 0) {
     return null;
@@ -213,18 +218,18 @@ const BannerSlider = () => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation Arrows */}
+      {/* Navigation Arrows - positioned at top to avoid text overlap */}
       {banners.length > 1 && (
         <>
           <button
             onClick={(e) => { e.stopPropagation(); goToPrev(); }}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-background/80 backdrop-blur flex items-center justify-center text-foreground hover:bg-background transition-all hover:scale-110 shadow-lg"
+            className="absolute left-2 sm:left-4 top-4 sm:top-1/3 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-background/80 backdrop-blur flex items-center justify-center text-foreground hover:bg-background transition-all hover:scale-110 shadow-lg z-10"
           >
             <ChevronLeft className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
           <button
             onClick={(e) => { e.stopPropagation(); goToNext(); }}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-background/80 backdrop-blur flex items-center justify-center text-foreground hover:bg-background transition-all hover:scale-110 shadow-lg"
+            className="absolute right-2 sm:right-4 top-4 sm:top-1/3 w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-background/80 backdrop-blur flex items-center justify-center text-foreground hover:bg-background transition-all hover:scale-110 shadow-lg z-10"
           >
             <ChevronRight className="w-5 h-5 sm:w-6 sm:h-6" />
           </button>
