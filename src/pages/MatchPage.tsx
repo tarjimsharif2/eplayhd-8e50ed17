@@ -51,7 +51,8 @@ const MatchPage = () => {
     const fetchMatch = async () => {
       if (!slug) return;
       
-      const { data, error } = await supabase
+      // First try to find by slug
+      let { data, error } = await supabase
         .from('matches')
         .select(`
           *,
@@ -63,10 +64,27 @@ const MatchPage = () => {
         .eq('slug', slug)
         .single();
       
-      if (error) {
-        console.error('Error fetching match:', error);
-        setLoading(false);
-        return;
+      // If not found by slug, try by id (UUID)
+      if (error || !data) {
+        const { data: dataById, error: errorById } = await supabase
+          .from('matches')
+          .select(`
+            *,
+            tournament:tournaments(*),
+            team_a:teams!matches_team_a_id_fkey(*),
+            team_b:teams!matches_team_b_id_fkey(*),
+            sport:sports(*)
+          `)
+          .eq('id', slug)
+          .single();
+        
+        if (errorById || !dataById) {
+          console.error('Error fetching match:', error || errorById);
+          setLoading(false);
+          return;
+        }
+        
+        data = dataById;
       }
       
       setMatch(data as Match);
