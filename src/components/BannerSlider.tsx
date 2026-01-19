@@ -60,12 +60,18 @@ const BannerSlider = () => {
     }
   };
 
+  // Check if match is live
+  const isMatchLive = (banner: Banner): boolean => {
+    return banner.banner_type === 'match' && banner.match?.status === 'live';
+  };
+
   // Auto-determine badge based on match status (overrides manual badge for match banners)
   const getAutoBadge = (banner: Banner): Banner['badge_type'] => {
     // For match banners, use match status to determine badge
     if (banner.banner_type === 'match' && banner.match) {
       const matchStatus = banner.match.status;
-      if (matchStatus === 'live') return 'live';
+      // For live matches, show "Watch Now" as the action badge (LIVE indicator shown separately at top)
+      if (matchStatus === 'live') return 'watch_now';
       if (matchStatus === 'upcoming') return 'upcoming';
       if (matchStatus === 'completed') return 'watch_now'; // Show "Watch Now" for completed matches (highlights)
       return 'watch_now';
@@ -145,6 +151,26 @@ const BannerSlider = () => {
           <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-background/30 to-transparent" />
           
+          {/* LIVE Indicator - Top left for live matches */}
+          {isMatchLive(currentBanner) && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 0.3 }}
+              className="absolute top-4 left-4 sm:top-6 sm:left-6 z-20"
+            >
+              <div className="flex items-center gap-2 bg-destructive/95 backdrop-blur-sm text-destructive-foreground px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg shadow-lg">
+                {/* Animated pulse dot */}
+                <span className="relative flex h-2.5 w-2.5 sm:h-3 sm:w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-white"></span>
+                </span>
+                <span className="text-xs sm:text-sm font-bold tracking-wide">সরাসরি</span>
+                <Radio className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-pulse" />
+              </div>
+            </motion.div>
+          )}
+
           {/* Content */}
           <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6 md:p-8">
             <motion.div
