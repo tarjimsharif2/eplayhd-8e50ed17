@@ -472,12 +472,12 @@ export const useBanners = () => {
         .from('banners')
         .select(`
           *,
-          match:matches(id, team_a_id, team_b_id, status, match_date, match_time, venue, tournament_id, 
+          match:matches(id, slug, team_a_id, team_b_id, status, match_date, match_time, venue, tournament_id, 
             team_a:teams!matches_team_a_id_fkey(id, name, short_name, logo_url),
             team_b:teams!matches_team_b_id_fkey(id, name, short_name, logo_url),
             tournament:tournaments(id, name, sport)
           ),
-          tournament:tournaments(id, name, sport, logo_url, season)
+          tournament:tournaments(id, slug, name, sport, logo_url, season)
         `)
         .order('display_order');
       
@@ -495,12 +495,12 @@ export const useActiveBanners = () => {
         .from('banners')
         .select(`
           *,
-          match:matches(id, team_a_id, team_b_id, status, match_date, match_time, venue, tournament_id, match_format,
+          match:matches(id, slug, team_a_id, team_b_id, status, match_date, match_time, venue, tournament_id, match_format,
             team_a:teams!matches_team_a_id_fkey(id, name, short_name, logo_url),
             team_b:teams!matches_team_b_id_fkey(id, name, short_name, logo_url),
             tournament:tournaments(id, name, sport)
           ),
-          tournament:tournaments(id, name, sport, logo_url, season)
+          tournament:tournaments(id, slug, name, sport, logo_url, season)
         `)
         .eq('is_active', true)
         .order('display_order');
