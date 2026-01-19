@@ -97,9 +97,9 @@ const SearchableSelect = ({
               className="flex h-10 w-full rounded-md bg-transparent py-3 text-sm outline-none placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50"
             />
           </div>
-          <CommandList>
+          <CommandList className="max-h-60 overflow-y-auto">
             <CommandEmpty>{emptyText}</CommandEmpty>
-            <CommandGroup className="max-h-64 overflow-auto">
+            <CommandGroup>
               {filteredOptions.map((option) => (
                 <CommandItem
                   key={option.value}
