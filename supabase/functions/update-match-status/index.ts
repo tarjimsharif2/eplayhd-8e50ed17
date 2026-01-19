@@ -70,11 +70,13 @@ Deno.serve(async (req) => {
     
     // Only fetch matches that have explicit end time OR explicit duration
     // This prevents using default durations which cause premature completion
+    // Also exclude matches with manual_status_override = true
     const { data: matchesToComplete, error: completeFetchError } = await supabase
       .from('matches')
-      .select('id, match_end_time, match_start_time, match_duration_minutes, match_format, status')
+      .select('id, match_end_time, match_start_time, match_duration_minutes, match_format, status, manual_status_override')
       .in('status', ['live', 'upcoming'])
       .neq('match_format', 'test') // Don't auto-complete Test matches by time
+      .or('manual_status_override.is.null,manual_status_override.eq.false') // Skip manually overridden matches
       .or('match_end_time.not.is.null,match_duration_minutes.not.is.null'); // Only matches with explicit end criteria
 
     const completedMatchIds: string[] = [];
@@ -130,10 +132,12 @@ Deno.serve(async (req) => {
     // 2. Auto-start matches based on match_start_time
     // ONLY start matches that weren't just completed above
     // ============================================
+    // Also exclude matches with manual_status_override = true
     const { data: matchesToStart, error: startFetchError } = await supabase
       .from('matches')
-      .select('id, match_format, match_start_time, status, day_start_time, match_end_time, match_duration_minutes')
+      .select('id, match_format, match_start_time, status, day_start_time, match_end_time, match_duration_minutes, manual_status_override')
       .eq('status', 'upcoming')
+      .or('manual_status_override.is.null,manual_status_override.eq.false') // Skip manually overridden matches
       .not('match_start_time', 'is', null)
       .lte('match_start_time', now.toISOString());
 

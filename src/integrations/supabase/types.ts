@@ -367,6 +367,7 @@ export type Database = {
           is_priority: boolean | null
           is_stumps: boolean | null
           last_api_sync: string | null
+          manual_status_override: boolean | null
           match_date: string
           match_duration_minutes: number | null
           match_end_time: string | null
@@ -408,6 +409,7 @@ export type Database = {
           is_priority?: boolean | null
           is_stumps?: boolean | null
           last_api_sync?: string | null
+          manual_status_override?: boolean | null
           match_date: string
           match_duration_minutes?: number | null
           match_end_time?: string | null
@@ -449,6 +451,7 @@ export type Database = {
           is_priority?: boolean | null
           is_stumps?: boolean | null
           last_api_sync?: string | null
+          manual_status_override?: boolean | null
           match_date?: string
           match_duration_minutes?: number | null
           match_end_time?: string | null

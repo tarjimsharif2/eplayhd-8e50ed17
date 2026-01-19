@@ -80,6 +80,7 @@ export interface Match {
   result_margin: string | null;
   api_score_enabled: boolean;
   cricbuzz_match_id: string | null;
+  manual_status_override: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;

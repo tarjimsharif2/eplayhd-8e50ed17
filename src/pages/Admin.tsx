@@ -171,6 +171,7 @@ const Admin = () => {
     api_score_enabled: false,
     auto_sync_enabled: false,
     cricbuzz_match_id: '' as string | null,
+    manual_status_override: false,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -523,6 +524,7 @@ const Admin = () => {
         api_score_enabled: matchForm.api_score_enabled,
         auto_sync_enabled: matchForm.auto_sync_enabled,
         cricbuzz_match_id: matchForm.cricbuzz_match_id || null,
+        manual_status_override: matchForm.manual_status_override,
       };
       let matchId: string | undefined;
       
@@ -596,6 +598,7 @@ const Admin = () => {
       api_score_enabled: match.api_score_enabled !== false,
       auto_sync_enabled: (match as any).auto_sync_enabled || false,
       cricbuzz_match_id: match.cricbuzz_match_id || '',
+      manual_status_override: (match as any).manual_status_override || false,
     });
     setMatchDialogOpen(true);
   };
@@ -699,6 +702,7 @@ const Admin = () => {
       api_score_enabled: false,
       auto_sync_enabled: false,
       cricbuzz_match_id: '',
+      manual_status_override: false,
     });
     setMatchDialogOpen(true);
     toast({ title: "Match copied", description: "Edit the details and save to create a new match." });
@@ -744,6 +748,7 @@ const Admin = () => {
       api_score_enabled: false,
       auto_sync_enabled: false,
       cricbuzz_match_id: '',
+      manual_status_override: false,
     });
   };
 
@@ -1424,6 +1429,16 @@ const Admin = () => {
                             onCheckedChange={(checked) => setMatchForm({ ...matchForm, is_active: checked })}
                           />
                           <Label htmlFor="is_active">Show on Homepage</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Switch
+                            id="manual_status_override"
+                            checked={matchForm.manual_status_override}
+                            onCheckedChange={(checked) => setMatchForm({ ...matchForm, manual_status_override: checked })}
+                          />
+                          <Label htmlFor="manual_status_override" className="text-sm">
+                            Lock Status (Disable Auto-Update)
+                          </Label>
                         </div>
                       </div>
                       
