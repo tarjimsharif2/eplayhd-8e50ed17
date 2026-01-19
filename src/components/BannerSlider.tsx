@@ -165,7 +165,7 @@ const BannerSlider = () => {
                   <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                   <span className="relative inline-flex rounded-full h-2.5 w-2.5 sm:h-3 sm:w-3 bg-white"></span>
                 </span>
-                <span className="text-xs sm:text-sm font-bold tracking-wide">সরাসরি</span>
+                <span className="text-xs sm:text-sm font-bold tracking-wide">LIVE</span>
                 <Radio className="w-3.5 h-3.5 sm:w-4 sm:h-4 animate-pulse" />
               </div>
             </motion.div>
