@@ -2991,11 +2991,20 @@ const Admin = () => {
                         <div className="space-y-2">
                           <Label>Select Match</Label>
                           <SearchableSelect
-                            options={(matches || []).map(match => ({
-                              value: match.id,
-                              label: `${match.team_a?.short_name || 'TBA'} vs ${match.team_b?.short_name || 'TBA'}`,
-                              sublabel: `${match.status.charAt(0).toUpperCase() + match.status.slice(1)} • ${match.tournament?.name || 'No Tournament'} • ${match.match_format || 'Match'}`,
-                            }))}
+                            options={(matches || [])
+                              .sort((a, b) => {
+                                const statusOrder: Record<string, number> = { live: 0, upcoming: 1, stumps: 2, completed: 3 };
+                                const statusDiff = (statusOrder[a.status] ?? 4) - (statusOrder[b.status] ?? 4);
+                                if (statusDiff !== 0) return statusDiff;
+                                const timeA = a.match_start_time ? new Date(a.match_start_time).getTime() : 0;
+                                const timeB = b.match_start_time ? new Date(b.match_start_time).getTime() : 0;
+                                return timeA - timeB;
+                              })
+                              .map(match => ({
+                                value: match.id,
+                                label: `${match.team_a?.short_name || 'TBA'} vs ${match.team_b?.short_name || 'TBA'}`,
+                                sublabel: `${match.status.charAt(0).toUpperCase() + match.status.slice(1)} • ${match.tournament?.name || 'No Tournament'} • ${match.match_format || 'Match'}`,
+                              }))}
                             value={bannerForm.match_id}
                             onValueChange={(value) => {
                               const selectedMatch = matches?.find(m => m.id === value);
