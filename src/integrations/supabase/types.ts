@@ -375,7 +375,7 @@ export type Database = {
           match_label: string | null
           match_link: string | null
           match_minute: number | null
-          match_number: number
+          match_number: string
           match_result: string | null
           match_start_time: string | null
           match_time: string
@@ -417,7 +417,7 @@ export type Database = {
           match_label?: string | null
           match_link?: string | null
           match_minute?: number | null
-          match_number?: number
+          match_number: string
           match_result?: string | null
           match_start_time?: string | null
           match_time: string
@@ -459,7 +459,7 @@ export type Database = {
           match_label?: string | null
           match_link?: string | null
           match_minute?: number | null
-          match_number?: number
+          match_number?: string
           match_result?: string | null
           match_start_time?: string | null
           match_time?: string

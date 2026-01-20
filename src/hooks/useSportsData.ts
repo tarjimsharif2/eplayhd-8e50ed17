@@ -50,7 +50,7 @@ export interface Match {
   tournament_id: string | null;
   team_a_id: string;
   team_b_id: string;
-  match_number: number;
+  match_number: string | null;
   match_date: string;
   match_time: string;
   status: 'upcoming' | 'live' | 'completed' | 'abandoned' | 'postponed';
