@@ -326,7 +326,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
               )}
               {match.match_number && (
                 <span className="text-muted-foreground text-xs font-medium bg-muted/40 px-3 py-1.5 rounded-full">
-                  Match #{match.match_number}
+                  {/^\d+$/.test(match.match_number) ? `Match #${match.match_number}` : match.match_number}
                 </span>
               )}
             </div>
