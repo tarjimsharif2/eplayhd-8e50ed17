@@ -64,12 +64,11 @@ const MultiSelectTeams = ({
   };
 
   const handleAddTeams = () => {
-    if (onAddTeams) {
+    if (onAddTeams && selectedValues.length > 0) {
       onAddTeams();
+      setOpen(false);
+      setSearchQuery("");
     }
-    setOpen(false);
-    setSearchQuery("");
-    onSelectionChange([]);
   };
 
   const selectedCount = selectedValues.length;
