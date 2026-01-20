@@ -137,7 +137,7 @@ const Admin = () => {
     tournament_id: '' as string | null,
     team_a_id: '',
     team_b_id: '',
-    match_number: null as number | null,
+    match_number: '' as string,
     match_date: '',
     match_time: '',
     status: 'upcoming' as 'upcoming' | 'live' | 'completed' | 'abandoned' | 'postponed',
@@ -485,7 +485,7 @@ const Admin = () => {
         tournament_id: matchForm.tournament_id || null,
         team_a_id: matchForm.team_a_id,
         team_b_id: matchForm.team_b_id,
-        match_number: matchForm.match_number ?? null,
+        match_number: matchForm.match_number || null,
         match_date: matchForm.match_date,
         match_time: matchForm.match_time,
         status: matchForm.status,
@@ -564,7 +564,7 @@ const Admin = () => {
       tournament_id: match.tournament_id || '',
       team_a_id: match.team_a_id,
       team_b_id: match.team_b_id,
-      match_number: match.match_number ?? null,
+      match_number: match.match_number || '',
       match_date: match.match_date,
       match_time: match.match_time,
       status: match.status,
@@ -668,7 +668,7 @@ const Admin = () => {
       tournament_id: match.tournament_id || '',
       team_a_id: match.team_a_id,
       team_b_id: match.team_b_id,
-      match_number: match.match_number ? match.match_number + 1 : null,
+      match_number: match.match_number || '',
       match_date: match.match_date,
       match_time: match.match_time,
       status: 'upcoming',
@@ -714,7 +714,7 @@ const Admin = () => {
       tournament_id: '',
       team_a_id: '',
       team_b_id: '',
-      match_number: null,
+      match_number: '',
       match_date: '',
       match_time: '',
       status: 'upcoming',
@@ -1400,12 +1400,28 @@ const Admin = () => {
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label>Match Number (optional)</Label>
-                          <Input 
-                            type="number" 
-                            placeholder="Leave blank if not needed"
-                            value={matchForm.match_number ?? ''} 
-                            onChange={(e) => setMatchForm({ ...matchForm, match_number: e.target.value ? parseInt(e.target.value) : null })} 
-                          />
+                          <div className="space-y-2">
+                            <Input 
+                              type="text" 
+                              placeholder="e.g., 1, Round 7, Match 15"
+                              value={matchForm.match_number || ''} 
+                              onChange={(e) => setMatchForm({ ...matchForm, match_number: e.target.value })} 
+                            />
+                            <div className="flex flex-wrap gap-1">
+                              {['1', '2', '3', '4', '5'].map((num) => (
+                                <Button
+                                  key={num}
+                                  type="button"
+                                  variant={matchForm.match_number === num ? 'default' : 'outline'}
+                                  size="sm"
+                                  className="h-6 px-2 text-xs"
+                                  onClick={() => setMatchForm({ ...matchForm, match_number: num })}
+                                >
+                                  {num}
+                                </Button>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                         <div className="space-y-2">
                           <Label>Status</Label>
@@ -1500,23 +1516,30 @@ const Admin = () => {
                         </div>
                       )}
                       
-                      {/* Match Label (Optional - Final, Semi-Final, etc.) */}
                       <div className="space-y-2">
                         <Label>Match Label (optional)</Label>
-                        <Select value={matchForm.match_label || 'none'} onValueChange={(v) => setMatchForm({ ...matchForm, match_label: v === 'none' ? null : v })}>
-                          <SelectTrigger>
-                            <SelectValue placeholder="e.g., Final, Semi-Final" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">None</SelectItem>
-                            <SelectItem value="Final">Final</SelectItem>
-                            <SelectItem value="Semi-Final">Semi-Final</SelectItem>
-                            <SelectItem value="Quarter-Final">Quarter-Final</SelectItem>
-                            <SelectItem value="Qualifier">Qualifier</SelectItem>
-                            <SelectItem value="Eliminator">Eliminator</SelectItem>
-                            <SelectItem value="Group Stage">Group Stage</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="space-y-2">
+                          <Input 
+                            type="text" 
+                            placeholder="e.g., Final, Semi-Final, Group A"
+                            value={matchForm.match_label || ''} 
+                            onChange={(e) => setMatchForm({ ...matchForm, match_label: e.target.value })} 
+                          />
+                          <div className="flex flex-wrap gap-1">
+                            {['Final', 'Semi-Final', 'Quarter-Final', 'Qualifier', 'Eliminator', 'Group Stage'].map((label) => (
+                              <Button
+                                key={label}
+                                type="button"
+                                variant={matchForm.match_label === label ? 'default' : 'outline'}
+                                size="sm"
+                                className="h-6 px-2 text-xs"
+                                onClick={() => setMatchForm({ ...matchForm, match_label: matchForm.match_label === label ? '' : label })}
+                              >
+                                {label}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                       
                       {/* Priority Match Toggle */}
