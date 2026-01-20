@@ -147,9 +147,9 @@ const BannerSlider = () => {
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
           
-          {/* Gradient Overlays */}
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/50 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-background/80 via-background/30 to-transparent" />
+          {/* Gradient Overlays - subtle for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-transparent" />
           
           {/* LIVE Indicator - Top left for live matches */}
           {isMatchLive(currentBanner) && (
