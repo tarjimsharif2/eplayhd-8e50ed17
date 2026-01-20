@@ -2844,21 +2844,27 @@ const Admin = () => {
                                           });
                                         }}
                                         onAddTeams={() => {
-                                          const teamsToAdd = tournamentForm.selectedTeamsToAdd
+                                          const selectedTeamIds = tournamentForm.selectedTeamsToAdd;
+                                          if (selectedTeamIds.length === 0) return;
+                                          
+                                          const teamsToAdd = selectedTeamIds
                                             .map(teamId => teams?.find(t => t.id === teamId))
-                                            .filter(Boolean)
+                                            .filter((team): team is NonNullable<typeof team> => team !== null && team !== undefined)
                                             .map(team => ({
-                                              name: team!.name,
-                                              logo_url: team!.logo_url || undefined
+                                              name: team.name,
+                                              logo_url: team.logo_url || undefined
                                             }));
-                                          setTournamentForm({
-                                            ...tournamentForm,
-                                            custom_participating_teams: [
-                                              ...tournamentForm.custom_participating_teams,
-                                              ...teamsToAdd
-                                            ],
-                                            selectedTeamsToAdd: []
-                                          });
+                                          
+                                          if (teamsToAdd.length > 0) {
+                                            setTournamentForm(prev => ({
+                                              ...prev,
+                                              custom_participating_teams: [
+                                                ...prev.custom_participating_teams,
+                                                ...teamsToAdd
+                                              ],
+                                              selectedTeamsToAdd: []
+                                            }));
+                                          }
                                         }}
                                         placeholder="Search and select teams..."
                                         searchPlaceholder="Search teams..."
