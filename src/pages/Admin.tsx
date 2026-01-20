@@ -38,6 +38,7 @@ import FootballPlayingXIManager from "@/components/FootballPlayingXIManager";
 import PointsTableManager from "@/components/PointsTableManager";
 import { Textarea } from "@/components/ui/textarea";
 import SearchableSelect from "@/components/SearchableSelect";
+import MultiSelectTeams from "@/components/MultiSelectTeams";
 
 import PasswordChangeDialog from "@/components/PasswordChangeDialog";
 import { Table, FileText, Megaphone } from "lucide-react";
@@ -203,6 +204,7 @@ const Admin = () => {
     participating_teams_position: 'before_matches' as string,
     custom_participating_teams: [] as { name: string; logo_url?: string }[],
     use_custom_teams: false,
+    selectedTeamsToAdd: [] as string[],
   });
 
   const [bannerForm, setBannerForm] = useState({
@@ -1007,6 +1009,7 @@ const Admin = () => {
       participating_teams_position: tournament.participating_teams_position || 'before_matches',
       custom_participating_teams: customTeams,
       use_custom_teams: customTeams.length > 0,
+      selectedTeamsToAdd: [],
     });
     setTournamentDialogOpen(true);
   };
@@ -1088,6 +1091,7 @@ const Admin = () => {
       participating_teams_position: 'before_matches',
       custom_participating_teams: [],
       use_custom_teams: false,
+      selectedTeamsToAdd: [],
     });
   };
 
@@ -2823,7 +2827,7 @@ const Admin = () => {
                                   <div className="mt-3">
                                     <Label className="text-sm text-muted-foreground">Add from Existing Teams</Label>
                                     <div className="mt-2">
-                                      <SearchableSelect
+                                      <MultiSelectTeams
                                         options={(teams || [])
                                           .filter(team => !tournamentForm.custom_participating_teams.some(t => t.name === team.name))
                                           .map(team => ({
@@ -2832,20 +2836,31 @@ const Admin = () => {
                                             sublabel: team.short_name,
                                             imageUrl: team.logo_url
                                           }))}
-                                        value=""
-                                        onValueChange={(teamId) => {
-                                          const selectedTeam = teams?.find(t => t.id === teamId);
-                                          if (selectedTeam) {
-                                            setTournamentForm({
-                                              ...tournamentForm,
-                                              custom_participating_teams: [
-                                                ...tournamentForm.custom_participating_teams,
-                                                { name: selectedTeam.name, logo_url: selectedTeam.logo_url || undefined }
-                                              ]
-                                            });
-                                          }
+                                        selectedValues={tournamentForm.selectedTeamsToAdd}
+                                        onSelectionChange={(values) => {
+                                          setTournamentForm({
+                                            ...tournamentForm,
+                                            selectedTeamsToAdd: values
+                                          });
                                         }}
-                                        placeholder="Search and select a team..."
+                                        onAddTeams={() => {
+                                          const teamsToAdd = tournamentForm.selectedTeamsToAdd
+                                            .map(teamId => teams?.find(t => t.id === teamId))
+                                            .filter(Boolean)
+                                            .map(team => ({
+                                              name: team!.name,
+                                              logo_url: team!.logo_url || undefined
+                                            }));
+                                          setTournamentForm({
+                                            ...tournamentForm,
+                                            custom_participating_teams: [
+                                              ...tournamentForm.custom_participating_teams,
+                                              ...teamsToAdd
+                                            ],
+                                            selectedTeamsToAdd: []
+                                          });
+                                        }}
+                                        placeholder="Search and select teams..."
                                         searchPlaceholder="Search teams..."
                                         emptyText="No teams found"
                                       />
