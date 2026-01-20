@@ -41,7 +41,12 @@ const normalizeTeamName = (name: string): string => {
   return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 };
 
-// Strict team name matching - must match short_name exactly or full name must include/be included
+// Split name into words for word-based matching
+const getWords = (name: string): string[] => {
+  return normalizeTeamName(name).split(/\s+/).filter(w => w.length > 0);
+};
+
+// Strict team name matching - must match short_name exactly or significant word overlap
 const teamsMatch = (dbTeam: { name: string; short_name: string }, apiTeamName: string, apiTeamFullName?: string): boolean => {
   const dbShort = (dbTeam.short_name || '').toLowerCase().trim();
   const dbName = normalizeTeamName(dbTeam.name);
@@ -50,14 +55,37 @@ const teamsMatch = (dbTeam: { name: string; short_name: string }, apiTeamName: s
   
   if (!dbShort || !apiShort) return false;
   
-  // Exact short name match - most reliable
+  // Priority 1: Exact short name match - most reliable
   if (dbShort === apiShort) return true;
   
-  // Check if full names match
+  // Priority 2: Exact full name match
+  if (apiName && dbName && dbName === apiName) return true;
+  
+  // Priority 3: Word-based matching - check if significant words match
+  // Must have at least 2 matching words and high similarity
   if (apiName && dbName) {
-    if (dbName === apiName) return true;
-    // Only match if both words in one are contained in the other
-    if (dbName.includes(apiName) || apiName.includes(dbName)) return true;
+    const dbWords = getWords(dbTeam.name);
+    const apiWords = getWords(apiTeamFullName || '');
+    
+    // Skip common words that don't identify teams
+    const skipWords = ['women', 'men', 'team', 'cricket', 'the', 'fc', 'united'];
+    const dbSignificantWords = dbWords.filter(w => !skipWords.includes(w) && w.length > 2);
+    const apiSignificantWords = apiWords.filter(w => !skipWords.includes(w) && w.length > 2);
+    
+    if (dbSignificantWords.length === 0 || apiSignificantWords.length === 0) {
+      return false;
+    }
+    
+    // Count matching significant words
+    const matchingWords = dbSignificantWords.filter(dbWord => 
+      apiSignificantWords.some(apiWord => dbWord === apiWord)
+    );
+    
+    // Require at least 50% of significant words to match and at least 1 match
+    const matchRatio = matchingWords.length / Math.min(dbSignificantWords.length, apiSignificantWords.length);
+    if (matchingWords.length >= 1 && matchRatio >= 0.5) {
+      return true;
+    }
   }
   
   return false;
