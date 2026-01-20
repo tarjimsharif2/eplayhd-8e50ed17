@@ -2843,8 +2843,7 @@ const Admin = () => {
                                             selectedTeamsToAdd: values
                                           });
                                         }}
-                                        onAddTeams={() => {
-                                          const selectedTeamIds = tournamentForm.selectedTeamsToAdd;
+                                        onAddTeams={(selectedTeamIds) => {
                                           if (selectedTeamIds.length === 0) return;
                                           
                                           const teamsToAdd = selectedTeamIds

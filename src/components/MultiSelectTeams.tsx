@@ -28,7 +28,7 @@ interface MultiSelectTeamsProps {
   emptyText?: string;
   className?: string;
   disabled?: boolean;
-  onAddTeams?: () => void;
+  onAddTeams?: (selectedTeamIds: string[]) => void;
 }
 
 const MultiSelectTeams = ({
@@ -65,7 +65,8 @@ const MultiSelectTeams = ({
 
   const handleAddTeams = () => {
     if (onAddTeams && selectedValues.length > 0) {
-      onAddTeams();
+      onAddTeams([...selectedValues]);
+      onSelectionChange([]);
       setOpen(false);
       setSearchQuery("");
     }
