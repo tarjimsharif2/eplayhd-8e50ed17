@@ -1165,6 +1165,7 @@ export type Database = {
       tournaments: {
         Row: {
           created_at: string
+          custom_participating_teams: Json | null
           description: string | null
           end_date: string | null
           id: string
@@ -1172,6 +1173,7 @@ export type Database = {
           is_completed: boolean | null
           logo_url: string | null
           name: string
+          participating_teams_position: string | null
           season: string
           seo_description: string | null
           seo_keywords: string | null
@@ -1179,6 +1181,7 @@ export type Database = {
           series_id: string | null
           show_in_homepage: boolean | null
           show_in_menu: boolean | null
+          show_participating_teams: boolean | null
           slug: string | null
           sport: string
           start_date: string | null
@@ -1189,6 +1192,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          custom_participating_teams?: Json | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -1196,6 +1200,7 @@ export type Database = {
           is_completed?: boolean | null
           logo_url?: string | null
           name: string
+          participating_teams_position?: string | null
           season: string
           seo_description?: string | null
           seo_keywords?: string | null
@@ -1203,6 +1208,7 @@ export type Database = {
           series_id?: string | null
           show_in_homepage?: boolean | null
           show_in_menu?: boolean | null
+          show_participating_teams?: boolean | null
           slug?: string | null
           sport?: string
           start_date?: string | null
@@ -1213,6 +1219,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          custom_participating_teams?: Json | null
           description?: string | null
           end_date?: string | null
           id?: string
@@ -1220,6 +1227,7 @@ export type Database = {
           is_completed?: boolean | null
           logo_url?: string | null
           name?: string
+          participating_teams_position?: string | null
           season?: string
           seo_description?: string | null
           seo_keywords?: string | null
@@ -1227,6 +1235,7 @@ export type Database = {
           series_id?: string | null
           show_in_homepage?: boolean | null
           show_in_menu?: boolean | null
+          show_participating_teams?: boolean | null
           slug?: string | null
           sport?: string
           start_date?: string | null

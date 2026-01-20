@@ -64,7 +64,7 @@ const TournamentPage = () => {
       }
       
       if (tournamentData) {
-        setTournament(tournamentData as Tournament);
+        setTournament(tournamentData as unknown as Tournament);
         
         // Fetch matches for this tournament
         const { data: matchesData, error: matchesError } = await supabase
@@ -81,7 +81,7 @@ const TournamentPage = () => {
           .order('match_time', { ascending: true });
         
         if (!matchesError && matchesData) {
-          setMatches(matchesData as Match[]);
+          setMatches(matchesData as unknown as Match[]);
         }
       }
       
@@ -93,6 +93,18 @@ const TournamentPage = () => {
 
   // Get unique participating teams from matches - must be before early returns (React hooks rules)
   const participatingTeams = useMemo(() => {
+    // If custom teams are set, use them
+    const customTeams = tournament?.custom_participating_teams;
+    if (customTeams && Array.isArray(customTeams) && customTeams.length > 0) {
+      return (customTeams as { name: string; logo_url?: string }[]).map((team, index) => ({
+        id: `custom-${index}`,
+        name: team.name,
+        short_name: team.name.substring(0, 3).toUpperCase(),
+        logo_url: team.logo_url || null
+      }));
+    }
+    
+    // Otherwise extract from matches
     const teamMap = new Map<string, { id: string; name: string; short_name: string; logo_url: string | null }>();
     matches.forEach(match => {
       if (match.team_a && !teamMap.has(match.team_a.id)) {
@@ -103,7 +115,59 @@ const TournamentPage = () => {
       }
     });
     return Array.from(teamMap.values()).sort((a, b) => a.name.localeCompare(b.name));
-  }, [matches]);
+  }, [matches, tournament?.custom_participating_teams]);
+
+  // Check if we should show participating teams
+  const showParticipatingTeams = tournament?.show_participating_teams !== false && participatingTeams.length > 0;
+  const teamsPosition = tournament?.participating_teams_position || 'before_matches';
+
+  // Participating Teams Component
+  const ParticipatingTeamsSection = () => {
+    if (!showParticipatingTeams) return null;
+    
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="mb-8"
+      >
+        <Card className="border-border/50 bg-card/80 backdrop-blur">
+          <CardContent className="p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <Users className="w-5 h-5 text-primary" />
+              <h2 className="font-display text-xl text-gradient">Participating Teams</h2>
+              <Badge variant="secondary" className="ml-2">{tournament?.total_teams ?? participatingTeams.length} Teams</Badge>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {participatingTeams.map((team, index) => (
+                <motion.div
+                  key={team.id}
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="flex flex-col items-center p-3 rounded-xl bg-background/50 border border-border/30 hover:border-primary/50 transition-colors"
+                >
+                  {team.logo_url ? (
+                    <img 
+                      src={team.logo_url} 
+                      alt={team.name} 
+                      className="w-12 h-12 object-contain mb-2"
+                    />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-2">
+                      <span className="text-lg font-bold text-primary">{team.short_name.charAt(0)}</span>
+                    </div>
+                  )}
+                  <span className="text-xs font-medium text-center text-foreground">{team.name}</span>
+                </motion.div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
+    );
+  };
 
   if (loading) {
     return (
@@ -249,49 +313,8 @@ const TournamentPage = () => {
             </Card>
           </motion.div>
 
-          {/* Participating Teams */}
-          {participatingTeams.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="mb-8"
-            >
-              <Card className="border-border/50 bg-card/80 backdrop-blur">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Users className="w-5 h-5 text-primary" />
-                    <h2 className="font-display text-xl text-gradient">Participating Teams</h2>
-                    <Badge variant="secondary" className="ml-2">{tournament.total_teams ?? participatingTeams.length} Teams</Badge>
-                  </div>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {participatingTeams.map((team, index) => (
-                      <motion.div
-                        key={team.id}
-                        initial={{ opacity: 0, scale: 0.9 }}
-                        animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="flex flex-col items-center p-3 rounded-xl bg-background/50 border border-border/30 hover:border-primary/50 transition-colors"
-                      >
-                        {team.logo_url ? (
-                          <img 
-                            src={team.logo_url} 
-                            alt={team.name} 
-                            className="w-12 h-12 object-contain mb-2"
-                          />
-                        ) : (
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-2">
-                            <span className="text-lg font-bold text-primary">{team.short_name.charAt(0)}</span>
-                          </div>
-                        )}
-                        <span className="text-xs font-medium text-center text-foreground">{team.name}</span>
-                      </motion.div>
-                    ))}
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
+          {/* Participating Teams - Before Matches position */}
+          {teamsPosition === 'before_matches' && <ParticipatingTeamsSection />}
 
           {/* Match Tabs */}
           <motion.div
@@ -383,12 +406,21 @@ const TournamentPage = () => {
             </Tabs>
           </motion.div>
 
+          {/* Participating Teams - After Matches position */}
+          {teamsPosition === 'after_matches' && <ParticipatingTeamsSection />}
+
           <AdSlot position="in_article" className="my-4" />
 
           {/* Points Table */}
           <div className="mt-6 mb-8">
             <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
           </div>
+
+          {/* Participating Teams - After Points Table position */}
+          {teamsPosition === 'after_points_table' && <ParticipatingTeamsSection />}
+
+          {/* Participating Teams - Before About position */}
+          {teamsPosition === 'before_about' && <ParticipatingTeamsSection />}
 
           {/* Tournament Description */}
           {tournament.description && (
@@ -421,6 +453,9 @@ const TournamentPage = () => {
               </Card>
             </motion.div>
           )}
+
+          {/* Participating Teams - After About position */}
+          {teamsPosition === 'after_about' && <ParticipatingTeamsSection />}
         </div>
       </main>
 

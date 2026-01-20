@@ -199,6 +199,10 @@ const Admin = () => {
     description: '',
     total_teams: null as number | null,
     total_venues: null as number | null,
+    show_participating_teams: true,
+    participating_teams_position: 'before_matches' as string,
+    custom_participating_teams: [] as { name: string; logo_url?: string }[],
+    use_custom_teams: false,
   });
 
   const [bannerForm, setBannerForm] = useState({
@@ -921,7 +925,9 @@ const Admin = () => {
       };
 
       const tournamentData = {
-        ...tournamentForm,
+        name: tournamentForm.name,
+        sport: tournamentForm.sport,
+        season: tournamentForm.season,
         logo_url: tournamentForm.logo_url || null,
         slug: tournamentForm.slug || generateSlug(tournamentForm.name),
         is_active: tournamentForm.is_active,
@@ -937,6 +943,11 @@ const Admin = () => {
         description: tournamentForm.description || null,
         total_teams: tournamentForm.total_teams || null,
         total_venues: tournamentForm.total_venues || null,
+        show_participating_teams: tournamentForm.show_participating_teams,
+        participating_teams_position: tournamentForm.participating_teams_position,
+        custom_participating_teams: tournamentForm.use_custom_teams && tournamentForm.custom_participating_teams.length > 0 
+          ? tournamentForm.custom_participating_teams 
+          : null,
       };
       const tournamentSlug = tournamentData.slug;
       
@@ -970,6 +981,9 @@ const Admin = () => {
 
   const handleEditTournament = (tournament: Tournament) => {
     setEditingTournament(tournament);
+    const customTeams = Array.isArray(tournament.custom_participating_teams) 
+      ? tournament.custom_participating_teams as { name: string; logo_url?: string }[]
+      : [];
     setTournamentForm({
       name: tournament.name,
       sport: tournament.sport,
@@ -989,6 +1003,10 @@ const Admin = () => {
       description: tournament.description || '',
       total_teams: tournament.total_teams ?? null,
       total_venues: tournament.total_venues ?? null,
+      show_participating_teams: tournament.show_participating_teams ?? true,
+      participating_teams_position: tournament.participating_teams_position || 'before_matches',
+      custom_participating_teams: customTeams,
+      use_custom_teams: customTeams.length > 0,
     });
     setTournamentDialogOpen(true);
   };
@@ -1047,7 +1065,30 @@ const Admin = () => {
 
   const resetTournamentForm = () => {
     setEditingTournament(null);
-    setTournamentForm({ name: '', sport: 'Cricket', season: '', logo_url: '', slug: '', is_active: true, show_in_menu: true, show_in_homepage: true, is_completed: false, seo_title: '', seo_description: '', seo_keywords: '', total_matches: null, start_date: '', end_date: '', description: '', total_teams: null, total_venues: null });
+    setTournamentForm({ 
+      name: '', 
+      sport: 'Cricket', 
+      season: '', 
+      logo_url: '', 
+      slug: '', 
+      is_active: true, 
+      show_in_menu: true, 
+      show_in_homepage: true, 
+      is_completed: false, 
+      seo_title: '', 
+      seo_description: '', 
+      seo_keywords: '', 
+      total_matches: null, 
+      start_date: '', 
+      end_date: '', 
+      description: '', 
+      total_teams: null, 
+      total_venues: null,
+      show_participating_teams: true,
+      participating_teams_position: 'before_matches',
+      custom_participating_teams: [],
+      use_custom_teams: false,
+    });
   };
 
   const handleSaveBanner = async () => {
@@ -2681,7 +2722,135 @@ const Admin = () => {
                         </div>
                       </div>
                       
-                      {/* SEO Section */}
+                      {/* Participating Teams Section */}
+                      <div className="border-t pt-4 mt-4">
+                        <h4 className="font-medium mb-3 text-sm text-muted-foreground">Participating Teams Settings</h4>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                            <div className="space-y-0.5">
+                              <Label className="text-base font-medium">Show Participating Teams</Label>
+                              <p className="text-sm text-muted-foreground">Display participating teams section on tournament page</p>
+                            </div>
+                            <Switch
+                              checked={tournamentForm.show_participating_teams}
+                              onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, show_participating_teams: checked })}
+                            />
+                          </div>
+                          
+                          {tournamentForm.show_participating_teams && (
+                            <>
+                              <div className="space-y-2">
+                                <Label>Position</Label>
+                                <Select 
+                                  value={tournamentForm.participating_teams_position} 
+                                  onValueChange={(v) => setTournamentForm({ ...tournamentForm, participating_teams_position: v })}
+                                >
+                                  <SelectTrigger><SelectValue placeholder="Select position" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="before_matches">Before Matches (Current)</SelectItem>
+                                    <SelectItem value="after_matches">After Matches</SelectItem>
+                                    <SelectItem value="after_points_table">After Points Table</SelectItem>
+                                    <SelectItem value="before_about">Before About Tournament</SelectItem>
+                                    <SelectItem value="after_about">After About Tournament</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              
+                              <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                                <div className="space-y-0.5">
+                                  <Label className="text-base font-medium">Use Custom Teams</Label>
+                                  <p className="text-sm text-muted-foreground">Select specific teams or add custom team names instead of auto-detecting from matches</p>
+                                </div>
+                                <Switch
+                                  checked={tournamentForm.use_custom_teams}
+                                  onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, use_custom_teams: checked })}
+                                />
+                              </div>
+                              
+                              {tournamentForm.use_custom_teams && (
+                                <div className="space-y-3">
+                                  <Label>Custom Teams</Label>
+                                  <div className="space-y-2">
+                                    {tournamentForm.custom_participating_teams.map((team, index) => (
+                                      <div key={index} className="flex gap-2 items-center">
+                                        <Input
+                                          placeholder="Team name"
+                                          value={team.name}
+                                          onChange={(e) => {
+                                            const newTeams = [...tournamentForm.custom_participating_teams];
+                                            newTeams[index] = { ...newTeams[index], name: e.target.value };
+                                            setTournamentForm({ ...tournamentForm, custom_participating_teams: newTeams });
+                                          }}
+                                          className="flex-1"
+                                        />
+                                        <Input
+                                          placeholder="Logo URL (optional)"
+                                          value={team.logo_url || ''}
+                                          onChange={(e) => {
+                                            const newTeams = [...tournamentForm.custom_participating_teams];
+                                            newTeams[index] = { ...newTeams[index], logo_url: e.target.value || undefined };
+                                            setTournamentForm({ ...tournamentForm, custom_participating_teams: newTeams });
+                                          }}
+                                          className="flex-1"
+                                        />
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          onClick={() => {
+                                            const newTeams = tournamentForm.custom_participating_teams.filter((_, i) => i !== index);
+                                            setTournamentForm({ ...tournamentForm, custom_participating_teams: newTeams });
+                                          }}
+                                        >
+                                          <Trash2 className="w-4 h-4 text-destructive" />
+                                        </Button>
+                                      </div>
+                                    ))}
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => {
+                                        setTournamentForm({
+                                          ...tournamentForm,
+                                          custom_participating_teams: [...tournamentForm.custom_participating_teams, { name: '' }]
+                                        });
+                                      }}
+                                    >
+                                      <Plus className="w-4 h-4 mr-1" /> Add Team
+                                    </Button>
+                                  </div>
+                                  
+                                  {/* Quick add from existing teams */}
+                                  <div className="mt-3">
+                                    <Label className="text-sm text-muted-foreground">Quick Add from Existing Teams</Label>
+                                    <div className="flex flex-wrap gap-1 mt-2">
+                                      {teams?.slice(0, 20).map((team) => (
+                                        <Button
+                                          key={team.id}
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-xs h-7"
+                                          disabled={tournamentForm.custom_participating_teams.some(t => t.name === team.name)}
+                                          onClick={() => {
+                                            setTournamentForm({
+                                              ...tournamentForm,
+                                              custom_participating_teams: [
+                                                ...tournamentForm.custom_participating_teams,
+                                                { name: team.name, logo_url: team.logo_url || undefined }
+                                              ]
+                                            });
+                                          }}
+                                        >
+                                          {team.short_name}
+                                        </Button>
+                                      ))}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
                       <div className="border-t pt-4 mt-4">
                         <h4 className="font-medium mb-3 text-sm text-muted-foreground">SEO Settings</h4>
                         <div className="space-y-4">

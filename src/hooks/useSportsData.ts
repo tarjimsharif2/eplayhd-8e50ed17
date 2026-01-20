@@ -39,6 +39,9 @@ export interface Tournament {
   is_completed: boolean;
   total_teams: number | null;
   total_venues: number | null;
+  show_participating_teams: boolean | null;
+  participating_teams_position: string | null;
+  custom_participating_teams: unknown; // JSON type from database
   created_at: string;
   updated_at: string;
 }
@@ -294,10 +297,10 @@ export const useCreateTournament = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (tournament: Omit<Tournament, 'id' | 'created_at' | 'updated_at'>) => {
+    mutationFn: async (tournament: Record<string, unknown>) => {
       const { data, error } = await supabase
         .from('tournaments')
-        .insert(tournament)
+        .insert(tournament as any)
         .select()
         .single();
       
@@ -314,10 +317,10 @@ export const useUpdateTournament = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, ...tournament }: Partial<Tournament> & { id: string }) => {
+    mutationFn: async ({ id, ...tournament }: { id: string } & Record<string, unknown>) => {
       const { data, error } = await supabase
         .from('tournaments')
-        .update(tournament)
+        .update(tournament as any)
         .eq('id', id)
         .select()
         .single();
