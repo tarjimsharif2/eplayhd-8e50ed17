@@ -2819,30 +2819,36 @@ const Admin = () => {
                                     </Button>
                                   </div>
                                   
-                                  {/* Quick add from existing teams */}
+                                  {/* Search and add from existing teams */}
                                   <div className="mt-3">
-                                    <Label className="text-sm text-muted-foreground">Quick Add from Existing Teams</Label>
-                                    <div className="flex flex-wrap gap-1 mt-2">
-                                      {teams?.slice(0, 20).map((team) => (
-                                        <Button
-                                          key={team.id}
-                                          variant="outline"
-                                          size="sm"
-                                          className="text-xs h-7"
-                                          disabled={tournamentForm.custom_participating_teams.some(t => t.name === team.name)}
-                                          onClick={() => {
+                                    <Label className="text-sm text-muted-foreground">Add from Existing Teams</Label>
+                                    <div className="mt-2">
+                                      <SearchableSelect
+                                        options={(teams || [])
+                                          .filter(team => !tournamentForm.custom_participating_teams.some(t => t.name === team.name))
+                                          .map(team => ({
+                                            value: team.id,
+                                            label: team.name,
+                                            sublabel: team.short_name,
+                                            imageUrl: team.logo_url
+                                          }))}
+                                        value=""
+                                        onValueChange={(teamId) => {
+                                          const selectedTeam = teams?.find(t => t.id === teamId);
+                                          if (selectedTeam) {
                                             setTournamentForm({
                                               ...tournamentForm,
                                               custom_participating_teams: [
                                                 ...tournamentForm.custom_participating_teams,
-                                                { name: team.name, logo_url: team.logo_url || undefined }
+                                                { name: selectedTeam.name, logo_url: selectedTeam.logo_url || undefined }
                                               ]
                                             });
-                                          }}
-                                        >
-                                          {team.short_name}
-                                        </Button>
-                                      ))}
+                                          }
+                                        }}
+                                        placeholder="Search and select a team..."
+                                        searchPlaceholder="Search teams..."
+                                        emptyText="No teams found"
+                                      />
                                     </div>
                                   </div>
                                 </div>
