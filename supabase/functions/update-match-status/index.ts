@@ -68,15 +68,16 @@ Deno.serve(async (req) => {
     // API sync only updates scores, NOT status. Status is managed here based on time.
     // ============================================
     
-    // Fetch all live/upcoming non-test matches
-    // Football matches will use default 120 min duration if not set
+    // Only fetch matches that have explicit end time OR explicit duration
+    // No default durations - admin must set match_end_time or match_duration_minutes
     // Also exclude matches with manual_status_override = true
     const { data: matchesToComplete, error: completeFetchError } = await supabase
       .from('matches')
-      .select('id, match_end_time, match_start_time, match_duration_minutes, match_format, status, manual_status_override, sport_id, sport:sports(name)')
+      .select('id, match_end_time, match_start_time, match_duration_minutes, match_format, status, manual_status_override')
       .in('status', ['live', 'upcoming'])
       .neq('match_format', 'test') // Don't auto-complete Test matches by time
-      .or('manual_status_override.is.null,manual_status_override.eq.false'); // Skip manually overridden matches
+      .or('manual_status_override.is.null,manual_status_override.eq.false') // Skip manually overridden matches
+      .or('match_end_time.not.is.null,match_duration_minutes.not.is.null'); // Only matches with explicit end criteria
 
     const completedMatchIds: string[] = [];
     
@@ -88,10 +89,6 @@ Deno.serve(async (req) => {
       for (const match of matchesToComplete) {
         let shouldComplete = false;
         let completionReason = '';
-        
-        // Determine sport name
-        const sportName = (match.sport as { name?: string } | null)?.name?.toLowerCase() || '';
-        const isFootball = sportName === 'football' || sportName === 'soccer';
 
         // Priority 1: Check if match_end_time is set and passed
         if (match.match_end_time) {
@@ -101,7 +98,7 @@ Deno.serve(async (req) => {
             completionReason = `past explicit end time ${endTime.toISOString()} (was ${match.status})`;
           }
         } 
-        // Priority 2: Calculate end time from start time + explicit duration
+        // Priority 2: Calculate end time from start time + explicit duration ONLY
         else if (match.match_start_time && match.match_duration_minutes) {
           const startTime = new Date(match.match_start_time);
           const durationMs = match.match_duration_minutes * 60 * 1000;
@@ -112,17 +109,7 @@ Deno.serve(async (req) => {
             completionReason = `past explicit duration ${match.match_duration_minutes} mins, end: ${calculatedEndTime.toISOString()} (was ${match.status})`;
           }
         }
-        // Priority 3: Use default duration for Football (120 mins including extra time)
-        else if (match.match_start_time && isFootball) {
-          const startTime = new Date(match.match_start_time);
-          const defaultDurationMs = 120 * 60 * 1000; // 120 minutes default for football
-          const calculatedEndTime = new Date(startTime.getTime() + defaultDurationMs);
-          
-          if (now >= calculatedEndTime) {
-            shouldComplete = true;
-            completionReason = `past default football duration 120 mins, end: ${calculatedEndTime.toISOString()} (was ${match.status})`;
-          }
-        }
+        // NO default duration - admin must explicitly set end time or duration
 
         if (shouldComplete) {
           const { error: updateError } = await supabase
