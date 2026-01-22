@@ -2043,12 +2043,19 @@ const Admin = () => {
                     );
                   })
                   .sort((a, b) => {
-                    const statusOrder = { live: 0, upcoming: 1, completed: 2 };
-                    const statusDiff = statusOrder[a.status] - statusOrder[b.status];
+                    // Use effective status for sorting
+                    const effectiveStatusA = getEffectiveMatchStatus(a);
+                    const effectiveStatusB = getEffectiveMatchStatus(b);
+                    const statusOrder: Record<string, number> = { live: 0, upcoming: 1, completed: 2, abandoned: 3 };
+                    const statusDiff = (statusOrder[effectiveStatusA] ?? 4) - (statusOrder[effectiveStatusB] ?? 4);
                     if (statusDiff !== 0) return statusDiff;
+                    // Within same status, sort by start time (earlier first for upcoming, later first for completed)
                     const timeA = a.match_start_time ? new Date(a.match_start_time).getTime() : 0;
                     const timeB = b.match_start_time ? new Date(b.match_start_time).getTime() : 0;
-                    return timeA - timeB;
+                    if (effectiveStatusA === 'completed') {
+                      return timeB - timeA; // Most recent completed first
+                    }
+                    return timeA - timeB; // Earliest upcoming/live first
                   }) || [];
                 const filteredMatchIds = filteredMatches.map(m => m.id);
                 const allSelected = filteredMatchIds.length > 0 && filteredMatchIds.every(id => selectedMatches.has(id));
