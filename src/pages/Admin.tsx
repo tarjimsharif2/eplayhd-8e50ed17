@@ -411,38 +411,17 @@ const Admin = () => {
     
     const now = new Date();
     
-    // Check if match should be completed based on end time
+    // Only check explicit end time (no defaults)
     if (match.match_end_time) {
       const endTime = new Date(match.match_end_time);
       if (endTime < now) return 'completed';
     }
     
-    // Check based on duration
-    if (match.match_start_time && match.match_format !== 'test') {
+    // Only check explicit duration (no defaults)
+    if (match.match_start_time && match.match_duration_minutes) {
       const startTime = new Date(match.match_start_time);
-      
-      // Use explicit duration if set
-      if (match.match_duration_minutes) {
-        const expectedEnd = new Date(startTime.getTime() + match.match_duration_minutes * 60 * 1000);
-        if (expectedEnd < now) return 'completed';
-      }
-      
-      // Use default duration based on sport
-      const sportName = match.sport?.name?.toLowerCase() || '';
-      if (sportName === 'football' || sportName === 'soccer') {
-        const footballEnd = new Date(startTime.getTime() + 120 * 60 * 1000); // 120 mins
-        if (footballEnd < now) return 'completed';
-      } else if (sportName === 'cricket') {
-        const formatDurations: Record<string, number> = {
-          't20': 3.5 * 60,
-          't10': 2 * 60,
-          'odi': 8 * 60,
-          'other': 3 * 60,
-        };
-        const durationMinutes = formatDurations[match.match_format || 'other'] || 180;
-        const cricketEnd = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
-        if (cricketEnd < now) return 'completed';
-      }
+      const expectedEnd = new Date(startTime.getTime() + match.match_duration_minutes * 60 * 1000);
+      if (expectedEnd < now) return 'completed';
     }
     
     return match.status;
