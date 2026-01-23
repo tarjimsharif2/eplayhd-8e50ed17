@@ -85,28 +85,93 @@ export const useApiCricketScore = ({
     return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
   };
 
-  // Check if two team names match
+  // Common team name aliases for international teams
+  const teamAliases: Record<string, string[]> = {
+    'australia': ['aus', 'australian', 'aussies'],
+    'england': ['eng', 'english'],
+    'india': ['ind', 'indian', 'team india'],
+    'pakistan': ['pak', 'pakistani'],
+    'south africa': ['sa', 'rsa', 'proteas'],
+    'new zealand': ['nz', 'nzl', 'kiwis', 'black caps', 'blackcaps'],
+    'west indies': ['wi', 'windies', 'caribbean'],
+    'sri lanka': ['sl', 'srilanka', 'sri lankan'],
+    'bangladesh': ['ban', 'bd', 'bangladeshi', 'tigers'],
+    'afghanistan': ['afg', 'afghan'],
+  };
+
+  // Get canonical team name from aliases
+  const getCanonicalName = (name: string): string => {
+    const normalized = normalizeTeamName(name);
+    for (const [canonical, aliases] of Object.entries(teamAliases)) {
+      if (normalized === canonical || aliases.includes(normalized)) {
+        return canonical;
+      }
+    }
+    return normalized;
+  };
+
+  // STRICT team name matching - prevents wrong matches like "Rajshahi" vs "Rajasthan"
   const teamsMatch = (name1: string, name2: string): boolean => {
     const n1 = normalizeTeamName(name1);
     const n2 = normalizeTeamName(name2);
     
     if (!n1 || !n2) return false;
+    
+    // Exact match
     if (n1 === n2) return true;
+    
+    // Canonical name match (handles aliases like AUS = Australia)
+    const canonical1 = getCanonicalName(n1);
+    const canonical2 = getCanonicalName(n2);
+    if (canonical1 === canonical2 && canonical1 !== n1 && canonical2 !== n2) {
+      return true;
+    }
     
     const words1 = n1.split(' ').filter(w => w.length > 0);
     const words2 = n2.split(' ').filter(w => w.length > 0);
     
-    // Get first and last words for matching
-    if (words1.length >= 2 && words2.length >= 2) {
-      return words1[0] === words2[0] && words1[words1.length - 1] === words2[words2.length - 1];
+    // Short codes (3 chars or less) - ONLY match via known aliases
+    if (words1.length === 1 && n1.length <= 3) {
+      for (const [canonical, aliases] of Object.entries(teamAliases)) {
+        if (aliases.includes(n1) && (canonical2 === canonical || n2.includes(canonical))) {
+          return true;
+        }
+      }
+      return false;
+    }
+    if (words2.length === 1 && n2.length <= 3) {
+      for (const [canonical, aliases] of Object.entries(teamAliases)) {
+        if (aliases.includes(n2) && (canonical1 === canonical || n1.includes(canonical))) {
+          return true;
+        }
+      }
+      return false;
     }
     
-    // Single word with 4+ chars
+    // Get first and last words
+    const firstWord1 = words1[0];
+    const lastWord1 = words1[words1.length - 1];
+    const firstWord2 = words2[0];
+    const lastWord2 = words2[words2.length - 1];
+    
+    // STRICT: If both have 2+ words, BOTH first AND last words must match exactly
+    if (words1.length >= 2 && words2.length >= 2) {
+      return firstWord1 === firstWord2 && lastWord1 === lastWord2;
+    }
+    
+    // STRICT: Single word (4+ chars) must exactly match first or last word of the other
     if (words1.length === 1 && n1.length >= 4) {
-      return words2.includes(words1[0]);
+      return firstWord2 === n1 || lastWord2 === n1;
     }
     if (words2.length === 1 && n2.length >= 4) {
-      return words1.includes(words2[0]);
+      return firstWord1 === n2 || lastWord1 === n2;
+    }
+    
+    // Check if one is a complete word in the other (e.g., "australia" in "australia men")
+    if (n1.length >= 5 && n2.length >= 5) {
+      if (words2.includes(n1) || words1.includes(n2)) {
+        return true;
+      }
     }
     
     return false;
