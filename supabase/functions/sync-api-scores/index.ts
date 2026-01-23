@@ -85,8 +85,8 @@ const getCanonicalName = (name: string): string => {
   return normalized;
 };
 
-// IMPROVED team name matching
-// Handles international team aliases and partial matches
+// IMPROVED team name matching - STRICT MODE
+// Only match if teams have high confidence of being the same
 const teamsMatch = (name1: string, name2: string): boolean => {
   const n1 = normalizeTeamName(name1);
   const n2 = normalizeTeamName(name2);
@@ -99,19 +99,18 @@ const teamsMatch = (name1: string, name2: string): boolean => {
   // Canonical name match (handles aliases like AUS = Australia)
   const canonical1 = getCanonicalName(n1);
   const canonical2 = getCanonicalName(n2);
-  if (canonical1 === canonical2) return true;
-  
-  // Check if one contains the other (for cases like "Australia" matching "Australia Men")
-  if (n1.includes(n2) || n2.includes(n1)) return true;
+  if (canonical1 === canonical2 && canonical1 !== n1 && canonical2 !== n2) {
+    // Both resolved to a known alias
+    return true;
+  }
   
   const words1 = n1.split(' ').filter(w => w.length > 0);
   const words2 = n2.split(' ').filter(w => w.length > 0);
   
-  // If either is a short code (3 chars or less, single word), check aliases
+  // If either is a short code (3 chars or less, single word), ONLY check against known aliases
   if (words1.length === 1 && n1.length <= 3) {
-    // Check if short code matches any alias
     for (const [canonical, aliases] of Object.entries(teamAliases)) {
-      if (aliases.includes(n1) && (n2.includes(canonical) || canonical2 === canonical)) {
+      if (aliases.includes(n1) && (canonical2 === canonical || n2.includes(canonical))) {
         return true;
       }
     }
@@ -119,7 +118,7 @@ const teamsMatch = (name1: string, name2: string): boolean => {
   }
   if (words2.length === 1 && n2.length <= 3) {
     for (const [canonical, aliases] of Object.entries(teamAliases)) {
-      if (aliases.includes(n2) && (n1.includes(canonical) || canonical1 === canonical)) {
+      if (aliases.includes(n2) && (canonical1 === canonical || n1.includes(canonical))) {
         return true;
       }
     }
@@ -132,17 +131,28 @@ const teamsMatch = (name1: string, name2: string): boolean => {
   const firstWord2 = words2[0];
   const lastWord2 = words2[words2.length - 1];
   
-  // If both have 2+ words, BOTH first AND last words must match
+  // STRICT: If both have 2+ words, BOTH first AND last words must match exactly
   if (words1.length >= 2 && words2.length >= 2) {
     return firstWord1 === firstWord2 && lastWord1 === lastWord2;
   }
   
-  // If one is single word (4+ chars), check if it matches either first or last word of the other
+  // STRICT: Single word (4+ chars) must match first word OR last word exactly
+  // AND the first word must be identical (prevents "rajshahi" matching "rajasthan")
   if (words1.length === 1 && n1.length >= 4) {
-    return firstWord2 === words1[0] || lastWord2 === words1[0];
+    // Single word must exactly match the first word of the multi-word name
+    return firstWord2 === n1 || lastWord2 === n1;
   }
   if (words2.length === 1 && n2.length >= 4) {
-    return firstWord1 === words2[0] || lastWord1 === words2[0];
+    return firstWord1 === n2 || lastWord1 === n2;
+  }
+  
+  // STRICT: Check for exact containment only if one is a complete word within the other
+  // For example: "australia" in "australia men" but NOT "raj" in "rajasthan"
+  if (n1.length >= 5 && n2.length >= 5) {
+    // Check if n1 is a complete word in n2 or vice versa
+    if (words2.includes(n1) || words1.includes(n2)) {
+      return true;
+    }
   }
   
   return false;
