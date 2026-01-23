@@ -281,7 +281,8 @@ const MatchPage = () => {
           )}
 
           {/* Score Card - Shows innings data (always shown for cricket) */}
-          {sport?.name?.toLowerCase().includes('cricket') && teamA && teamB && (
+          {/* If API score is enabled, show AFTER points table. Otherwise show here */}
+          {sport?.name?.toLowerCase().includes('cricket') && teamA && teamB && !match.api_score_enabled && (
             <ManualScoreCard 
               matchId={match.id}
               teamAId={teamA.id}
@@ -349,15 +350,15 @@ const MatchPage = () => {
                   </div>
 
                   <div className="flex-1 flex flex-col items-center text-center gap-3">
-                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-accent/15 to-transparent flex items-center justify-center border border-accent/20">
+                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-2xl bg-gradient-to-br from-primary/15 to-transparent flex items-center justify-center border border-primary/20">
                       {teamB?.logo_url ? (
                         <img src={teamB.logo_url} alt={teamB.name} className="w-14 h-14 md:w-16 md:h-16 object-contain" />
                       ) : (
-                        <span className="font-display text-2xl text-accent">{teamB?.short_name}</span>
+                        <span className="font-display text-2xl text-primary">{teamB?.short_name}</span>
                       )}
                     </div>
                     <h1 className="font-semibold text-lg md:text-xl break-words text-center">{teamB?.name}</h1>
-                    {match.score_b && <span className="text-2xl font-bold text-accent">{match.score_b}</span>}
+                    {match.score_b && <span className="text-2xl font-bold text-primary">{match.score_b}</span>}
                   </div>
                 </div>
 
@@ -388,6 +389,28 @@ const MatchPage = () => {
           {tournament?.id && (
             <div className="mt-6">
               <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
+            </div>
+          )}
+
+          {/* Score Card - Shows innings data AFTER points table when API score is enabled */}
+          {sport?.name?.toLowerCase().includes('cricket') && teamA && teamB && match.api_score_enabled && (
+            <div className="mt-6">
+              <ManualScoreCard 
+                matchId={match.id}
+                teamAId={teamA.id}
+                teamBId={teamB.id}
+                matchStatus={match.status}
+                isPrimary={true}
+                matchResult={match.match_result}
+                teamAName={teamA.name}
+                teamBName={teamB.name}
+                matchFormat={match.match_format}
+                testDay={match.test_day}
+                isStumps={match.is_stumps}
+                stumpsTime={match.stumps_time}
+                nextDayStart={match.next_day_start}
+                dayStartTime={match.day_start_time}
+              />
             </div>
           )}
 
