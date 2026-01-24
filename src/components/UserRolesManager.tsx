@@ -591,102 +591,194 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                 />
               </div>
 
-              {/* Users table */}
-              <ScrollArea className="h-[400px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Joined Date</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {filteredUsers.map((user) => {
-                      const userRole = getRoleByName(user.role);
-                      const isFounder = user.id === FOUNDER_ADMIN_ID;
-                      const isCurrentUser = user.id === currentUserId;
-                      return (
-                        <TableRow key={user.id}>
-                          <TableCell className="font-medium">
-                            <div className="flex items-center gap-2">
-                              {user.email || 'N/A'}
-                              {isFounder && (
-                                <Badge variant="outline" className="text-xs border-primary text-primary">
-                                  Founder
-                                </Badge>
-                              )}
-                              {isCurrentUser && (
-                                <Badge variant="outline" className="text-xs">
-                                  You
-                                </Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Badge 
-                              style={{ 
-                                backgroundColor: userRole?.color || '#6b7280',
-                                color: 'white'
-                              }}
-                            >
-                              {userRole?.display_name || user.role || 'No Role'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground text-sm">
-                            {new Date(user.created_at).toLocaleDateString('en-US')}
-                          </TableCell>
-                          <TableCell className="text-right space-x-2">
-                            <Select
-                              value={customRoles?.find(r => r.name === user.role)?.id || 'none'}
-                              onValueChange={(value) => handleAssignRole(user.id, value)}
-                            >
-                              <SelectTrigger className="w-32 h-8">
-                                <SelectValue placeholder="Select Role" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="none">No Role</SelectItem>
-                                {customRoles?.map((role) => (
-                                  <SelectItem key={role.id} value={role.id}>
-                                    <div className="flex items-center gap-2">
-                                      <div 
-                                        className="w-3 h-3 rounded-full" 
-                                        style={{ backgroundColor: role.color }}
-                                      />
-                                      {role.display_name}
-                                    </div>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleEditUserPermissions(user)}
-                            >
-                              <UserCog className="w-4 h-4" />
-                            </Button>
-                            {/* Delete button - hidden for founder admin and current user */}
-                            {user.id !== FOUNDER_ADMIN_ID && user.id !== currentUserId && (
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                onClick={() => {
-                                  setUserToDelete(user);
-                                  setDeleteUserDialogOpen(true);
+              {/* Desktop Users Table */}
+              <div className="hidden md:block">
+                <ScrollArea className="h-[400px]">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Email</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Joined Date</TableHead>
+                        <TableHead className="text-right">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredUsers.map((user) => {
+                        const userRole = getRoleByName(user.role);
+                        const isFounder = user.id === FOUNDER_ADMIN_ID;
+                        const isCurrentUser = user.id === currentUserId;
+                        return (
+                          <TableRow key={user.id}>
+                            <TableCell className="font-medium">
+                              <div className="flex items-center gap-2">
+                                {user.email || 'N/A'}
+                                {isFounder && (
+                                  <Badge variant="outline" className="text-xs border-primary text-primary">
+                                    Founder
+                                  </Badge>
+                                )}
+                                {isCurrentUser && (
+                                  <Badge variant="outline" className="text-xs">
+                                    You
+                                  </Badge>
+                                )}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge 
+                                style={{ 
+                                  backgroundColor: userRole?.color || '#6b7280',
+                                  color: 'white'
                                 }}
                               >
-                                <Trash2 className="w-4 h-4" />
+                                {userRole?.display_name || user.role || 'No Role'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground text-sm">
+                              {new Date(user.created_at).toLocaleDateString('en-US')}
+                            </TableCell>
+                            <TableCell className="text-right space-x-2">
+                              <Select
+                                value={customRoles?.find(r => r.name === user.role)?.id || 'none'}
+                                onValueChange={(value) => handleAssignRole(user.id, value)}
+                              >
+                                <SelectTrigger className="w-32 h-8">
+                                  <SelectValue placeholder="Select Role" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">No Role</SelectItem>
+                                  {customRoles?.map((role) => (
+                                    <SelectItem key={role.id} value={role.id}>
+                                      <div className="flex items-center gap-2">
+                                        <div 
+                                          className="w-3 h-3 rounded-full" 
+                                          style={{ backgroundColor: role.color }}
+                                        />
+                                        {role.display_name}
+                                      </div>
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleEditUserPermissions(user)}
+                              >
+                                <UserCog className="w-4 h-4" />
                               </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
+                              {/* Delete button - hidden for founder admin and current user */}
+                              {user.id !== FOUNDER_ADMIN_ID && user.id !== currentUserId && (
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  onClick={() => {
+                                    setUserToDelete(user);
+                                    setDeleteUserDialogOpen(true);
+                                  }}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </ScrollArea>
+              </div>
+
+              {/* Mobile Users Cards */}
+              <div className="md:hidden space-y-3 max-h-[60vh] overflow-y-auto">
+                {filteredUsers.map((user) => {
+                  const userRole = getRoleByName(user.role);
+                  const isFounder = user.id === FOUNDER_ADMIN_ID;
+                  const isCurrentUser = user.id === currentUserId;
+                  return (
+                    <div key={user.id} className="bg-muted/50 rounded-lg p-4 space-y-3">
+                      {/* Email and badges */}
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium text-sm break-all">{user.email || 'N/A'}</span>
+                        {isFounder && (
+                          <Badge variant="outline" className="text-xs border-primary text-primary">
+                            Founder
+                          </Badge>
+                        )}
+                        {isCurrentUser && (
+                          <Badge variant="outline" className="text-xs">
+                            You
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Role and date */}
+                      <div className="flex items-center justify-between">
+                        <Badge 
+                          style={{ 
+                            backgroundColor: userRole?.color || '#6b7280',
+                            color: 'white'
+                          }}
+                        >
+                          {userRole?.display_name || user.role || 'No Role'}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(user.created_at).toLocaleDateString('en-US')}
+                        </span>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-border/50">
+                        <Select
+                          value={customRoles?.find(r => r.name === user.role)?.id || 'none'}
+                          onValueChange={(value) => handleAssignRole(user.id, value)}
+                        >
+                          <SelectTrigger className="h-8 flex-1 min-w-[120px]">
+                            <SelectValue placeholder="Select Role" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No Role</SelectItem>
+                            {customRoles?.map((role) => (
+                              <SelectItem key={role.id} value={role.id}>
+                                <div className="flex items-center gap-2">
+                                  <div 
+                                    className="w-3 h-3 rounded-full" 
+                                    style={{ backgroundColor: role.color }}
+                                  />
+                                  {role.display_name}
+                                </div>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleEditUserPermissions(user)}
+                        >
+                          <UserCog className="w-4 h-4 mr-1" />
+                          Permissions
+                        </Button>
+                        {/* Delete button - hidden for founder admin and current user */}
+                        {user.id !== FOUNDER_ADMIN_ID && user.id !== currentUserId && (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              setUserToDelete(user);
+                              setDeleteUserDialogOpen(true);
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
