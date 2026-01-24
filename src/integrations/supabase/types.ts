@@ -543,6 +543,27 @@ export type Database = {
         }
         Relationships: []
       }
+      role_permissions: {
+        Row: {
+          created_at: string
+          id: string
+          permission: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          permission: string
+          role: Database["public"]["Enums"]["app_role"]
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          permission?: string
+          role?: Database["public"]["Enums"]["app_role"]
+        }
+        Relationships: []
+      }
       saved_streaming_servers: {
         Row: {
           ad_block_enabled: boolean | null
@@ -609,6 +630,7 @@ export type Database = {
       site_settings: {
         Row: {
           ad_block_rules: Json | null
+          admin_slug: string | null
           ads_enabled: boolean | null
           ads_txt_content: string | null
           api_cricket_enabled: boolean | null
@@ -657,6 +679,7 @@ export type Database = {
         }
         Insert: {
           ad_block_rules?: Json | null
+          admin_slug?: string | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
           api_cricket_enabled?: boolean | null
@@ -705,6 +728,7 @@ export type Database = {
         }
         Update: {
           ad_block_rules?: Json | null
+          admin_slug?: string | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
           api_cricket_enabled?: boolean | null
@@ -756,6 +780,7 @@ export type Database = {
       site_settings_public: {
         Row: {
           ad_block_rules: Json | null
+          admin_slug: string | null
           ads_enabled: boolean | null
           ads_txt_content: string | null
           api_cricket_enabled: boolean | null
@@ -794,6 +819,7 @@ export type Database = {
         }
         Insert: {
           ad_block_rules?: Json | null
+          admin_slug?: string | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
           api_cricket_enabled?: boolean | null
@@ -832,6 +858,7 @@ export type Database = {
         }
         Update: {
           ad_block_rules?: Json | null
+          admin_slug?: string | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
           api_cricket_enabled?: boolean | null
@@ -1246,6 +1273,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_permissions: {
+        Row: {
+          created_at: string
+          granted: boolean
+          id: string
+          permission: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted?: boolean
+          id?: string
+          permission: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted?: boolean
+          id?: string
+          permission?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1320,6 +1371,10 @@ export type Database = {
     Functions: {
       call_sync_api_scores: { Args: never; Returns: undefined }
       call_update_match_status: { Args: never; Returns: undefined }
+      has_permission: {
+        Args: { _permission: string; _user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
