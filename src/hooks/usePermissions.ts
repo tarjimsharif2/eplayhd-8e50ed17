@@ -155,6 +155,23 @@ export const useHasAllPermissions = (permissionList: PermissionKey[]): boolean =
   return permissionList.every(p => permissions.includes(p));
 };
 
+// Hook to check if user has access to admin panel (has any permission)
+export const useHasAdminAccess = (): { hasAccess: boolean; isLoading: boolean } => {
+  const { permissions, isAdmin, isLoading } = useCurrentUserPermissions();
+  
+  if (isLoading) {
+    return { hasAccess: false, isLoading: true };
+  }
+  
+  // Admins always have access
+  if (isAdmin || permissions.includes('*')) {
+    return { hasAccess: true, isLoading: false };
+  }
+  
+  // Any user with at least one permission has access
+  return { hasAccess: permissions.length > 0, isLoading: false };
+};
+
 // Map admin tabs to required permissions
 export const TAB_PERMISSIONS: Record<string, PermissionKey[]> = {
   'matches': ['manage_matches'],

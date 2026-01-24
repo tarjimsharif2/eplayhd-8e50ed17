@@ -50,14 +50,15 @@ import { useStreamingServerCounts } from "@/hooks/useStreamingServerCounts";
 import SitemapManager from "@/components/SitemapManager";
 import SponsorNoticeManager from "@/components/SponsorNoticeManager";
 import UserRolesManager from "@/components/UserRolesManager";
-import { useVisibleAdminTabs, useHasPermission } from "@/hooks/usePermissions";
+import { useVisibleAdminTabs, useHasPermission, useHasAdminAccess } from "@/hooks/usePermissions";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check if user is admin
+  // Check if user has admin panel access (any permission)
+  const { hasAccess: hasAdminAccess, isLoading: accessLoading } = useHasAdminAccess();
   const { data: isAdmin, isLoading: isAdminLoading } = useIsAdmin(user?.id);
   
   // Permission-based tab visibility
@@ -378,7 +379,7 @@ const Admin = () => {
   }, [user, loading, navigate]);
 
   // NOW we can have conditional returns - after ALL hooks are called
-  if (!loading && !isAdminLoading && user && !isAdmin) {
+  if (!loading && !accessLoading && user && !hasAdminAccess) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Header />
@@ -393,7 +394,7 @@ const Admin = () => {
             </div>
             <h1 className="font-display text-3xl text-gradient mb-4">Access Denied</h1>
             <p className="text-muted-foreground mb-6">
-              You don't have admin privileges to access this page.
+              You don't have any permissions to access this page. Please contact an administrator.
             </p>
             <Button variant="gradient" onClick={() => navigate('/')}>
               Go to Home
@@ -405,7 +406,7 @@ const Admin = () => {
     );
   }
 
-  if (loading || isAdminLoading) {
+  if (loading || accessLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
