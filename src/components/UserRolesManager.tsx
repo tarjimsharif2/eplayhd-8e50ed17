@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -22,10 +23,24 @@ import {
   useRemoveRole,
   useUpdateRolePermissions,
   useUpdateUserPermissions,
-  AVAILABLE_PERMISSIONS,
+  AVAILABLE_PERMISSIONS as OLD_PERMISSIONS,
   UserWithRole 
 } from "@/hooks/useUserRoles";
-import { Users, Shield, Settings, Search, Loader2, UserCog, Save, X, UserPlus, Trash2 } from "lucide-react";
+import {
+  useCustomRoles,
+  useAllCustomRolePermissions,
+  useCreateRole,
+  useUpdateRole,
+  useDeleteRole,
+  useUpdateCustomRolePermissions,
+  useAssignCustomRole,
+  useRemoveCustomRole,
+  AVAILABLE_PERMISSIONS,
+  PERMISSION_CATEGORIES,
+  getPermissionsByCategory,
+  CustomRole,
+} from "@/hooks/useCustomRoles";
+import { Users, Shield, Settings, Search, Loader2, UserCog, Save, X, UserPlus, Trash2, Plus, Edit, Palette } from "lucide-react";
 
 interface UserRolesManagerProps {
   adminSlug: string;
@@ -34,6 +49,11 @@ interface UserRolesManagerProps {
   isSaving: boolean;
 }
 
+const ROLE_COLORS = [
+  '#ef4444', '#f59e0b', '#22c55e', '#3b82f6', '#8b5cf6', 
+  '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'
+];
+
 const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSaving }: UserRolesManagerProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -41,7 +61,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [userPermissionsDialogOpen, setUserPermissionsDialogOpen] = useState(false);
   const [rolePermissionsDialogOpen, setRolePermissionsDialogOpen] = useState(false);
-  const [selectedRoleForEdit, setSelectedRoleForEdit] = useState<'admin' | 'moderator' | 'user'>('moderator');
+  const [selectedRoleForEdit, setSelectedRoleForEdit] = useState<CustomRole | null>(null);
   const [editedRolePermissions, setEditedRolePermissions] = useState<string[]>([]);
   const [editedUserPermissions, setEditedUserPermissions] = useState<{ permission: string; granted: boolean }[]>([]);
   
@@ -49,7 +69,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserPassword, setNewUserPassword] = useState("");
-  const [newUserRole, setNewUserRole] = useState<'admin' | 'moderator' | 'user' | 'none'>('none');
+  const [newUserRole, setNewUserRole] = useState<string>('none');
   const [isCreatingUser, setIsCreatingUser] = useState(false);
 
   // Delete user dialog state
@@ -57,14 +77,36 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
   const [userToDelete, setUserToDelete] = useState<UserWithRole | null>(null);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
 
+  // Create role dialog state
+  const [createRoleDialogOpen, setCreateRoleDialogOpen] = useState(false);
+  const [newRoleName, setNewRoleName] = useState("");
+  const [newRoleDisplayName, setNewRoleDisplayName] = useState("");
+  const [newRoleDescription, setNewRoleDescription] = useState("");
+  const [newRoleColor, setNewRoleColor] = useState("#6b7280");
+
+  // Edit role dialog state
+  const [editRoleDialogOpen, setEditRoleDialogOpen] = useState(false);
+  const [editingRole, setEditingRole] = useState<CustomRole | null>(null);
+
+  // Delete role dialog state
+  const [deleteRoleDialogOpen, setDeleteRoleDialogOpen] = useState(false);
+  const [roleToDelete, setRoleToDelete] = useState<CustomRole | null>(null);
+
   const { data: users, isLoading: usersLoading } = useUsersWithRoles();
   const { data: rolePermissions, isLoading: rolePermissionsLoading } = useRolePermissions();
   const { data: userPermissions } = useUserPermissions(selectedUser?.id);
+  const { data: customRoles, isLoading: customRolesLoading } = useCustomRoles();
+  const { data: allCustomRolePermissions } = useAllCustomRolePermissions();
 
   const assignRole = useAssignRole();
   const removeRole = useRemoveRole();
   const updateRolePermissions = useUpdateRolePermissions();
   const updateUserPermissions = useUpdateUserPermissions();
+  
+  const createRole = useCreateRole();
+  const updateRole = useUpdateRole();
+  const deleteRole = useDeleteRole();
+  const updateCustomRolePermissions = useUpdateCustomRolePermissions();
 
   // Create new user function
   const handleCreateUser = async () => {
@@ -95,11 +137,20 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
         throw new Error('Not authenticated');
       }
 
+      // Map custom roles to standard roles for the edge function
+      let roleForFunction = null;
+      if (newUserRole !== 'none') {
+        const selectedRole = customRoles?.find(r => r.id === newUserRole);
+        if (selectedRole && ['admin', 'moderator', 'user'].includes(selectedRole.name)) {
+          roleForFunction = selectedRole.name;
+        }
+      }
+
       const response = await supabase.functions.invoke('create-user', {
         body: {
           email: newUserEmail,
           password: newUserPassword,
-          role: newUserRole === 'none' ? null : newUserRole
+          role: roleForFunction
         }
       });
 
@@ -174,6 +225,95 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
     }
   };
 
+  // Create new role
+  const handleCreateRole = async () => {
+    if (!newRoleName || !newRoleDisplayName) {
+      toast({
+        title: "Error",
+        description: "Role name and display name are required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      await createRole.mutateAsync({
+        name: newRoleName,
+        displayName: newRoleDisplayName,
+        description: newRoleDescription,
+        color: newRoleColor,
+      });
+
+      toast({
+        title: "Success",
+        description: `Role "${newRoleDisplayName}" created successfully`
+      });
+
+      setNewRoleName("");
+      setNewRoleDisplayName("");
+      setNewRoleDescription("");
+      setNewRoleColor("#6b7280");
+      setCreateRoleDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create role",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Update role
+  const handleUpdateRole = async () => {
+    if (!editingRole) return;
+
+    try {
+      await updateRole.mutateAsync({
+        id: editingRole.id,
+        displayName: editingRole.display_name,
+        description: editingRole.description || undefined,
+        color: editingRole.color,
+      });
+
+      toast({
+        title: "Success",
+        description: "Role updated successfully"
+      });
+
+      setEditRoleDialogOpen(false);
+      setEditingRole(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update role",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Delete role
+  const handleDeleteRole = async () => {
+    if (!roleToDelete) return;
+
+    try {
+      await deleteRole.mutateAsync(roleToDelete.id);
+
+      toast({
+        title: "Success",
+        description: `Role "${roleToDelete.display_name}" deleted successfully`
+      });
+
+      setDeleteRoleDialogOpen(false);
+      setRoleToDelete(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete role",
+        variant: "destructive"
+      });
+    }
+  };
+
   // Filter users based on search
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -186,21 +326,27 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
     );
   }, [users, searchQuery]);
 
-  // Get permissions for a specific role
-  const getPermissionsForRole = (role: 'admin' | 'moderator' | 'user') => {
-    if (!rolePermissions) return [];
-    return rolePermissions.filter(rp => rp.role === role).map(rp => rp.permission);
+  // Get permissions for a role (both system and custom)
+  const getPermissionsForRole = (roleId: string) => {
+    if (!allCustomRolePermissions) return [];
+    return allCustomRolePermissions
+      .filter(rp => rp.role_id === roleId)
+      .map(rp => rp.permission);
   };
 
   // Handle role assignment
-  const handleAssignRole = async (userId: string, role: 'admin' | 'moderator' | 'user' | 'none') => {
+  const handleAssignRole = async (userId: string, roleId: string) => {
     try {
-      if (role === 'none') {
+      if (roleId === 'none') {
         await removeRole.mutateAsync(userId);
         toast({ title: "Success", description: "Role removed successfully" });
       } else {
-        await assignRole.mutateAsync({ userId, role });
-        toast({ title: "Success", description: `Role assigned: ${role}` });
+        // Find the role to check if it's a system role
+        const role = customRoles?.find(r => r.id === roleId);
+        if (role && ['admin', 'moderator', 'user'].includes(role.name)) {
+          await assignRole.mutateAsync({ userId, role: role.name as 'admin' | 'moderator' | 'user' });
+          toast({ title: "Success", description: `Role assigned: ${role.display_name}` });
+        }
       }
     } catch (error: any) {
       toast({ 
@@ -212,20 +358,31 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
   };
 
   // Open role permissions editor
-  const handleEditRolePermissions = (role: 'admin' | 'moderator' | 'user') => {
+  const handleEditRolePermissions = (role: CustomRole) => {
     setSelectedRoleForEdit(role);
-    setEditedRolePermissions(getPermissionsForRole(role));
+    setEditedRolePermissions(getPermissionsForRole(role.id));
     setRolePermissionsDialogOpen(true);
   };
 
   // Save role permissions
   const handleSaveRolePermissions = async () => {
+    if (!selectedRoleForEdit) return;
+    
     try {
-      await updateRolePermissions.mutateAsync({
-        role: selectedRoleForEdit,
+      await updateCustomRolePermissions.mutateAsync({
+        roleId: selectedRoleForEdit.id,
         permissions: editedRolePermissions
       });
-      toast({ title: "Success", description: `${selectedRoleForEdit} permissions updated` });
+      
+      // Also update the old role_permissions table for system roles
+      if (['admin', 'moderator', 'user'].includes(selectedRoleForEdit.name)) {
+        await updateRolePermissions.mutateAsync({
+          role: selectedRoleForEdit.name as 'admin' | 'moderator' | 'user',
+          permissions: editedRolePermissions
+        });
+      }
+      
+      toast({ title: "Success", description: `${selectedRoleForEdit.display_name} permissions updated` });
       setRolePermissionsDialogOpen(false);
     } catch (error: any) {
       toast({ 
@@ -286,7 +443,6 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
     setEditedUserPermissions(prev => {
       const existing = prev.find(p => p.permission === permission);
       if (existing) {
-        // Toggle or remove
         if (existing.granted === granted) {
           return prev.filter(p => p.permission !== permission);
         }
@@ -307,16 +463,13 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
     return 'inherit';
   };
 
-  const getRoleBadgeVariant = (role: string | null) => {
-    switch (role) {
-      case 'admin': return 'destructive';
-      case 'moderator': return 'default';
-      case 'user': return 'secondary';
-      default: return 'outline';
-    }
+  // Get role by name (for user display)
+  const getRoleByName = (roleName: string | null) => {
+    if (!roleName || !customRoles) return null;
+    return customRoles.find(r => r.name === roleName);
   };
 
-  if (usersLoading || rolePermissionsLoading) {
+  if (usersLoading || rolePermissionsLoading || customRolesLoading) {
     return (
       <div className="flex items-center justify-center py-12">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -364,29 +517,34 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
       </Card>
 
       <Tabs defaultValue="users">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
-            Users & Roles
+            ইউজার
+          </TabsTrigger>
+          <TabsTrigger value="roles" className="flex items-center gap-2">
+            <Shield className="w-4 h-4" />
+            রোল
           </TabsTrigger>
           <TabsTrigger value="permissions" className="flex items-center gap-2">
-            <Shield className="w-4 h-4" />
-            Role Permissions
+            <UserCog className="w-4 h-4" />
+            পার্মিশন
           </TabsTrigger>
         </TabsList>
 
+        {/* Users Tab */}
         <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>User Management</CardTitle>
+                <CardTitle>ইউজার ম্যানেজমেন্ট</CardTitle>
                 <CardDescription>
-                  Assign roles and custom permissions to users
+                  ইউজারদের রোল এবং পার্মিশন অ্যাসাইন করুন
                 </CardDescription>
               </div>
               <Button onClick={() => setCreateUserDialogOpen(true)}>
                 <UserPlus className="w-4 h-4 mr-2" />
-                Add User
+                নতুন ইউজার
               </Button>
             </CardHeader>
             <CardContent>
@@ -394,7 +552,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by email..."
+                  placeholder="ইমেইল দিয়ে খুঁজুন..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -406,59 +564,75 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Joined</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead>ইমেইল</TableHead>
+                      <TableHead>রোল</TableHead>
+                      <TableHead>জয়েন তারিখ</TableHead>
+                      <TableHead className="text-right">অ্যাকশন</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredUsers.map((user) => (
-                      <TableRow key={user.id}>
-                        <TableCell className="font-medium">{user.email || 'N/A'}</TableCell>
-                        <TableCell>
-                          <Badge variant={getRoleBadgeVariant(user.role)}>
-                            {user.role || 'No Role'}
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground text-sm">
-                          {new Date(user.created_at).toLocaleDateString()}
-                        </TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Select
-                            value={user.role || 'none'}
-                            onValueChange={(value) => handleAssignRole(user.id, value as any)}
-                          >
-                            <SelectTrigger className="w-32 h-8">
-                              <SelectValue placeholder="Select role" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">No Role</SelectItem>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="moderator">Moderator</SelectItem>
-                              <SelectItem value="user">User</SelectItem>
-                            </SelectContent>
-                          </Select>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditUserPermissions(user)}
-                          >
-                            <UserCog className="w-4 h-4" />
-                          </Button>
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => {
-                              setUserToDelete(user);
-                              setDeleteUserDialogOpen(true);
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                    {filteredUsers.map((user) => {
+                      const userRole = getRoleByName(user.role);
+                      return (
+                        <TableRow key={user.id}>
+                          <TableCell className="font-medium">{user.email || 'N/A'}</TableCell>
+                          <TableCell>
+                            <Badge 
+                              style={{ 
+                                backgroundColor: userRole?.color || '#6b7280',
+                                color: 'white'
+                              }}
+                            >
+                              {userRole?.display_name || user.role || 'No Role'}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground text-sm">
+                            {new Date(user.created_at).toLocaleDateString('bn-BD')}
+                          </TableCell>
+                          <TableCell className="text-right space-x-2">
+                            <Select
+                              value={customRoles?.find(r => r.name === user.role)?.id || 'none'}
+                              onValueChange={(value) => handleAssignRole(user.id, value)}
+                            >
+                              <SelectTrigger className="w-32 h-8">
+                                <SelectValue placeholder="রোল সিলেক্ট" />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No Role</SelectItem>
+                                {customRoles?.map((role) => (
+                                  <SelectItem key={role.id} value={role.id}>
+                                    <div className="flex items-center gap-2">
+                                      <div 
+                                        className="w-3 h-3 rounded-full" 
+                                        style={{ backgroundColor: role.color }}
+                                      />
+                                      {role.display_name}
+                                    </div>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditUserPermissions(user)}
+                            >
+                              <UserCog className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setUserToDelete(user);
+                                setDeleteUserDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </ScrollArea>
@@ -466,76 +640,171 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           </Card>
         </TabsContent>
 
+        {/* Roles Tab */}
+        <TabsContent value="roles" className="space-y-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>রোল ম্যানেজমেন্ট</CardTitle>
+                <CardDescription>
+                  কাস্টম রোল তৈরি এবং ম্যানেজ করুন
+                </CardDescription>
+              </div>
+              <Button onClick={() => setCreateRoleDialogOpen(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                নতুন রোল
+              </Button>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {customRoles?.map((role) => (
+                  <Card key={role.id} className="relative">
+                    <CardHeader className="pb-2">
+                      <div className="flex items-center justify-between">
+                        <Badge 
+                          style={{ backgroundColor: role.color, color: 'white' }}
+                          className="text-sm"
+                        >
+                          {role.display_name}
+                        </Badge>
+                        {role.is_system && (
+                          <Badge variant="outline" className="text-xs">System</Badge>
+                        )}
+                      </div>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        {role.description || 'No description'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {getPermissionsForRole(role.id).length} permissions
+                      </p>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="flex-1"
+                          onClick={() => handleEditRolePermissions(role)}
+                        >
+                          <Shield className="w-4 h-4 mr-1" />
+                          পার্মিশন
+                        </Button>
+                        {!role.is_system && (
+                          <>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingRole(role);
+                                setEditRoleDialogOpen(true);
+                              }}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => {
+                                setRoleToDelete(role);
+                                setDeleteRoleDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Permissions Overview Tab */}
         <TabsContent value="permissions" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-3">
-            {(['admin', 'moderator', 'user'] as const).map((role) => (
-              <Card key={role}>
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge variant={getRoleBadgeVariant(role)} className="capitalize">
-                        {role}
-                      </Badge>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleEditRolePermissions(role)}
-                    >
-                      Edit
-                    </Button>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {getPermissionsForRole(role).length === 0 ? (
-                      <p className="text-sm text-muted-foreground">No permissions assigned</p>
-                    ) : (
-                      getPermissionsForRole(role).map((perm) => {
-                        const permInfo = AVAILABLE_PERMISSIONS.find(p => p.key === perm);
-                        return (
-                          <div key={perm} className="text-sm">
-                            <span className="font-medium">{permInfo?.label || perm}</span>
+          <Card>
+            <CardHeader>
+              <CardTitle>পার্মিশন ওভারভিউ</CardTitle>
+              <CardDescription>
+                সব পার্মিশন এবং কোন রোলে কোন পার্মিশন আছে
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {PERMISSION_CATEGORIES.map((category) => (
+                  <div key={category.key}>
+                    <h3 className="font-semibold text-lg mb-3">{category.label}</h3>
+                    <div className="grid gap-2">
+                      {getPermissionsByCategory(category.key).map((perm) => (
+                        <div key={perm.key} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                          <div>
+                            <p className="font-medium">{perm.label}</p>
+                            <p className="text-sm text-muted-foreground">{perm.description}</p>
                           </div>
-                        );
-                      })
-                    )}
+                          <div className="flex gap-1">
+                            {customRoles?.map((role) => {
+                              const hasPermission = getPermissionsForRole(role.id).includes(perm.key);
+                              return hasPermission ? (
+                                <Badge 
+                                  key={role.id}
+                                  style={{ backgroundColor: role.color, color: 'white' }}
+                                  className="text-xs"
+                                >
+                                  {role.display_name}
+                                </Badge>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <Separator className="mt-4" />
                   </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 
       {/* Role Permissions Dialog */}
       <Dialog open={rolePermissionsDialogOpen} onOpenChange={setRolePermissionsDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="w-5 h-5" />
-              Edit {selectedRoleForEdit} Permissions
+              {selectedRoleForEdit?.display_name} পার্মিশন এডিট
             </DialogTitle>
             <DialogDescription>
-              Select which permissions this role should have
+              এই রোলের জন্য পার্মিশন সিলেক্ট করুন
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="max-h-[400px] pr-4">
-            <div className="space-y-4">
-              {AVAILABLE_PERMISSIONS.map((perm) => (
-                <div key={perm.key} className="flex items-start space-x-3">
-                  <Checkbox
-                    id={`role-perm-${perm.key}`}
-                    checked={editedRolePermissions.includes(perm.key)}
-                    onCheckedChange={() => toggleRolePermission(perm.key)}
-                  />
-                  <div className="space-y-1">
-                    <Label htmlFor={`role-perm-${perm.key}`} className="font-medium cursor-pointer">
-                      {perm.label}
-                    </Label>
-                    <p className="text-xs text-muted-foreground">{perm.description}</p>
+          <ScrollArea className="max-h-[50vh] pr-4">
+            <div className="space-y-6">
+              {PERMISSION_CATEGORIES.map((category) => (
+                <div key={category.key}>
+                  <h4 className="font-semibold mb-3">{category.label}</h4>
+                  <div className="space-y-2">
+                    {getPermissionsByCategory(category.key).map((perm) => (
+                      <div key={perm.key} className="flex items-start space-x-3 p-2 rounded hover:bg-muted/50">
+                        <Checkbox
+                          id={`role-perm-${perm.key}`}
+                          checked={editedRolePermissions.includes(perm.key)}
+                          onCheckedChange={() => toggleRolePermission(perm.key)}
+                        />
+                        <div className="space-y-1">
+                          <Label htmlFor={`role-perm-${perm.key}`} className="font-medium cursor-pointer">
+                            {perm.label}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">{perm.description}</p>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                  <Separator className="mt-3" />
                 </div>
               ))}
             </div>
@@ -543,11 +812,11 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setRolePermissionsDialogOpen(false)}>
-              Cancel
+              বাতিল
             </Button>
-            <Button onClick={handleSaveRolePermissions} disabled={updateRolePermissions.isPending}>
-              {updateRolePermissions.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Save Changes
+            <Button onClick={handleSaveRolePermissions} disabled={updateCustomRolePermissions.isPending}>
+              {updateCustomRolePermissions.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              সেভ করুন
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -561,71 +830,77 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           if (open) initUserPermissions();
         }}
       >
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-2xl max-h-[80vh]">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCog className="w-5 h-5" />
-              Custom Permissions
+              কাস্টম পার্মিশন
             </DialogTitle>
             <DialogDescription>
-              Override role permissions for {selectedUser?.email}
+              {selectedUser?.email} এর জন্য পার্মিশন ওভাররাইড
             </DialogDescription>
           </DialogHeader>
           
-          <ScrollArea className="max-h-[400px] pr-4">
+          <ScrollArea className="max-h-[50vh] pr-4">
             <div className="space-y-4">
-              <p className="text-sm text-muted-foreground">
-                <strong>Inherit</strong> = Use role's default<br />
-                <strong>Grant</strong> = Always allow<br />
-                <strong>Deny</strong> = Always block
-              </p>
+              <div className="bg-muted p-3 rounded-lg text-sm">
+                <p><strong>Inherit</strong> = রোলের ডিফল্ট</p>
+                <p><strong>Grant</strong> = সবসময় অনুমতি</p>
+                <p><strong>Deny</strong> = সবসময় ব্লক</p>
+              </div>
               <Separator />
-              {AVAILABLE_PERMISSIONS.map((perm) => {
-                const status = getUserPermissionStatus(perm.key);
-                return (
-                  <div key={perm.key} className="space-y-2">
-                    <Label className="font-medium">{perm.label}</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        variant={status === 'inherit' ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => {
-                          setEditedUserPermissions(prev => 
-                            prev.filter(p => p.permission !== perm.key)
-                          );
-                        }}
-                      >
-                        Inherit
-                      </Button>
-                      <Button
-                        variant={status === 'granted' ? 'default' : 'outline'}
-                        size="sm"
-                        className={status === 'granted' ? 'bg-green-600 hover:bg-green-700' : ''}
-                        onClick={() => toggleUserPermission(perm.key, true)}
-                      >
-                        Grant
-                      </Button>
-                      <Button
-                        variant={status === 'denied' ? 'destructive' : 'outline'}
-                        size="sm"
-                        onClick={() => toggleUserPermission(perm.key, false)}
-                      >
-                        Deny
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
+              {PERMISSION_CATEGORIES.map((category) => (
+                <div key={category.key}>
+                  <h4 className="font-semibold mb-3">{category.label}</h4>
+                  {getPermissionsByCategory(category.key).map((perm) => {
+                    const status = getUserPermissionStatus(perm.key);
+                    return (
+                      <div key={perm.key} className="space-y-2 mb-3">
+                        <Label className="font-medium">{perm.label}</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            variant={status === 'inherit' ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => {
+                              setEditedUserPermissions(prev => 
+                                prev.filter(p => p.permission !== perm.key)
+                              );
+                            }}
+                          >
+                            Inherit
+                          </Button>
+                          <Button
+                            variant={status === 'granted' ? 'default' : 'outline'}
+                            size="sm"
+                            className={status === 'granted' ? 'bg-green-600 hover:bg-green-700' : ''}
+                            onClick={() => toggleUserPermission(perm.key, true)}
+                          >
+                            Grant
+                          </Button>
+                          <Button
+                            variant={status === 'denied' ? 'destructive' : 'outline'}
+                            size="sm"
+                            onClick={() => toggleUserPermission(perm.key, false)}
+                          >
+                            Deny
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <Separator className="mt-3" />
+                </div>
+              ))}
             </div>
           </ScrollArea>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setUserPermissionsDialogOpen(false)}>
-              Cancel
+              বাতিল
             </Button>
             <Button onClick={handleSaveUserPermissions} disabled={updateUserPermissions.isPending}>
               {updateUserPermissions.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Save Changes
+              সেভ করুন
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -637,16 +912,16 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5" />
-              Create New User
+              নতুন ইউজার তৈরি
             </DialogTitle>
             <DialogDescription>
-              Add a new user to the system. Only admins can create users.
+              সিস্টেমে নতুন ইউজার যোগ করুন
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="new-user-email">Email</Label>
+              <Label htmlFor="new-user-email">ইমেইল</Label>
               <Input
                 id="new-user-email"
                 type="email"
@@ -657,30 +932,38 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-user-password">Password</Label>
+              <Label htmlFor="new-user-password">পাসওয়ার্ড</Label>
               <Input
                 id="new-user-password"
                 type="password"
-                placeholder="Minimum 6 characters"
+                placeholder="মিনিমাম ৬ ক্যারেক্টার"
                 value={newUserPassword}
                 onChange={(e) => setNewUserPassword(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-user-role">Role (Optional)</Label>
+              <Label htmlFor="new-user-role">রোল (ঐচ্ছিক)</Label>
               <Select
                 value={newUserRole}
-                onValueChange={(value) => setNewUserRole(value as any)}
+                onValueChange={(value) => setNewUserRole(value)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
+                  <SelectValue placeholder="রোল সিলেক্ট" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Role</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="moderator">Moderator</SelectItem>
-                  <SelectItem value="user">User</SelectItem>
+                  {customRoles?.filter(r => r.is_system).map((role) => (
+                    <SelectItem key={role.id} value={role.id}>
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-3 h-3 rounded-full" 
+                          style={{ backgroundColor: role.color }}
+                        />
+                        {role.display_name}
+                      </div>
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -696,29 +979,209 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                 setNewUserRole('none');
               }}
             >
-              Cancel
+              বাতিল
             </Button>
             <Button 
               onClick={handleCreateUser} 
               disabled={isCreatingUser || !newUserEmail || !newUserPassword}
             >
               {isCreatingUser && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Create User
+              ইউজার তৈরি
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Confirmation Dialog */}
+      {/* Create Role Dialog */}
+      <Dialog open={createRoleDialogOpen} onOpenChange={setCreateRoleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Plus className="w-5 h-5" />
+              নতুন রোল তৈরি
+            </DialogTitle>
+            <DialogDescription>
+              কাস্টম রোল তৈরি করুন নির্দিষ্ট পার্মিশন সহ
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-role-name">রোল আইডি (ইংরেজি)</Label>
+              <Input
+                id="new-role-name"
+                placeholder="content_editor"
+                value={newRoleName}
+                onChange={(e) => setNewRoleName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
+              />
+              <p className="text-xs text-muted-foreground">ছোট হাতের অক্ষর এবং আন্ডারস্কোর</p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-role-display">ডিসপ্লে নাম</Label>
+              <Input
+                id="new-role-display"
+                placeholder="Content Editor"
+                value={newRoleDisplayName}
+                onChange={(e) => setNewRoleDisplayName(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-role-desc">বিবরণ</Label>
+              <Textarea
+                id="new-role-desc"
+                placeholder="এই রোলের বিবরণ..."
+                value={newRoleDescription}
+                onChange={(e) => setNewRoleDescription(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>রোল কালার</Label>
+              <div className="flex flex-wrap gap-2">
+                {ROLE_COLORS.map((color) => (
+                  <button
+                    key={color}
+                    className={`w-8 h-8 rounded-full border-2 ${newRoleColor === color ? 'border-foreground' : 'border-transparent'}`}
+                    style={{ backgroundColor: color }}
+                    onClick={() => setNewRoleColor(color)}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setCreateRoleDialogOpen(false);
+                setNewRoleName("");
+                setNewRoleDisplayName("");
+                setNewRoleDescription("");
+                setNewRoleColor("#6b7280");
+              }}
+            >
+              বাতিল
+            </Button>
+            <Button 
+              onClick={handleCreateRole} 
+              disabled={createRole.isPending || !newRoleName || !newRoleDisplayName}
+            >
+              {createRole.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              রোল তৈরি
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Role Dialog */}
+      <Dialog open={editRoleDialogOpen} onOpenChange={setEditRoleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Edit className="w-5 h-5" />
+              রোল এডিট
+            </DialogTitle>
+          </DialogHeader>
+          
+          {editingRole && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>ডিসপ্লে নাম</Label>
+                <Input
+                  value={editingRole.display_name}
+                  onChange={(e) => setEditingRole({ ...editingRole, display_name: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>বিবরণ</Label>
+                <Textarea
+                  value={editingRole.description || ''}
+                  onChange={(e) => setEditingRole({ ...editingRole, description: e.target.value })}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>রোল কালার</Label>
+                <div className="flex flex-wrap gap-2">
+                  {ROLE_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      className={`w-8 h-8 rounded-full border-2 ${editingRole.color === color ? 'border-foreground' : 'border-transparent'}`}
+                      style={{ backgroundColor: color }}
+                      onClick={() => setEditingRole({ ...editingRole, color })}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditRoleDialogOpen(false)}>
+              বাতিল
+            </Button>
+            <Button onClick={handleUpdateRole} disabled={updateRole.isPending}>
+              {updateRole.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              আপডেট
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Role Dialog */}
+      <Dialog open={deleteRoleDialogOpen} onOpenChange={setDeleteRoleDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <Trash2 className="w-5 h-5" />
+              রোল ডিলিট
+            </DialogTitle>
+            <DialogDescription>
+              আপনি কি নিশ্চিত এই রোল ডিলিট করতে চান? এই অ্যাকশন undo করা যাবে না।
+            </DialogDescription>
+          </DialogHeader>
+          
+          {roleToDelete && (
+            <div className="bg-muted p-4 rounded-lg">
+              <Badge style={{ backgroundColor: roleToDelete.color, color: 'white' }}>
+                {roleToDelete.display_name}
+              </Badge>
+              <p className="text-sm text-muted-foreground mt-2">
+                {roleToDelete.description || 'No description'}
+              </p>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteRoleDialogOpen(false)}>
+              বাতিল
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteRole} 
+              disabled={deleteRole.isPending}
+            >
+              {deleteRole.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              ডিলিট
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Dialog */}
       <Dialog open={deleteUserDialogOpen} onOpenChange={setDeleteUserDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="w-5 h-5" />
-              Delete User
+              ইউজার ডিলিট
             </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this user? This action cannot be undone.
+              আপনি কি নিশ্চিত এই ইউজার ডিলিট করতে চান? এই অ্যাকশন undo করা যাবে না।
             </DialogDescription>
           </DialogHeader>
           
@@ -739,7 +1202,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                 setUserToDelete(null);
               }}
             >
-              Cancel
+              বাতিল
             </Button>
             <Button 
               variant="destructive"
@@ -747,7 +1210,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
               disabled={isDeletingUser}
             >
               {isDeletingUser && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              Delete User
+              ডিলিট
             </Button>
           </DialogFooter>
         </DialogContent>
