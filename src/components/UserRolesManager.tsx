@@ -12,6 +12,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import { 
   useUsersWithRoles, 
   useRolePermissions, 
@@ -23,7 +25,7 @@ import {
   AVAILABLE_PERMISSIONS,
   UserWithRole 
 } from "@/hooks/useUserRoles";
-import { Users, Shield, Settings, Search, Loader2, UserCog, Save, X } from "lucide-react";
+import { Users, Shield, Settings, Search, Loader2, UserCog, Save, X, UserPlus } from "lucide-react";
 
 interface UserRolesManagerProps {
   adminSlug: string;
@@ -34,6 +36,7 @@ interface UserRolesManagerProps {
 
 const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSaving }: UserRolesManagerProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState<UserWithRole | null>(null);
   const [userPermissionsDialogOpen, setUserPermissionsDialogOpen] = useState(false);
@@ -41,6 +44,13 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
   const [selectedRoleForEdit, setSelectedRoleForEdit] = useState<'admin' | 'moderator' | 'user'>('moderator');
   const [editedRolePermissions, setEditedRolePermissions] = useState<string[]>([]);
   const [editedUserPermissions, setEditedUserPermissions] = useState<{ permission: string; granted: boolean }[]>([]);
+  
+  // Create user dialog state
+  const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
+  const [newUserEmail, setNewUserEmail] = useState("");
+  const [newUserPassword, setNewUserPassword] = useState("");
+  const [newUserRole, setNewUserRole] = useState<'admin' | 'moderator' | 'user' | 'none'>('none');
+  const [isCreatingUser, setIsCreatingUser] = useState(false);
 
   const { data: users, isLoading: usersLoading } = useUsersWithRoles();
   const { data: rolePermissions, isLoading: rolePermissionsLoading } = useRolePermissions();
@@ -50,6 +60,76 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
   const removeRole = useRemoveRole();
   const updateRolePermissions = useUpdateRolePermissions();
   const updateUserPermissions = useUpdateUserPermissions();
+
+  // Create new user function
+  const handleCreateUser = async () => {
+    if (!newUserEmail || !newUserPassword) {
+      toast({
+        title: "Error",
+        description: "Email and password are required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (newUserPassword.length < 6) {
+      toast({
+        title: "Error",
+        description: "Password must be at least 6 characters",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsCreatingUser(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData?.session?.access_token;
+
+      if (!token) {
+        throw new Error('Not authenticated');
+      }
+
+      const response = await supabase.functions.invoke('create-user', {
+        body: {
+          email: newUserEmail,
+          password: newUserPassword,
+          role: newUserRole === 'none' ? null : newUserRole
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      if (!response.data?.success) {
+        throw new Error(response.data?.error || 'Failed to create user');
+      }
+
+      toast({
+        title: "Success",
+        description: `User ${newUserEmail} created successfully`
+      });
+
+      // Reset form and close dialog
+      setNewUserEmail("");
+      setNewUserPassword("");
+      setNewUserRole('none');
+      setCreateUserDialogOpen(false);
+
+      // Refresh users list
+      queryClient.invalidateQueries({ queryKey: ['users_with_roles'] });
+
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create user",
+        variant: "destructive"
+      });
+    } finally {
+      setIsCreatingUser(false);
+    }
+  };
 
   // Filter users based on search
   const filteredUsers = useMemo(() => {
@@ -254,11 +334,17 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
 
         <TabsContent value="users" className="space-y-4">
           <Card>
-            <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>
-                Assign roles and custom permissions to users
-              </CardDescription>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle>User Management</CardTitle>
+                <CardDescription>
+                  Assign roles and custom permissions to users
+                </CardDescription>
+              </div>
+              <Button onClick={() => setCreateUserDialogOpen(true)}>
+                <UserPlus className="w-4 h-4 mr-2" />
+                Add User
+              </Button>
             </CardHeader>
             <CardContent>
               {/* Search */}
@@ -487,6 +573,84 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
             <Button onClick={handleSaveUserPermissions} disabled={updateUserPermissions.isPending}>
               {updateUserPermissions.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create User Dialog */}
+      <Dialog open={createUserDialogOpen} onOpenChange={setCreateUserDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <UserPlus className="w-5 h-5" />
+              Create New User
+            </DialogTitle>
+            <DialogDescription>
+              Add a new user to the system. Only admins can create users.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="new-user-email">Email</Label>
+              <Input
+                id="new-user-email"
+                type="email"
+                placeholder="user@example.com"
+                value={newUserEmail}
+                onChange={(e) => setNewUserEmail(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-user-password">Password</Label>
+              <Input
+                id="new-user-password"
+                type="password"
+                placeholder="Minimum 6 characters"
+                value={newUserPassword}
+                onChange={(e) => setNewUserPassword(e.target.value)}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-user-role">Role (Optional)</Label>
+              <Select
+                value={newUserRole}
+                onValueChange={(value) => setNewUserRole(value as any)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Role</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="moderator">Moderator</SelectItem>
+                  <SelectItem value="user">User</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setCreateUserDialogOpen(false);
+                setNewUserEmail("");
+                setNewUserPassword("");
+                setNewUserRole('none');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCreateUser} 
+              disabled={isCreatingUser || !newUserEmail || !newUserPassword}
+            >
+              {isCreatingUser && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              Create User
             </Button>
           </DialogFooter>
         </DialogContent>
