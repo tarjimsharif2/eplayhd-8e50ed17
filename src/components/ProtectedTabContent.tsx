@@ -15,7 +15,7 @@ const ProtectedTabContent = ({ value, hasPermission, children, className }: Prot
       {!hasPermission ? (
         <div className="text-center py-12">
           <ShieldAlert className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
-          <p className="text-muted-foreground">এই সেকশনে অ্যাক্সেস করার পার্মিশন নেই।</p>
+          <p className="text-muted-foreground">You don't have permission to access this section.</p>
         </div>
       ) : (
         children

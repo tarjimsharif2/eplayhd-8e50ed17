@@ -520,15 +520,15 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="users" className="flex items-center gap-2">
             <Users className="w-4 h-4" />
-            ইউজার
+            Users
           </TabsTrigger>
           <TabsTrigger value="roles" className="flex items-center gap-2">
             <Shield className="w-4 h-4" />
-            রোল
+            Roles
           </TabsTrigger>
           <TabsTrigger value="permissions" className="flex items-center gap-2">
             <UserCog className="w-4 h-4" />
-            পার্মিশন
+            Permissions
           </TabsTrigger>
         </TabsList>
 
@@ -537,14 +537,14 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>ইউজার ম্যানেজমেন্ট</CardTitle>
+                <CardTitle>User Management</CardTitle>
                 <CardDescription>
-                  ইউজারদের রোল এবং পার্মিশন অ্যাসাইন করুন
+                  Assign roles and permissions to users
                 </CardDescription>
               </div>
               <Button onClick={() => setCreateUserDialogOpen(true)}>
                 <UserPlus className="w-4 h-4 mr-2" />
-                নতুন ইউজার
+                New User
               </Button>
             </CardHeader>
             <CardContent>
@@ -552,7 +552,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
               <div className="relative mb-4">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  placeholder="ইমেইল দিয়ে খুঁজুন..."
+                  placeholder="Search by email..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
@@ -564,10 +564,10 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>ইমেইল</TableHead>
-                      <TableHead>রোল</TableHead>
-                      <TableHead>জয়েন তারিখ</TableHead>
-                      <TableHead className="text-right">অ্যাকশন</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Joined Date</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -587,7 +587,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                             </Badge>
                           </TableCell>
                           <TableCell className="text-muted-foreground text-sm">
-                            {new Date(user.created_at).toLocaleDateString('bn-BD')}
+                            {new Date(user.created_at).toLocaleDateString('en-US')}
                           </TableCell>
                           <TableCell className="text-right space-x-2">
                             <Select
@@ -595,7 +595,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                               onValueChange={(value) => handleAssignRole(user.id, value)}
                             >
                               <SelectTrigger className="w-32 h-8">
-                                <SelectValue placeholder="রোল সিলেক্ট" />
+                                <SelectValue placeholder="Select Role" />
                               </SelectTrigger>
                               <SelectContent>
                                 <SelectItem value="none">No Role</SelectItem>
@@ -645,14 +645,14 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
-                <CardTitle>রোল ম্যানেজমেন্ট</CardTitle>
+                <CardTitle>Role Management</CardTitle>
                 <CardDescription>
-                  কাস্টম রোল তৈরি এবং ম্যানেজ করুন
+                  Create and manage custom roles
                 </CardDescription>
               </div>
               <Button onClick={() => setCreateRoleDialogOpen(true)}>
                 <Plus className="w-4 h-4 mr-2" />
-                নতুন রোল
+                New Role
               </Button>
             </CardHeader>
             <CardContent>
@@ -687,7 +687,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                           onClick={() => handleEditRolePermissions(role)}
                         >
                           <Shield className="w-4 h-4 mr-1" />
-                          পার্মিশন
+                          Permissions
                         </Button>
                         {!role.is_system && (
                           <>
@@ -726,9 +726,9 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
         <TabsContent value="permissions" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>পার্মিশন ওভারভিউ</CardTitle>
+              <CardTitle>Permissions Overview</CardTitle>
               <CardDescription>
-                সব পার্মিশন এবং কোন রোলে কোন পার্মিশন আছে
+                All permissions and which roles have them
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -775,10 +775,10 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Shield className="w-5 h-5" />
-              {selectedRoleForEdit?.display_name} পার্মিশন এডিট
+              Edit {selectedRoleForEdit?.display_name} Permissions
             </DialogTitle>
             <DialogDescription>
-              এই রোলের জন্য পার্মিশন সিলেক্ট করুন
+              Select permissions for this role
             </DialogDescription>
           </DialogHeader>
           
@@ -812,11 +812,11 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setRolePermissionsDialogOpen(false)}>
-              বাতিল
+              Cancel
             </Button>
             <Button onClick={handleSaveRolePermissions} disabled={updateCustomRolePermissions.isPending}>
               {updateCustomRolePermissions.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              সেভ করুন
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -834,19 +834,19 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserCog className="w-5 h-5" />
-              কাস্টম পার্মিশন
+              Custom Permissions
             </DialogTitle>
             <DialogDescription>
-              {selectedUser?.email} এর জন্য পার্মিশন ওভাররাইড
+              Permission overrides for {selectedUser?.email}
             </DialogDescription>
           </DialogHeader>
           
           <ScrollArea className="max-h-[50vh] pr-4">
             <div className="space-y-4">
               <div className="bg-muted p-3 rounded-lg text-sm">
-                <p><strong>Inherit</strong> = রোলের ডিফল্ট</p>
-                <p><strong>Grant</strong> = সবসময় অনুমতি</p>
-                <p><strong>Deny</strong> = সবসময় ব্লক</p>
+                <p><strong>Inherit</strong> = Use role's default</p>
+                <p><strong>Grant</strong> = Always allow</p>
+                <p><strong>Deny</strong> = Always block</p>
               </div>
               <Separator />
               {PERMISSION_CATEGORIES.map((category) => (
@@ -896,11 +896,11 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setUserPermissionsDialogOpen(false)}>
-              বাতিল
+              Cancel
             </Button>
             <Button onClick={handleSaveUserPermissions} disabled={updateUserPermissions.isPending}>
               {updateUserPermissions.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              সেভ করুন
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -912,16 +912,16 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <UserPlus className="w-5 h-5" />
-              নতুন ইউজার তৈরি
+              Create New User
             </DialogTitle>
             <DialogDescription>
-              সিস্টেমে নতুন ইউজার যোগ করুন
+              Add a new user to the system
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="new-user-email">ইমেইল</Label>
+              <Label htmlFor="new-user-email">Email</Label>
               <Input
                 id="new-user-email"
                 type="email"
@@ -932,24 +932,24 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-user-password">পাসওয়ার্ড</Label>
+              <Label htmlFor="new-user-password">Password</Label>
               <Input
                 id="new-user-password"
                 type="password"
-                placeholder="মিনিমাম ৬ ক্যারেক্টার"
+                placeholder="Minimum 6 characters"
                 value={newUserPassword}
                 onChange={(e) => setNewUserPassword(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-user-role">রোল (ঐচ্ছিক)</Label>
+              <Label htmlFor="new-user-role">Role (Optional)</Label>
               <Select
                 value={newUserRole}
                 onValueChange={(value) => setNewUserRole(value)}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="রোল সিলেক্ট" />
+                  <SelectValue placeholder="Select Role" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">No Role</SelectItem>
@@ -979,14 +979,14 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                 setNewUserRole('none');
               }}
             >
-              বাতিল
+              Cancel
             </Button>
             <Button 
               onClick={handleCreateUser} 
               disabled={isCreatingUser || !newUserEmail || !newUserPassword}
             >
               {isCreatingUser && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              ইউজার তৈরি
+              Create User
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -998,27 +998,27 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Plus className="w-5 h-5" />
-              নতুন রোল তৈরি
+              Create New Role
             </DialogTitle>
             <DialogDescription>
-              কাস্টম রোল তৈরি করুন নির্দিষ্ট পার্মিশন সহ
+              Create a custom role with specific permissions
             </DialogDescription>
           </DialogHeader>
           
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="new-role-name">রোল আইডি (ইংরেজি)</Label>
+              <Label htmlFor="new-role-name">Role ID (English)</Label>
               <Input
                 id="new-role-name"
                 placeholder="content_editor"
                 value={newRoleName}
                 onChange={(e) => setNewRoleName(e.target.value.toLowerCase().replace(/\s+/g, '_'))}
               />
-              <p className="text-xs text-muted-foreground">ছোট হাতের অক্ষর এবং আন্ডারস্কোর</p>
+              <p className="text-xs text-muted-foreground">Lowercase letters and underscores only</p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-role-display">ডিসপ্লে নাম</Label>
+              <Label htmlFor="new-role-display">Display Name</Label>
               <Input
                 id="new-role-display"
                 placeholder="Content Editor"
@@ -1028,17 +1028,17 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-role-desc">বিবরণ</Label>
+              <Label htmlFor="new-role-desc">Description</Label>
               <Textarea
                 id="new-role-desc"
-                placeholder="এই রোলের বিবরণ..."
+                placeholder="Description of this role..."
                 value={newRoleDescription}
                 onChange={(e) => setNewRoleDescription(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>রোল কালার</Label>
+              <Label>Role Color</Label>
               <div className="flex flex-wrap gap-2">
                 {ROLE_COLORS.map((color) => (
                   <button
@@ -1063,14 +1063,14 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                 setNewRoleColor("#6b7280");
               }}
             >
-              বাতিল
+              Cancel
             </Button>
             <Button 
               onClick={handleCreateRole} 
               disabled={createRole.isPending || !newRoleName || !newRoleDisplayName}
             >
               {createRole.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              রোল তৈরি
+              Create Role
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1082,14 +1082,14 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Edit className="w-5 h-5" />
-              রোল এডিট
+              Edit Role
             </DialogTitle>
           </DialogHeader>
           
           {editingRole && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>ডিসপ্লে নাম</Label>
+                <Label>Display Name</Label>
                 <Input
                   value={editingRole.display_name}
                   onChange={(e) => setEditingRole({ ...editingRole, display_name: e.target.value })}
@@ -1097,7 +1097,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
               </div>
 
               <div className="space-y-2">
-                <Label>বিবরণ</Label>
+                <Label>Description</Label>
                 <Textarea
                   value={editingRole.description || ''}
                   onChange={(e) => setEditingRole({ ...editingRole, description: e.target.value })}
@@ -1105,7 +1105,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
               </div>
 
               <div className="space-y-2">
-                <Label>রোল কালার</Label>
+                <Label>Role Color</Label>
                 <div className="flex flex-wrap gap-2">
                   {ROLE_COLORS.map((color) => (
                     <button
@@ -1122,11 +1122,11 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditRoleDialogOpen(false)}>
-              বাতিল
+              Cancel
             </Button>
             <Button onClick={handleUpdateRole} disabled={updateRole.isPending}>
               {updateRole.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              আপডেট
+              Update
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1138,10 +1138,10 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="w-5 h-5" />
-              রোল ডিলিট
+              Delete Role
             </DialogTitle>
             <DialogDescription>
-              আপনি কি নিশ্চিত এই রোল ডিলিট করতে চান? এই অ্যাকশন undo করা যাবে না।
+              Are you sure you want to delete this role? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           
@@ -1158,7 +1158,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteRoleDialogOpen(false)}>
-              বাতিল
+              Cancel
             </Button>
             <Button 
               variant="destructive"
@@ -1166,7 +1166,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
               disabled={deleteRole.isPending}
             >
               {deleteRole.isPending && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              ডিলিট
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1178,10 +1178,10 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive">
               <Trash2 className="w-5 h-5" />
-              ইউজার ডিলিট
+              Delete User
             </DialogTitle>
             <DialogDescription>
-              আপনি কি নিশ্চিত এই ইউজার ডিলিট করতে চান? এই অ্যাকশন undo করা যাবে না।
+              Are you sure you want to delete this user? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           
@@ -1202,7 +1202,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                 setUserToDelete(null);
               }}
             >
-              বাতিল
+              Cancel
             </Button>
             <Button 
               variant="destructive"
@@ -1210,7 +1210,7 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
               disabled={isDeletingUser}
             >
               {isDeletingUser && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              ডিলিট
+              Delete
             </Button>
           </DialogFooter>
         </DialogContent>
