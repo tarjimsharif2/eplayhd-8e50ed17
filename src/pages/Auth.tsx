@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
+import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 import { motion } from "framer-motion";
 import { useToast } from "@/hooks/use-toast";
 import { Tv, Mail, Lock, Loader2 } from "lucide-react";
@@ -15,15 +16,25 @@ const Auth = () => {
   const { signIn, user } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { data: siteSettings } = usePublicSiteSettings();
   const [isLoading, setIsLoading] = useState(false);
   const [loginData, setLoginData] = useState({ email: '', password: '' });
+
+  // Get the correct admin path based on custom slug
+  const getAdminPath = () => {
+    const adminSlug = siteSettings?.admin_slug;
+    if (adminSlug && adminSlug !== 'admin' && adminSlug.trim() !== '') {
+      return `/${adminSlug}`;
+    }
+    return '/admin';
+  };
 
   // Redirect if already logged in
   useEffect(() => {
     if (user) {
-      navigate('/admin');
+      navigate(getAdminPath());
     }
-  }, [user, navigate]);
+  }, [user, navigate, siteSettings]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +57,7 @@ const Auth = () => {
         title: "Welcome back!",
         description: "Logged in successfully",
       });
-      navigate('/admin');
+      navigate(getAdminPath());
     } catch (error: any) {
       toast({
         title: "Login failed",
