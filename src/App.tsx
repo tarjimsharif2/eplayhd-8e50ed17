@@ -19,6 +19,23 @@ import AdsTxt from "./pages/AdsTxt";
 import Sitemap from "./pages/Sitemap";
 import NotFound from "./pages/NotFound";
 
+// Protected admin route - blocks /admin if custom slug is set
+const ProtectedAdminRoute = () => {
+  const { data: settings, isLoading } = usePublicSiteSettings();
+  
+  if (isLoading) return null;
+  
+  // If a custom admin slug is set (not 'admin'), block the default /admin route
+  const adminSlug = settings?.admin_slug;
+  if (adminSlug && adminSlug !== 'admin' && adminSlug.trim() !== '') {
+    // Custom slug is set, block /admin access - show 404
+    return <NotFound />;
+  }
+  
+  // No custom slug or slug is 'admin' - allow access
+  return <Admin />;
+};
+
 // Dynamic admin route handler - redirects to Admin if slug matches
 const DynamicAdminRoute = () => {
   const { dynamicAdmin } = useParams();
@@ -30,7 +47,7 @@ const DynamicAdminRoute = () => {
   // Check if the current route matches the custom admin slug
   const adminSlug = settings?.admin_slug || 'admin';
   
-  if (dynamicAdmin === adminSlug && dynamicAdmin !== 'admin') {
+  if (dynamicAdmin === adminSlug && adminSlug !== 'admin') {
     // Render admin page for custom slug
     return <Admin />;
   }
@@ -70,8 +87,8 @@ const App = () => (
               <GoogleAnalyticsProvider>
                 <Routes>
                   <Route path="/" element={<Index />} />
-                  <Route path="/admin" element={<Admin />} />
-                  <Route path="/admin/*" element={<Admin />} />
+                  <Route path="/admin" element={<ProtectedAdminRoute />} />
+                  <Route path="/admin/*" element={<ProtectedAdminRoute />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/match/:slug" element={<MatchPage />} />
                   <Route path="/tournament/:slug" element={<TournamentPage />} />
