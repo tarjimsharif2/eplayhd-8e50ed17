@@ -4,35 +4,35 @@ import { supabase } from '@/integrations/supabase/client';
 // Extended permissions list
 export const AVAILABLE_PERMISSIONS = [
   // Content Management
-  { key: 'manage_matches', label: 'ম্যাচ ম্যানেজমেন্ট', description: 'Create, edit, delete matches', category: 'content' },
-  { key: 'manage_teams', label: 'টিম ম্যানেজমেন্ট', description: 'Create, edit, delete teams', category: 'content' },
-  { key: 'manage_tournaments', label: 'টুর্নামেন্ট ম্যানেজমেন্ট', description: 'Create, edit, delete tournaments', category: 'content' },
-  { key: 'manage_banners', label: 'ব্যানার ম্যানেজমেন্ট', description: 'Create, edit, delete banners', category: 'content' },
-  { key: 'manage_pages', label: 'পেইজ ম্যানেজমেন্ট', description: 'Create, edit, delete dynamic pages', category: 'content' },
-  { key: 'manage_points_table', label: 'পয়েন্টস টেবিল', description: 'Edit tournament points tables', category: 'content' },
-  { key: 'manage_playing_xi', label: 'প্লেয়িং XI', description: 'Manage playing XI for matches', category: 'content' },
+  { key: 'manage_matches', label: 'Match Management', description: 'Create, edit, delete matches', category: 'content' },
+  { key: 'manage_teams', label: 'Team Management', description: 'Create, edit, delete teams', category: 'content' },
+  { key: 'manage_tournaments', label: 'Tournament Management', description: 'Create, edit, delete tournaments', category: 'content' },
+  { key: 'manage_banners', label: 'Banner Management', description: 'Create, edit, delete banners', category: 'content' },
+  { key: 'manage_pages', label: 'Page Management', description: 'Create, edit, delete dynamic pages', category: 'content' },
+  { key: 'manage_points_table', label: 'Points Table', description: 'Edit tournament points tables', category: 'content' },
+  { key: 'manage_playing_xi', label: 'Playing XI', description: 'Manage playing XI for matches', category: 'content' },
   
   // Streaming
-  { key: 'manage_streaming', label: 'স্ট্রিমিং সার্ভার', description: 'Manage streaming servers', category: 'streaming' },
-  { key: 'manage_saved_servers', label: 'সেভড সার্ভার', description: 'Manage saved streaming servers', category: 'streaming' },
-  { key: 'manage_sponsor_notices', label: 'স্পন্সর নোটিশ', description: 'Manage sponsor notices', category: 'streaming' },
+  { key: 'manage_streaming', label: 'Streaming Servers', description: 'Manage streaming servers', category: 'streaming' },
+  { key: 'manage_saved_servers', label: 'Saved Servers', description: 'Manage saved streaming servers', category: 'streaming' },
+  { key: 'manage_sponsor_notices', label: 'Sponsor Notices', description: 'Manage sponsor notices', category: 'streaming' },
   
   // Settings
-  { key: 'manage_settings', label: 'সাইট সেটিংস', description: 'Edit site settings and configuration', category: 'settings' },
-  { key: 'manage_seo', label: 'SEO সেটিংস', description: 'Manage SEO, sitemap, robots.txt', category: 'settings' },
-  { key: 'manage_ads', label: 'বিজ্ঞাপন সেটিংস', description: 'Manage ad codes and placements', category: 'settings' },
-  { key: 'manage_api_keys', label: 'API কী সেটিংস', description: 'Manage Cricket API and other API keys', category: 'settings' },
+  { key: 'manage_settings', label: 'Site Settings', description: 'Edit site settings and configuration', category: 'settings' },
+  { key: 'manage_seo', label: 'SEO Settings', description: 'Manage SEO, sitemap, robots.txt', category: 'settings' },
+  { key: 'manage_ads', label: 'Ads Settings', description: 'Manage ad codes and placements', category: 'settings' },
+  { key: 'manage_api_keys', label: 'API Key Settings', description: 'Manage Cricket API and other API keys', category: 'settings' },
   
   // User Management
-  { key: 'manage_users', label: 'ইউজার ম্যানেজমেন্ট', description: 'Create, edit, delete users', category: 'users' },
-  { key: 'manage_roles', label: 'রোল ম্যানেজমেন্ট', description: 'Create, edit, delete roles', category: 'users' },
-  { key: 'assign_roles', label: 'রোল অ্যাসাইন', description: 'Assign roles to users', category: 'users' },
-  { key: 'manage_permissions', label: 'পার্মিশন ম্যানেজমেন্ট', description: 'Manage role and user permissions', category: 'users' },
+  { key: 'manage_users', label: 'User Management', description: 'Create, edit, delete users', category: 'users' },
+  { key: 'manage_roles', label: 'Role Management', description: 'Create, edit, delete roles', category: 'users' },
+  { key: 'assign_roles', label: 'Assign Roles', description: 'Assign roles to users', category: 'users' },
+  { key: 'manage_permissions', label: 'Permission Management', description: 'Manage role and user permissions', category: 'users' },
   
   // Analytics & Monitoring
-  { key: 'view_analytics', label: 'অ্যানালিটিক্স দেখুন', description: 'View site analytics and stats', category: 'analytics' },
-  { key: 'view_logs', label: 'লগ দেখুন', description: 'View system logs and activities', category: 'analytics' },
-  { key: 'view_api_status', label: 'API স্ট্যাটাস', description: 'View API sync status and health', category: 'analytics' },
+  { key: 'view_analytics', label: 'View Analytics', description: 'View site analytics and stats', category: 'analytics' },
+  { key: 'view_logs', label: 'View Logs', description: 'View system logs and activities', category: 'analytics' },
+  { key: 'view_api_status', label: 'API Status', description: 'View API sync status and health', category: 'analytics' },
 ] as const;
 
 export type Permission = typeof AVAILABLE_PERMISSIONS[number]['key'];
@@ -299,11 +299,11 @@ export const useRemoveCustomRole = () => {
 
 // Permission categories for UI grouping
 export const PERMISSION_CATEGORIES = [
-  { key: 'content', label: 'কন্টেন্ট ম্যানেজমেন্ট', icon: 'FileText' },
-  { key: 'streaming', label: 'স্ট্রিমিং', icon: 'Play' },
-  { key: 'settings', label: 'সেটিংস', icon: 'Settings' },
-  { key: 'users', label: 'ইউজার ম্যানেজমেন্ট', icon: 'Users' },
-  { key: 'analytics', label: 'অ্যানালিটিক্স', icon: 'BarChart' },
+  { key: 'content', label: 'Content Management', icon: 'FileText' },
+  { key: 'streaming', label: 'Streaming', icon: 'Play' },
+  { key: 'settings', label: 'Settings', icon: 'Settings' },
+  { key: 'users', label: 'User Management', icon: 'Users' },
+  { key: 'analytics', label: 'Analytics', icon: 'BarChart' },
 ] as const;
 
 export const getPermissionsByCategory = (category: string) => {
