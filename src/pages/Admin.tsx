@@ -49,6 +49,7 @@ import AutoScoreSyncManager from "@/components/AutoScoreSyncManager";
 import { useStreamingServerCounts } from "@/hooks/useStreamingServerCounts";
 import SitemapManager from "@/components/SitemapManager";
 import SponsorNoticeManager from "@/components/SponsorNoticeManager";
+import UserRolesManager from "@/components/UserRolesManager";
 
 
 const Admin = () => {
@@ -265,6 +266,8 @@ const Admin = () => {
     custom_footer_code: '',
     // Banner slider settings
     slider_duration_seconds: 6,
+    // Admin slug
+    admin_slug: 'admin',
   });
   
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -307,6 +310,7 @@ const Admin = () => {
         custom_header_code: siteSettings.custom_header_code || '',
         custom_footer_code: siteSettings.custom_footer_code || '',
         slider_duration_seconds: (siteSettings as any).slider_duration_seconds || 6,
+        admin_slug: (siteSettings as any).admin_slug || 'admin',
       });
     }
   }, [siteSettings]);
@@ -1371,6 +1375,9 @@ const Admin = () => {
                 </TabsTrigger>
                 <TabsTrigger value="settings" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                   Settings
+                </TabsTrigger>
+                <TabsTrigger value="users" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                  Users
                 </TabsTrigger>
               </TabsList>
             </div>
@@ -4016,6 +4023,27 @@ const Admin = () => {
                   <PasswordChangeDialog open={passwordDialogOpen} onOpenChange={setPasswordDialogOpen} />
                 </div>
               )}
+            </TabsContent>
+
+            {/* Users Tab */}
+            <TabsContent value="users" className="space-y-6">
+              <UserRolesManager 
+                adminSlug={siteSettingsForm.admin_slug}
+                onAdminSlugChange={(slug) => setSiteSettingsForm({ ...siteSettingsForm, admin_slug: slug })}
+                onSaveAdminSlug={async () => {
+                  if (!siteSettings?.id) return;
+                  try {
+                    await updateSiteSettings.mutateAsync({
+                      id: siteSettings.id,
+                      admin_slug: siteSettingsForm.admin_slug,
+                    } as any);
+                    toast({ title: "Admin URL saved successfully" });
+                  } catch (error: any) {
+                    toast({ title: "Error", description: error.message, variant: "destructive" });
+                  }
+                }}
+                isSaving={updateSiteSettings.isPending}
+              />
             </TabsContent>
           </Tabs>
         </div>

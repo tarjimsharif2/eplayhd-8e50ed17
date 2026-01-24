@@ -2,10 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useParams, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 import CustomCodeInjector from "@/components/CustomCodeInjector";
 import GoogleAnalyticsProvider from "@/components/GoogleAnalyticsProvider";
 import Index from "./pages/Index";
@@ -17,6 +18,26 @@ import DynamicPage from "./pages/DynamicPage";
 import AdsTxt from "./pages/AdsTxt";
 import Sitemap from "./pages/Sitemap";
 import NotFound from "./pages/NotFound";
+
+// Dynamic admin route handler - redirects to Admin if slug matches
+const DynamicAdminRoute = () => {
+  const { dynamicAdmin } = useParams();
+  const { data: settings, isLoading } = usePublicSiteSettings();
+  
+  // If loading, show nothing (avoid flash)
+  if (isLoading) return null;
+  
+  // Check if the current route matches the custom admin slug
+  const adminSlug = settings?.admin_slug || 'admin';
+  
+  if (dynamicAdmin === adminSlug && dynamicAdmin !== 'admin') {
+    // Render admin page for custom slug
+    return <Admin />;
+  }
+  
+  // Not an admin route - show 404
+  return <NotFound />;
+};
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,6 +71,7 @@ const App = () => (
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/admin" element={<Admin />} />
+                  <Route path="/admin/*" element={<Admin />} />
                   <Route path="/auth" element={<Auth />} />
                   <Route path="/match/:slug" element={<MatchPage />} />
                   <Route path="/tournament/:slug" element={<TournamentPage />} />
@@ -58,6 +80,8 @@ const App = () => (
                   <Route path="/ads.txt/*" element={<AdsTxt />} />
                   {/* Handle /sitemap.xml */}
                   <Route path="/sitemap.xml" element={<Sitemap />} />
+                  {/* Dynamic admin routes - use the slug from site settings */}
+                  <Route path="/:dynamicAdmin" element={<DynamicAdminRoute />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
               </GoogleAnalyticsProvider>

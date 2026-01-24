@@ -43,6 +43,8 @@ export interface PublicSiteSettings {
   custom_footer_code: string | null;
   // Banner slider settings
   slider_duration_seconds: number | null;
+  // Admin slug
+  admin_slug: string | null;
 }
 
 export const usePublicSiteSettings = () => {
