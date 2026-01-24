@@ -64,6 +64,19 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
   const [selectedRoleForEdit, setSelectedRoleForEdit] = useState<CustomRole | null>(null);
   const [editedRolePermissions, setEditedRolePermissions] = useState<string[]>([]);
   const [editedUserPermissions, setEditedUserPermissions] = useState<{ permission: string; granted: boolean }[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+
+  // Founder admin ID - cannot be deleted
+  const FOUNDER_ADMIN_ID = "e92b51a9-0059-459e-8a5a-838030bc7f97";
+
+  // Get current user ID
+  useState(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) {
+        setCurrentUserId(data.user.id);
+      }
+    });
+  });
   
   // Create user dialog state
   const [createUserDialogOpen, setCreateUserDialogOpen] = useState(false);
@@ -190,6 +203,25 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
   // Delete user function
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
+
+    // Extra protection: prevent deleting founder admin or self
+    if (userToDelete.id === FOUNDER_ADMIN_ID) {
+      toast({
+        title: "Error",
+        description: "Cannot delete the founder admin account",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (userToDelete.id === currentUserId) {
+      toast({
+        title: "Error",
+        description: "Cannot delete your own account",
+        variant: "destructive"
+      });
+      return;
+    }
 
     setIsDeletingUser(true);
     try {
@@ -573,9 +605,25 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                   <TableBody>
                     {filteredUsers.map((user) => {
                       const userRole = getRoleByName(user.role);
+                      const isFounder = user.id === FOUNDER_ADMIN_ID;
+                      const isCurrentUser = user.id === currentUserId;
                       return (
                         <TableRow key={user.id}>
-                          <TableCell className="font-medium">{user.email || 'N/A'}</TableCell>
+                          <TableCell className="font-medium">
+                            <div className="flex items-center gap-2">
+                              {user.email || 'N/A'}
+                              {isFounder && (
+                                <Badge variant="outline" className="text-xs border-primary text-primary">
+                                  Founder
+                                </Badge>
+                              )}
+                              {isCurrentUser && (
+                                <Badge variant="outline" className="text-xs">
+                                  You
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             <Badge 
                               style={{ 
@@ -619,16 +667,19 @@ const UserRolesManager = ({ adminSlug, onAdminSlugChange, onSaveAdminSlug, isSav
                             >
                               <UserCog className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => {
-                                setUserToDelete(user);
-                                setDeleteUserDialogOpen(true);
-                              }}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
+                            {/* Delete button - hidden for founder admin and current user */}
+                            {user.id !== FOUNDER_ADMIN_ID && user.id !== currentUserId && (
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                onClick={() => {
+                                  setUserToDelete(user);
+                                  setDeleteUserDialogOpen(true);
+                                }}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            )}
                           </TableCell>
                         </TableRow>
                       );
