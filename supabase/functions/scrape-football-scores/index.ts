@@ -5,6 +5,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface GoalEvent {
+  player: string;
+  minute: string;
+  assist?: string;
+  type: 'goal' | 'penalty' | 'own_goal';
+}
+
 interface FootballMatch {
   homeTeam: string;
   awayTeam: string;
@@ -15,6 +22,8 @@ interface FootballMatch {
   competition: string | null;
   matchUrl: string | null;
   startTime: string | null;
+  homeGoals?: GoalEvent[];
+  awayGoals?: GoalEvent[];
 }
 
 // ESPN API endpoints for different leagues
@@ -87,6 +96,52 @@ async function fetchESPNScores(league: string = 'epl'): Promise<FootballMatch[]>
         status = statusType === 'STATUS_POSTPONED' ? 'Postponed' : 'Scheduled';
       }
       
+      // Parse goal details from competition details
+      const homeGoals: GoalEvent[] = [];
+      const awayGoals: GoalEvent[] = [];
+      
+      // Get goal details from details array
+      const details = competition.details || [];
+      for (const detail of details) {
+        if (detail.type?.text === 'Goal' || detail.type?.id === '8' || 
+            detail.type?.text === 'Penalty - Scored' || detail.type?.id === '58' ||
+            detail.type?.text === 'Own Goal' || detail.type?.id === '25') {
+          
+          const goalEvent: GoalEvent = {
+            player: detail.athletesInvolved?.[0]?.displayName || detail.athletesInvolved?.[0]?.fullName || 'Unknown',
+            minute: detail.clock?.displayValue || detail.time?.displayValue || '',
+            type: detail.type?.text?.includes('Penalty') ? 'penalty' : 
+                  detail.type?.text?.includes('Own') ? 'own_goal' : 'goal',
+          };
+          
+          // Check for assist
+          if (detail.athletesInvolved?.length > 1) {
+            goalEvent.assist = detail.athletesInvolved[1]?.displayName || detail.athletesInvolved[1]?.fullName;
+          }
+          
+          // Determine which team scored
+          const teamId = detail.team?.id;
+          if (teamId === homeTeam.team?.id) {
+            homeGoals.push(goalEvent);
+          } else if (teamId === awayTeam.team?.id) {
+            awayGoals.push(goalEvent);
+          }
+        }
+      }
+      
+      // Also try to get scorers from linescores if details not available
+      if (homeGoals.length === 0 && awayGoals.length === 0) {
+        // Check scorer info from headlines/notes
+        const headlines = competition.headlines || [];
+        for (const headline of headlines) {
+          if (headline.type === 'Key Plays' || headline.type === 'Recap') {
+            // Parse scorer names from headline description
+            const description = headline.shortLinkText || headline.description || '';
+            console.log(`Match headline: ${description}`);
+          }
+        }
+      }
+      
       matches.push({
         homeTeam: homeTeam.team?.displayName || homeTeam.team?.name || 'Unknown',
         awayTeam: awayTeam.team?.displayName || awayTeam.team?.name || 'Unknown',
@@ -97,6 +152,8 @@ async function fetchESPNScores(league: string = 'epl'): Promise<FootballMatch[]>
         competition: data.leagues?.[0]?.name || event.name || null,
         matchUrl: event.links?.[0]?.href || null,
         startTime: event.date || null,
+        homeGoals: homeGoals.length > 0 ? homeGoals : undefined,
+        awayGoals: awayGoals.length > 0 ? awayGoals : undefined,
       });
     }
     
