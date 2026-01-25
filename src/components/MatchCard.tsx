@@ -7,6 +7,7 @@ import { MapPin, Clock, Star, Calendar } from "lucide-react";
 import TossCoin from "@/components/TossCoin";
 import InningsDisplay from "@/components/InningsDisplay";
 import FlipClock from "@/components/FlipClock";
+import FootballTimer from "@/components/FootballTimer";
 import { useMatchToss } from "@/hooks/useMatchToss";
 
 interface MatchCardProps {
@@ -460,10 +461,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                                 <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 text-[9px] px-1.5 py-0">
                                   ET 2nd
                                 </Badge>
-                                <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                  <span className="text-xs font-bold text-red-500 font-mono">{formatTime(minute, matchSeconds)}</span>
-                                </div>
+                                <FootballTimer minute={minute} seconds={matchSeconds} />
                               </div>
                             );
                           }
@@ -475,10 +473,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                                 <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 text-[9px] px-1.5 py-0">
                                   ET 1st
                                 </Badge>
-                                <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                  <span className="text-xs font-bold text-red-500 font-mono">{formatTime(minute, matchSeconds)}</span>
-                                </div>
+                                <FootballTimer minute={minute} seconds={matchSeconds} />
                               </div>
                             );
                           }
@@ -488,10 +483,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                             return (
                               <div className="flex flex-col items-center gap-0.5 mt-1">
                                 <span className="text-[9px] text-muted-foreground font-medium">2nd Half</span>
-                                <div className="flex items-center gap-1">
-                                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                  <span className="text-xs font-bold text-red-500 font-mono">{formatTime(minute, matchSeconds)}</span>
-                                </div>
+                                <FootballTimer minute={minute} seconds={matchSeconds} />
                               </div>
                             );
                           }
@@ -500,10 +492,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                           return (
                             <div className="flex flex-col items-center gap-0.5 mt-1">
                               <span className="text-[9px] text-muted-foreground font-medium">1st Half</span>
-                              <div className="flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                <span className="text-xs font-bold text-red-500 font-mono">{formatTime(minute, matchSeconds)}</span>
-                              </div>
+                              <FootballTimer minute={minute} seconds={matchSeconds} />
                             </div>
                           );
                         })()
