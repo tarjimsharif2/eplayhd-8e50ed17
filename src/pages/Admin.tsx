@@ -24,7 +24,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe, CloudDownload, Radio, Map } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe, CloudDownload, Radio, Map, Zap } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
@@ -2091,6 +2091,23 @@ const Admin = () => {
                         <Switch
                           checked={matchForm.api_score_enabled}
                           onCheckedChange={(checked) => setMatchForm({ ...matchForm, api_score_enabled: checked })}
+                        />
+                      </div>
+
+                      {/* Football Auto-Sync Toggle */}
+                      <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm bg-muted/20">
+                        <div className="space-y-0.5">
+                          <Label className="text-base font-medium flex items-center gap-2">
+                            <Zap className="w-4 h-4 text-yellow-500" />
+                            Football Auto-Sync (ESPN)
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            Automatically sync live football scores from ESPN API every 60 seconds
+                          </p>
+                        </div>
+                        <Switch
+                          checked={matchForm.auto_sync_enabled}
+                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, auto_sync_enabled: checked })}
                         />
                       </div>
 
