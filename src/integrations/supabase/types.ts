@@ -391,6 +391,8 @@ export type Database = {
           created_at: string
           cricbuzz_match_id: string | null
           day_start_time: string | null
+          goals_team_a: Json | null
+          goals_team_b: Json | null
           id: string
           is_active: boolean | null
           is_priority: boolean | null
@@ -433,6 +435,8 @@ export type Database = {
           created_at?: string
           cricbuzz_match_id?: string | null
           day_start_time?: string | null
+          goals_team_a?: Json | null
+          goals_team_b?: Json | null
           id?: string
           is_active?: boolean | null
           is_priority?: boolean | null
@@ -475,6 +479,8 @@ export type Database = {
           created_at?: string
           cricbuzz_match_id?: string | null
           day_start_time?: string | null
+          goals_team_a?: Json | null
+          goals_team_b?: Json | null
           id?: string
           is_active?: boolean | null
           is_priority?: boolean | null

@@ -350,79 +350,123 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
             const isFootball = sportName.toLowerCase() === 'football' || sportName.toLowerCase() === 'soccer';
             const hasFootballScore = isFootball && (match.score_a || match.score_b);
             
+            // Parse goal data from match
+            const goalsTeamA = (match as any).goals_team_a || [];
+            const goalsTeamB = (match as any).goals_team_b || [];
+            
             if (isFootball && hasFootballScore && (displayStatus === 'live' || displayStatus === 'completed')) {
               // Football Score Display - Horizontal layout with scores
               return (
-                <div className="flex items-center justify-center gap-3 py-3">
-                  {/* Team A with Score */}
-                  <div className="flex items-center gap-3">
-                    <div className="flex flex-col items-center gap-1">
-                      <div 
-                        className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center p-1.5 ${
-                          teamA.logo_background_color 
-                            ? 'border border-border/30' 
-                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
-                        }`}
-                        style={teamA.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
-                      >
-                        {teamA.logo_url ? (
-                          <img src={teamA.logo_url} alt={teamA.name} className="w-full h-full object-contain" />
-                        ) : (
-                          <span className="font-display text-base text-primary">{getInitials(teamA.name)}</span>
-                        )}
+                <div className="py-3">
+                  <div className="flex items-center justify-center gap-3">
+                    {/* Team A with Score */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex flex-col items-center gap-1">
+                        <div 
+                          className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center p-1.5 ${
+                            teamA.logo_background_color 
+                              ? 'border border-border/30' 
+                              : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                          }`}
+                          style={teamA.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
+                        >
+                          {teamA.logo_url ? (
+                            <img src={teamA.logo_url} alt={teamA.name} className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="font-display text-base text-primary">{getInitials(teamA.name)}</span>
+                          )}
+                        </div>
+                        <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[70px] line-clamp-1">{teamA.short_name || teamA.name}</span>
                       </div>
-                      <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[70px] line-clamp-1">{teamA.short_name || teamA.name}</span>
+                      {/* Score A */}
+                      <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_a || '0'}</span>
                     </div>
-                    {/* Score A */}
-                    <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_a || '0'}</span>
-                  </div>
 
-                  {/* Score Separator with Match Status */}
-                  <div className="flex flex-col items-center">
-                    <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
-                    {/* Half Time indicator */}
-                    {displayStatus === 'live' && match.match_minute === 45 && (
-                      <Badge className="mt-1 bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px] px-2 py-0.5">
-                        HT
-                      </Badge>
-                    )}
-                    {/* Live minute (not HT) */}
-                    {displayStatus === 'live' && match.match_minute != null && match.match_minute !== 45 && (
-                      <div className="flex items-center gap-1 mt-1">
-                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                        <span className="text-xs font-bold text-red-500">{match.match_minute}'</span>
-                      </div>
-                    )}
-                    {/* Full Time indicator for completed matches */}
-                    {displayStatus === 'completed' && (
-                      <Badge className="mt-1 bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5">
-                        FT
-                      </Badge>
-                    )}
-                  </div>
+                    {/* Score Separator with Match Status */}
+                    <div className="flex flex-col items-center">
+                      <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
+                      {/* Half Time indicator */}
+                      {displayStatus === 'live' && match.match_minute === 45 && (
+                        <Badge className="mt-1 bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px] px-2 py-0.5">
+                          HT
+                        </Badge>
+                      )}
+                      {/* Live minute (not HT) */}
+                      {displayStatus === 'live' && match.match_minute != null && match.match_minute !== 45 && (
+                        <div className="flex items-center gap-1 mt-1">
+                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                          <span className="text-xs font-bold text-red-500">{match.match_minute}'</span>
+                        </div>
+                      )}
+                      {/* Full Time indicator for completed matches */}
+                      {displayStatus === 'completed' && (
+                        <Badge className="mt-1 bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5">
+                          FT
+                        </Badge>
+                      )}
+                    </div>
 
-                  {/* Team B with Score */}
-                  <div className="flex items-center gap-3">
-                    {/* Score B */}
-                    <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_b || '0'}</span>
-                    <div className="flex flex-col items-center gap-1">
-                      <div 
-                        className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center p-1.5 ${
-                          teamB.logo_background_color 
-                            ? 'border border-border/30' 
-                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
-                        }`}
-                        style={teamB.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
-                      >
-                        {teamB.logo_url ? (
-                          <img src={teamB.logo_url} alt={teamB.name} className="w-full h-full object-contain" />
-                        ) : (
-                          <span className="font-display text-base text-primary">{getInitials(teamB.name)}</span>
-                        )}
+                    {/* Team B with Score */}
+                    <div className="flex items-center gap-3">
+                      {/* Score B */}
+                      <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_b || '0'}</span>
+                      <div className="flex flex-col items-center gap-1">
+                        <div 
+                          className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center p-1.5 ${
+                            teamB.logo_background_color 
+                              ? 'border border-border/30' 
+                              : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                          }`}
+                          style={teamB.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
+                        >
+                          {teamB.logo_url ? (
+                            <img src={teamB.logo_url} alt={teamB.name} className="w-full h-full object-contain" />
+                          ) : (
+                            <span className="font-display text-base text-primary">{getInitials(teamB.name)}</span>
+                          )}
+                        </div>
+                        <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[70px] line-clamp-1">{teamB.short_name || teamB.name}</span>
                       </div>
-                      <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[70px] line-clamp-1">{teamB.short_name || teamB.name}</span>
                     </div>
                   </div>
+                  
+                  {/* Goal Scorers Section */}
+                  {(goalsTeamA.length > 0 || goalsTeamB.length > 0) && (
+                    <div className="mt-3 pt-3 border-t border-border/20">
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        {/* Team A Goals */}
+                        <div className="space-y-1">
+                          {goalsTeamA.map((goal: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-1 text-muted-foreground">
+                              <span className="text-green-500">⚽</span>
+                              <span className="font-medium text-foreground truncate">{goal.player}</span>
+                              <span className="text-primary/80">{goal.minute}</span>
+                              {goal.assist && (
+                                <span className="text-muted-foreground/70 truncate">({goal.assist})</span>
+                              )}
+                              {goal.type === 'penalty' && <span className="text-yellow-500">(P)</span>}
+                              {goal.type === 'own_goal' && <span className="text-red-500">(OG)</span>}
+                            </div>
+                          ))}
+                        </div>
+                        {/* Team B Goals */}
+                        <div className="space-y-1 text-right">
+                          {goalsTeamB.map((goal: any, idx: number) => (
+                            <div key={idx} className="flex items-center gap-1 justify-end text-muted-foreground">
+                              {goal.type === 'penalty' && <span className="text-yellow-500">(P)</span>}
+                              {goal.type === 'own_goal' && <span className="text-red-500">(OG)</span>}
+                              {goal.assist && (
+                                <span className="text-muted-foreground/70 truncate">({goal.assist})</span>
+                              )}
+                              <span className="text-primary/80">{goal.minute}</span>
+                              <span className="font-medium text-foreground truncate">{goal.player}</span>
+                              <span className="text-green-500">⚽</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             }

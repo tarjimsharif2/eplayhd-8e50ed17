@@ -185,6 +185,10 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
           const newScoreA = isReversed ? matchedApi.awayScore : matchedApi.homeScore;
           const newScoreB = isReversed ? matchedApi.homeScore : matchedApi.awayScore;
           
+          // Get goal events (swap if reversed)
+          const goalsTeamA = isReversed ? matchedApi.awayGoals : matchedApi.homeGoals;
+          const goalsTeamB = isReversed ? matchedApi.homeGoals : matchedApi.awayGoals;
+          
           // Parse minute from API
           let newMinute: number | null = null;
           if (matchedApi.minute) {
@@ -207,14 +211,17 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
           const scoreChanged = newScoreA !== dbMatch.score_a || newScoreB !== dbMatch.score_b;
           const minuteChanged = newMinute !== null && newMinute !== dbMatch.match_minute;
           const statusChanged = newStatus !== dbMatch.status;
+          const hasGoalData = goalsTeamA?.length || goalsTeamB?.length;
 
-          if (scoreChanged || minuteChanged || statusChanged) {
+          if (scoreChanged || minuteChanged || statusChanged || hasGoalData) {
             const updateData: Record<string, unknown> = {};
             
             if (newScoreA !== null) updateData.score_a = newScoreA;
             if (newScoreB !== null) updateData.score_b = newScoreB;
             if (newMinute !== null) updateData.match_minute = newMinute;
             if (statusChanged) updateData.status = newStatus;
+            if (goalsTeamA) updateData.goals_team_a = goalsTeamA;
+            if (goalsTeamB) updateData.goals_team_b = goalsTeamB;
             updateData.last_api_sync = new Date().toISOString();
 
             const { error: updateError } = await supabase
