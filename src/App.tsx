@@ -93,8 +93,6 @@ const App = () => (
                   <Route path="/match/:slug" element={<MatchPage />} />
                   <Route path="/tournament/:slug" element={<TournamentPage />} />
                   <Route path="/page/:slug" element={<DynamicPage />} />
-                  {/* Also handle /live/:slug for dynamic pages (legacy support) */}
-                  <Route path="/live/:slug" element={<DynamicPage />} />
                   {/* Handle both /ads.txt and /ads.txt/ */}
                   <Route path="/ads.txt/*" element={<AdsTxt />} />
                   {/* Handle /sitemap.xml */}
