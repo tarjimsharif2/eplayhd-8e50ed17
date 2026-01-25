@@ -122,10 +122,12 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
     return CRICKET_FORMATS[match.match_format.toLowerCase()] || null;
   }, [match.match_format]);
 
-  // Check if it's a cricket match - also consider cricket formats
+  // Check if it's a cricket or football match - also consider cricket formats
   const sportName = match.sport?.name || match.tournament?.sport || 'Sport';
+  const sportLower = sportName.toLowerCase();
   const hasCricketFormat = match.match_format && Object.keys(CRICKET_FORMATS).includes(match.match_format.toLowerCase());
-  const isCricket = sportName.toLowerCase() === 'cricket' || hasCricketFormat;
+  const isCricket = sportLower.includes('cricket') || hasCricketFormat;
+  const isFootball = sportLower.includes('football') || sportLower.includes('soccer');
 
   // Fetch innings for cricket matches
   const { data: innings } = useMatchInnings(isCricket ? match.id : undefined);
@@ -347,7 +349,6 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
 
           {/* Check if it's a football match */}
           {(() => {
-            const isFootball = sportName.toLowerCase() === 'football' || sportName.toLowerCase() === 'soccer';
             const hasFootballScore = isFootball && (match.score_a || match.score_b);
             
             // Parse goal data from match - ensure arrays
