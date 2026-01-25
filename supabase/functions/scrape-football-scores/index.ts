@@ -12,6 +12,19 @@ interface GoalEvent {
   type: 'goal' | 'penalty' | 'own_goal';
 }
 
+interface SubstitutionEvent {
+  playerOut: string;
+  playerIn: string;
+  minute: string;
+}
+
+interface PlayerInfo {
+  name: string;
+  position: string;
+  jerseyNumber?: string;
+  isCaptain?: boolean;
+}
+
 interface FootballMatch {
   homeTeam: string;
   awayTeam: string;
@@ -22,8 +35,13 @@ interface FootballMatch {
   competition: string | null;
   matchUrl: string | null;
   startTime: string | null;
+  eventId?: string;
   homeGoals?: GoalEvent[];
   awayGoals?: GoalEvent[];
+  homeLineup?: PlayerInfo[];
+  awayLineup?: PlayerInfo[];
+  homeSubs?: SubstitutionEvent[];
+  awaySubs?: SubstitutionEvent[];
 }
 
 // ESPN API endpoints for different leagues
@@ -40,7 +58,91 @@ const ESPN_LEAGUES = {
 };
 
 // Fetch from ESPN public API
-async function fetchESPNScores(league: string = 'epl'): Promise<FootballMatch[]> {
+// Fetch match detail (lineup & substitutions) from ESPN
+async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
+  homeLineup?: PlayerInfo[];
+  awayLineup?: PlayerInfo[];
+  homeSubs?: SubstitutionEvent[];
+  awaySubs?: SubstitutionEvent[];
+} | null> {
+  try {
+    const detailUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/summary?event=${eventId}`;
+    console.log(`Fetching match details: ${detailUrl}`);
+    
+    const response = await fetch(detailUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json();
+    
+    const homeLineup: PlayerInfo[] = [];
+    const awayLineup: PlayerInfo[] = [];
+    const homeSubs: SubstitutionEvent[] = [];
+    const awaySubs: SubstitutionEvent[] = [];
+    
+    // Parse rosters/lineups
+    const rosters = data.rosters || [];
+    for (const roster of rosters) {
+      const isHome = roster.homeAway === 'home';
+      const lineup = isHome ? homeLineup : awayLineup;
+      
+      for (const entry of roster.roster || []) {
+        const player = entry.athlete;
+        if (player && entry.starter) {
+          lineup.push({
+            name: player.displayName || player.fullName || 'Unknown',
+            position: entry.position?.abbreviation || player.position?.abbreviation || '',
+            jerseyNumber: player.jersey || entry.jersey,
+            isCaptain: entry.captain || false,
+          });
+        }
+      }
+    }
+    
+    // Parse substitutions from keyEvents or plays
+    const keyEvents = data.keyEvents || [];
+    for (const event of keyEvents) {
+      if (event.type?.text === 'Substitution' || event.type?.id === '18') {
+        const teamId = event.team?.id;
+        const competition = data.header?.competitions?.[0];
+        const competitors = competition?.competitors || [];
+        
+        const homeTeam = competitors.find((c: { homeAway: string }) => c.homeAway === 'home');
+        const isHome = teamId === homeTeam?.team?.id;
+        
+        const subsList = isHome ? homeSubs : awaySubs;
+        
+        // Get players from athletesInvolved (usually [playerOut, playerIn])
+        const athletes = event.athletesInvolved || [];
+        if (athletes.length >= 2) {
+          subsList.push({
+            playerOut: athletes[0]?.displayName || athletes[0]?.fullName || 'Unknown',
+            playerIn: athletes[1]?.displayName || athletes[1]?.fullName || 'Unknown',
+            minute: event.clock?.displayValue || event.time?.displayValue || '',
+          });
+        }
+      }
+    }
+    
+    return {
+      homeLineup: homeLineup.length > 0 ? homeLineup : undefined,
+      awayLineup: awayLineup.length > 0 ? awayLineup : undefined,
+      homeSubs: homeSubs.length > 0 ? homeSubs : undefined,
+      awaySubs: awaySubs.length > 0 ? awaySubs : undefined,
+    };
+    
+  } catch (error) {
+    console.error('Error fetching match details:', error);
+    return null;
+  }
+}
+
+async function fetchESPNScores(league: string = 'epl', includeDetails: boolean = false): Promise<FootballMatch[]> {
   const matches: FootballMatch[] = [];
   const leagueCode = ESPN_LEAGUES[league as keyof typeof ESPN_LEAGUES] || league;
   
@@ -129,20 +231,8 @@ async function fetchESPNScores(league: string = 'epl'): Promise<FootballMatch[]>
         }
       }
       
-      // Also try to get scorers from linescores if details not available
-      if (homeGoals.length === 0 && awayGoals.length === 0) {
-        // Check scorer info from headlines/notes
-        const headlines = competition.headlines || [];
-        for (const headline of headlines) {
-          if (headline.type === 'Key Plays' || headline.type === 'Recap') {
-            // Parse scorer names from headline description
-            const description = headline.shortLinkText || headline.description || '';
-            console.log(`Match headline: ${description}`);
-          }
-        }
-      }
-      
-      matches.push({
+      // Build match object
+      const matchObj: FootballMatch = {
         homeTeam: homeTeam.team?.displayName || homeTeam.team?.name || 'Unknown',
         awayTeam: awayTeam.team?.displayName || awayTeam.team?.name || 'Unknown',
         homeScore: homeTeam.score?.toString() || null,
@@ -152,9 +242,23 @@ async function fetchESPNScores(league: string = 'epl'): Promise<FootballMatch[]>
         competition: data.leagues?.[0]?.name || event.name || null,
         matchUrl: event.links?.[0]?.href || null,
         startTime: event.date || null,
+        eventId: event.id,
         homeGoals: homeGoals.length > 0 ? homeGoals : undefined,
         awayGoals: awayGoals.length > 0 ? awayGoals : undefined,
-      });
+      };
+      
+      // Fetch detailed lineup & subs if requested and match is live or completed
+      if (includeDetails && (status === 'Live' || status === 'Half Time' || status === 'Completed')) {
+        const matchDetails = await fetchMatchDetails(event.id, leagueCode);
+        if (matchDetails) {
+          matchObj.homeLineup = matchDetails.homeLineup;
+          matchObj.awayLineup = matchDetails.awayLineup;
+          matchObj.homeSubs = matchDetails.homeSubs;
+          matchObj.awaySubs = matchDetails.awaySubs;
+        }
+      }
+      
+      matches.push(matchObj);
     }
     
   } catch (error) {
@@ -165,11 +269,11 @@ async function fetchESPNScores(league: string = 'epl'): Promise<FootballMatch[]>
 }
 
 // Fetch all major leagues at once
-async function fetchAllLeagues(): Promise<FootballMatch[]> {
+async function fetchAllLeagues(includeDetails: boolean = false): Promise<FootballMatch[]> {
   const allMatches: FootballMatch[] = [];
   const leaguesToFetch = ['epl', 'laliga', 'bundesliga', 'seriea', 'ligue1', 'ucl'];
   
-  const promises = leaguesToFetch.map(league => fetchESPNScores(league));
+  const promises = leaguesToFetch.map(league => fetchESPNScores(league, includeDetails));
   const results = await Promise.all(promises);
   
   for (const matches of results) {
@@ -309,21 +413,21 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { url, league, allLeagues, matchId } = body;
+    const { url, league, allLeagues, matchId, includeDetails } = body;
 
-    console.log(`Football scores request - league: ${league}, allLeagues: ${allLeagues}, url: ${url}`);
+    console.log(`Football scores request - league: ${league}, allLeagues: ${allLeagues}, includeDetails: ${includeDetails}, url: ${url}`);
 
     let matches: FootballMatch[] = [];
 
     // Option 1: Fetch all major leagues
     if (allLeagues) {
       console.log('Fetching all major leagues...');
-      matches = await fetchAllLeagues();
+      matches = await fetchAllLeagues(includeDetails === true);
     }
     // Option 2: Fetch specific league from ESPN
     else if (league) {
       console.log(`Fetching league: ${league}`);
-      matches = await fetchESPNScores(league);
+      matches = await fetchESPNScores(league, includeDetails === true);
     }
     // Option 3: Scrape from custom URL (fallback)
     else if (url) {
@@ -359,7 +463,7 @@ serve(async (req) => {
     // Default: Fetch EPL
     else {
       console.log('No parameters, fetching EPL by default');
-      matches = await fetchESPNScores('epl');
+      matches = await fetchESPNScores('epl', includeDetails === true);
     }
 
     // Filter to only live matches if requested

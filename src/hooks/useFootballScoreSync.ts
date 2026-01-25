@@ -10,6 +10,19 @@ interface GoalEvent {
   type: 'goal' | 'penalty' | 'own_goal';
 }
 
+interface SubstitutionEvent {
+  playerOut: string;
+  playerIn: string;
+  minute: string;
+}
+
+interface PlayerInfo {
+  name: string;
+  position: string;
+  jerseyNumber?: string;
+  isCaptain?: boolean;
+}
+
 interface FootballMatch {
   homeTeam: string;
   awayTeam: string;
@@ -21,6 +34,10 @@ interface FootballMatch {
   startTime: string | null;
   homeGoals?: GoalEvent[];
   awayGoals?: GoalEvent[];
+  homeLineup?: PlayerInfo[];
+  awayLineup?: PlayerInfo[];
+  homeSubs?: SubstitutionEvent[];
+  awaySubs?: SubstitutionEvent[];
 }
 
 interface SyncResult {
@@ -143,10 +160,10 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
 
       console.log(`[Football Sync] Found ${footballMatches.length} live football matches`);
 
-      // Fetch scores from ESPN API (all leagues)
+      // Fetch scores from ESPN API (all leagues) with details for lineup/subs
       const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
         'scrape-football-scores',
-        { body: { allLeagues: true } }
+        { body: { allLeagues: true, includeDetails: true } }
       );
 
       if (apiError || !apiResponse?.success) {
@@ -163,6 +180,8 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
         const teamAShort = dbMatch.team_a?.short_name || '';
         const teamBName = dbMatch.team_b?.name || '';
         const teamBShort = dbMatch.team_b?.short_name || '';
+        const teamAId = dbMatch.team_a_id;
+        const teamBId = dbMatch.team_b_id;
 
         // Find matching API match
         const apiMatch = apiMatches.find(api => {
@@ -189,6 +208,14 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
           const goalsTeamA = isReversed ? matchedApi.awayGoals : matchedApi.homeGoals;
           const goalsTeamB = isReversed ? matchedApi.homeGoals : matchedApi.awayGoals;
           
+          // Get lineup (swap if reversed)
+          const lineupTeamA = isReversed ? matchedApi.awayLineup : matchedApi.homeLineup;
+          const lineupTeamB = isReversed ? matchedApi.homeLineup : matchedApi.awayLineup;
+          
+          // Get substitutions (swap if reversed)
+          const subsTeamA = isReversed ? matchedApi.awaySubs : matchedApi.homeSubs;
+          const subsTeamB = isReversed ? matchedApi.homeSubs : matchedApi.awaySubs;
+          
           // Parse minute from API
           let newMinute: number | null = null;
           if (matchedApi.minute) {
@@ -212,6 +239,8 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
           const minuteChanged = newMinute !== null && newMinute !== dbMatch.match_minute;
           const statusChanged = newStatus !== dbMatch.status;
           const hasGoalData = goalsTeamA?.length || goalsTeamB?.length;
+          const hasLineupData = lineupTeamA?.length || lineupTeamB?.length;
+          const hasSubsData = subsTeamA?.length || subsTeamB?.length;
 
           if (scoreChanged || minuteChanged || statusChanged || hasGoalData) {
             const updateData: Record<string, unknown> = {};
@@ -244,6 +273,132 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
               });
             }
           }
+          
+          // Sync lineup data to match_playing_xi table
+          if (hasLineupData) {
+            try {
+              // Check if lineup already exists
+              const { data: existingLineup } = await supabase
+                .from('match_playing_xi')
+                .select('id')
+                .eq('match_id', dbMatch.id)
+                .limit(1);
+              
+              // Only insert if no lineup exists
+              if (!existingLineup || existingLineup.length === 0) {
+                const lineupInserts = [];
+                
+                // Team A lineup
+                if (lineupTeamA) {
+                  for (let i = 0; i < lineupTeamA.length; i++) {
+                    const player = lineupTeamA[i];
+                    lineupInserts.push({
+                      match_id: dbMatch.id,
+                      team_id: teamAId,
+                      player_name: player.name,
+                      player_role: player.position || null,
+                      batting_order: i + 1,
+                      is_captain: player.isCaptain || false,
+                      is_vice_captain: false,
+                    });
+                  }
+                }
+                
+                // Team B lineup
+                if (lineupTeamB) {
+                  for (let i = 0; i < lineupTeamB.length; i++) {
+                    const player = lineupTeamB[i];
+                    lineupInserts.push({
+                      match_id: dbMatch.id,
+                      team_id: teamBId,
+                      player_name: player.name,
+                      player_role: player.position || null,
+                      batting_order: i + 1,
+                      is_captain: player.isCaptain || false,
+                      is_vice_captain: false,
+                    });
+                  }
+                }
+                
+                if (lineupInserts.length > 0) {
+                  const { error: lineupError } = await supabase
+                    .from('match_playing_xi')
+                    .insert(lineupInserts);
+                  
+                  if (lineupError) {
+                    console.error(`[Football Sync] Error inserting lineup:`, lineupError);
+                  } else {
+                    console.log(`[Football Sync] Inserted ${lineupInserts.length} players for ${teamAName} vs ${teamBName}`);
+                  }
+                }
+              }
+            } catch (lineupErr) {
+              console.error('[Football Sync] Lineup sync error:', lineupErr);
+            }
+          }
+          
+          // Sync substitution data to match_substitutions table
+          if (hasSubsData) {
+            try {
+              // Get existing subs count
+              const { data: existingSubs } = await supabase
+                .from('match_substitutions')
+                .select('id, minute, player_in')
+                .eq('match_id', dbMatch.id);
+              
+              const existingSubsSet = new Set(
+                (existingSubs || []).map(s => `${s.minute}-${s.player_in}`)
+              );
+              
+              const subsInserts = [];
+              
+              // Team A subs
+              if (subsTeamA) {
+                for (const sub of subsTeamA) {
+                  const key = `${sub.minute}-${sub.playerIn}`;
+                  if (!existingSubsSet.has(key)) {
+                    subsInserts.push({
+                      match_id: dbMatch.id,
+                      team_id: teamAId,
+                      player_out: sub.playerOut,
+                      player_in: sub.playerIn,
+                      minute: sub.minute,
+                    });
+                  }
+                }
+              }
+              
+              // Team B subs
+              if (subsTeamB) {
+                for (const sub of subsTeamB) {
+                  const key = `${sub.minute}-${sub.playerIn}`;
+                  if (!existingSubsSet.has(key)) {
+                    subsInserts.push({
+                      match_id: dbMatch.id,
+                      team_id: teamBId,
+                      player_out: sub.playerOut,
+                      player_in: sub.playerIn,
+                      minute: sub.minute,
+                    });
+                  }
+                }
+              }
+              
+              if (subsInserts.length > 0) {
+                const { error: subsError } = await supabase
+                  .from('match_substitutions')
+                  .insert(subsInserts);
+                
+                if (subsError) {
+                  console.error(`[Football Sync] Error inserting subs:`, subsError);
+                } else {
+                  console.log(`[Football Sync] Inserted ${subsInserts.length} substitutions for ${teamAName} vs ${teamBName}`);
+                }
+              }
+            } catch (subsErr) {
+              console.error('[Football Sync] Subs sync error:', subsErr);
+            }
+          }
         } else {
           console.log(`[Football Sync] No API match found for ${teamAName} vs ${teamBName}`);
         }
@@ -252,6 +407,8 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
       // Invalidate queries to refresh UI
       if (results.length > 0) {
         queryClient.invalidateQueries({ queryKey: ['matches'] });
+        queryClient.invalidateQueries({ queryKey: ['playing_xi'] });
+        queryClient.invalidateQueries({ queryKey: ['substitutions'] });
       }
 
       console.log(`[Football Sync] Sync complete. Updated ${results.length} matches.`);
