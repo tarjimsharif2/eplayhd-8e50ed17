@@ -7,6 +7,7 @@ import LiveTournaments from "@/components/LiveTournaments";
 import { useMatches } from "@/hooks/useSportsData";
 import { useMatchStatusUpdater } from "@/hooks/useMatchStatusUpdater";
 import { useRealtimeLiveMatches } from "@/hooks/useRealtimeMatch";
+import { useFootballScoreSync } from "@/hooks/useFootballScoreSync";
 
 const Index = () => {
   const { data: matches } = useMatches();
@@ -16,6 +17,9 @@ const Index = () => {
   
   // Subscribe to real-time match updates
   useRealtimeLiveMatches();
+  
+  // Auto-sync football scores every 60 seconds
+  useFootballScoreSync(60);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
