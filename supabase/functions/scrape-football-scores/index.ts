@@ -14,9 +14,115 @@ interface FootballMatch {
   minute: string | null;
   competition: string | null;
   matchUrl: string | null;
+  startTime: string | null;
 }
 
-// Extract text content from HTML, removing tags
+// ESPN API endpoints for different leagues
+const ESPN_LEAGUES = {
+  'epl': 'eng.1',          // English Premier League
+  'laliga': 'esp.1',       // La Liga
+  'bundesliga': 'ger.1',   // Bundesliga
+  'seriea': 'ita.1',       // Serie A
+  'ligue1': 'fra.1',       // Ligue 1
+  'ucl': 'uefa.champions', // UEFA Champions League
+  'uel': 'uefa.europa',    // UEFA Europa League
+  'mls': 'usa.1',          // MLS
+  'worldcup': 'fifa.world',
+};
+
+// Fetch from ESPN public API
+async function fetchESPNScores(league: string = 'epl'): Promise<FootballMatch[]> {
+  const matches: FootballMatch[] = [];
+  const leagueCode = ESPN_LEAGUES[league as keyof typeof ESPN_LEAGUES] || league;
+  
+  try {
+    const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/scoreboard`;
+    console.log(`Fetching ESPN API: ${apiUrl}`);
+    
+    const response = await fetch(apiUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+    
+    if (!response.ok) {
+      console.error(`ESPN API error: ${response.status}`);
+      return matches;
+    }
+    
+    const data = await response.json();
+    console.log(`ESPN API returned ${data.events?.length || 0} events`);
+    
+    for (const event of data.events || []) {
+      const competition = event.competitions?.[0];
+      if (!competition) continue;
+      
+      const competitors = competition.competitors || [];
+      if (competitors.length < 2) continue;
+      
+      const homeTeam = competitors.find((c: { homeAway: string }) => c.homeAway === 'home');
+      const awayTeam = competitors.find((c: { homeAway: string }) => c.homeAway === 'away');
+      
+      if (!homeTeam || !awayTeam) continue;
+      
+      // Determine match status
+      let status = 'Scheduled';
+      let minute: string | null = null;
+      
+      const statusType = competition.status?.type?.name || '';
+      const statusDetail = competition.status?.type?.detail || '';
+      const displayClock = competition.status?.displayClock || '';
+      
+      if (statusType === 'STATUS_IN_PROGRESS') {
+        status = 'Live';
+        minute = displayClock || statusDetail;
+      } else if (statusType === 'STATUS_HALFTIME') {
+        status = 'Half Time';
+        minute = 'HT';
+      } else if (statusType === 'STATUS_FINAL' || statusType === 'STATUS_FULL_TIME') {
+        status = 'Completed';
+        minute = 'FT';
+      } else if (statusType === 'STATUS_SCHEDULED' || statusType === 'STATUS_POSTPONED') {
+        status = statusType === 'STATUS_POSTPONED' ? 'Postponed' : 'Scheduled';
+      }
+      
+      matches.push({
+        homeTeam: homeTeam.team?.displayName || homeTeam.team?.name || 'Unknown',
+        awayTeam: awayTeam.team?.displayName || awayTeam.team?.name || 'Unknown',
+        homeScore: homeTeam.score?.toString() || null,
+        awayScore: awayTeam.score?.toString() || null,
+        status,
+        minute,
+        competition: data.leagues?.[0]?.name || event.name || null,
+        matchUrl: event.links?.[0]?.href || null,
+        startTime: event.date || null,
+      });
+    }
+    
+  } catch (error) {
+    console.error('ESPN API error:', error);
+  }
+  
+  return matches;
+}
+
+// Fetch all major leagues at once
+async function fetchAllLeagues(): Promise<FootballMatch[]> {
+  const allMatches: FootballMatch[] = [];
+  const leaguesToFetch = ['epl', 'laliga', 'bundesliga', 'seriea', 'ligue1', 'ucl'];
+  
+  const promises = leaguesToFetch.map(league => fetchESPNScores(league));
+  const results = await Promise.all(promises);
+  
+  for (const matches of results) {
+    allMatches.push(...matches);
+  }
+  
+  return allMatches;
+}
+
+// Extract text content from HTML
 function extractText(html: string): string {
   return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
 }
@@ -32,18 +138,15 @@ function decodeHtmlEntities(text: string): string {
     .replace(/&nbsp;/g, ' ');
 }
 
-// Parse football scores from Footballdatabase.eu HTML
-function parseFootballDatabaseScores(html: string): FootballMatch[] {
+// Parse football scores from HTML (fallback for custom URLs)
+function parseHTMLScores(html: string): FootballMatch[] {
   const matches: FootballMatch[] = [];
   
   try {
-    console.log('Parsing Footballdatabase.eu HTML...');
-    
-    // Pattern 1: Look for match rows in tables (common structure)
+    // Pattern for table rows
     const rowPatterns = [
       /<tr[^>]*>([\s\S]*?)<\/tr>/gi,
       /<div[^>]*class="[^"]*(?:match|game|fixture|result)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-      /<li[^>]*class="[^"]*(?:match|game|fixture)[^"]*"[^>]*>([\s\S]*?)<\/li>/gi,
     ];
 
     const potentialMatches: string[] = [];
@@ -54,8 +157,6 @@ function parseFootballDatabaseScores(html: string): FootballMatch[] {
         potentialMatches.push(match[1]);
       }
     }
-
-    console.log(`Found ${potentialMatches.length} potential match containers`);
 
     for (const matchHtml of potentialMatches) {
       if (matchHtml.length < 50) continue;
@@ -99,9 +200,7 @@ function parseFootballDatabaseScores(html: string): FootballMatch[] {
         let status = 'Scheduled';
         let minute: string | null = null;
         
-        if (matchHtml.toLowerCase().includes('live') || 
-            matchHtml.includes("'") ||
-            matchHtml.toLowerCase().includes('in progress')) {
+        if (matchHtml.toLowerCase().includes('live') || matchHtml.includes("'")) {
           status = 'Live';
         }
         
@@ -133,90 +232,14 @@ function parseFootballDatabaseScores(html: string): FootballMatch[] {
             minute,
             competition: null,
             matchUrl: teamLinks[0].href.split('/club/')[0] || null,
+            startTime: null,
           });
         }
       }
     }
     
-    if (matches.length === 0) {
-      console.log('Trying fallback score pattern...');
-      
-      const directPattern = /([A-Za-zÀ-ÿ\s\-\.]+?)\s*(\d+)\s*[-–:]\s*(\d+)\s*([A-Za-zÀ-ÿ\s\-\.]+)/g;
-      let directMatch;
-      while ((directMatch = directPattern.exec(html)) !== null) {
-        const homeTeam = directMatch[1].trim();
-        const awayTeam = directMatch[4].trim();
-        
-        if (homeTeam.length >= 3 && homeTeam.length <= 40 &&
-            awayTeam.length >= 3 && awayTeam.length <= 40 &&
-            homeTeam !== awayTeam) {
-          
-          const exists = matches.some(m => 
-            m.homeTeam.toLowerCase() === homeTeam.toLowerCase() && 
-            m.awayTeam.toLowerCase() === awayTeam.toLowerCase()
-          );
-          
-          if (!exists) {
-            matches.push({
-              homeTeam: decodeHtmlEntities(homeTeam),
-              awayTeam: decodeHtmlEntities(awayTeam),
-              homeScore: directMatch[2],
-              awayScore: directMatch[3],
-              status: 'Found',
-              minute: null,
-              competition: null,
-              matchUrl: null,
-            });
-          }
-        }
-      }
-    }
-    
-    if (matches.length === 0) {
-      console.log('No matches found. HTML sample:', html.substring(0, 2000));
-    }
-    
   } catch (error) {
-    console.error('Error parsing scores:', error);
-  }
-  
-  return matches;
-}
-
-// Generic parser for other football sites
-function parseGenericScores(html: string): FootballMatch[] {
-  const matches: FootballMatch[] = [];
-  
-  try {
-    const jsonLdPattern = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
-    let jsonMatch;
-    while ((jsonMatch = jsonLdPattern.exec(html)) !== null) {
-      try {
-        const jsonData = JSON.parse(jsonMatch[1]);
-        if (jsonData['@type'] === 'SportsEvent' || 
-            jsonData['@type']?.includes?.('SportsEvent')) {
-          const homeTeam = jsonData.homeTeam?.name || jsonData.competitor?.[0]?.name;
-          const awayTeam = jsonData.awayTeam?.name || jsonData.competitor?.[1]?.name;
-          
-          if (homeTeam && awayTeam) {
-            matches.push({
-              homeTeam,
-              awayTeam,
-              homeScore: jsonData.homeTeam?.score?.toString() || null,
-              awayScore: jsonData.awayTeam?.score?.toString() || null,
-              status: jsonData.eventStatus || 'Scheduled',
-              minute: null,
-              competition: jsonData.name || null,
-              matchUrl: null,
-            });
-          }
-        }
-      } catch {
-        // Not valid JSON, skip
-      }
-    }
-  } catch (error) {
-    console.error('Error parsing generic scores:', error);
+    console.error('Error parsing HTML scores:', error);
   }
   
   return matches;
@@ -228,75 +251,78 @@ serve(async (req) => {
   }
 
   try {
-    const { url, matchId, debug } = await req.json();
+    const body = await req.json();
+    const { url, league, allLeagues, matchId } = body;
 
-    if (!url) {
-      return new Response(
-        JSON.stringify({ error: 'URL is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`Scraping football scores from: ${url}`);
-
-    const headers: HeadersInit = {
-      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-      'Accept-Language': 'en-US,en;q=0.5',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Cache-Control': 'no-cache',
-    };
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-
-    const response = await fetch(url, {
-      headers,
-      signal: controller.signal,
-      redirect: 'follow',
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      return new Response(
-        JSON.stringify({ error: `Failed to fetch page: ${response.status}` }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    const html = await response.text();
-    console.log(`Fetched ${html.length} bytes`);
+    console.log(`Football scores request - league: ${league}, allLeagues: ${allLeagues}, url: ${url}`);
 
     let matches: FootballMatch[] = [];
-    
-    if (url.includes('footballdatabase.eu')) {
-      matches = parseFootballDatabaseScores(html);
-    } else {
-      matches = parseGenericScores(html);
+
+    // Option 1: Fetch all major leagues
+    if (allLeagues) {
+      console.log('Fetching all major leagues...');
+      matches = await fetchAllLeagues();
     }
-    
-    if (matches.length === 0) {
-      matches = parseGenericScores(html);
+    // Option 2: Fetch specific league from ESPN
+    else if (league) {
+      console.log(`Fetching league: ${league}`);
+      matches = await fetchESPNScores(league);
+    }
+    // Option 3: Scrape from custom URL (fallback)
+    else if (url) {
+      console.log(`Scraping custom URL: ${url}`);
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 20000);
+
+      const response = await fetch(url, {
+        headers: {
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+          'Cache-Control': 'no-cache',
+        },
+        signal: controller.signal,
+        redirect: 'follow',
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        return new Response(
+          JSON.stringify({ error: `Failed to fetch page: ${response.status}` }),
+          { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      const html = await response.text();
+      console.log(`Fetched ${html.length} bytes`);
+      matches = parseHTMLScores(html);
+    }
+    // Default: Fetch EPL
+    else {
+      console.log('No parameters, fetching EPL by default');
+      matches = await fetchESPNScores('epl');
     }
 
-    console.log(`Found ${matches.length} matches`);
-
-    const responseData: Record<string, unknown> = {
-      success: true,
-      matches,
-      sourceUrl: url,
-      scrapedAt: new Date().toISOString(),
-      matchId: matchId || null,
-      totalMatches: matches.length,
-    };
-    
-    if (debug) {
-      responseData.htmlSample = html.substring(0, 5000);
-      responseData.htmlLength = html.length;
+    // Filter to only live matches if requested
+    const liveOnly = body.liveOnly === true;
+    if (liveOnly) {
+      matches = matches.filter(m => m.status === 'Live' || m.status === 'Half Time');
     }
+
+    console.log(`Returning ${matches.length} matches`);
 
     return new Response(
-      JSON.stringify(responseData),
+      JSON.stringify({
+        success: true,
+        matches,
+        scrapedAt: new Date().toISOString(),
+        matchId: matchId || null,
+        totalMatches: matches.length,
+        source: league || (allLeagues ? 'all-leagues' : (url ? 'custom-url' : 'epl')),
+        availableLeagues: Object.keys(ESPN_LEAGUES),
+      }),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
