@@ -377,14 +377,27 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_a || '0'}</span>
                   </div>
 
-                  {/* Score Separator with Match Minute */}
+                  {/* Score Separator with Match Status */}
                   <div className="flex flex-col items-center">
                     <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
-                    {displayStatus === 'live' && match.match_minute != null && (
+                    {/* Half Time indicator */}
+                    {displayStatus === 'live' && match.match_minute === 45 && (
+                      <Badge className="mt-1 bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px] px-2 py-0.5">
+                        HT
+                      </Badge>
+                    )}
+                    {/* Live minute (not HT) */}
+                    {displayStatus === 'live' && match.match_minute != null && match.match_minute !== 45 && (
                       <div className="flex items-center gap-1 mt-1">
                         <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
                         <span className="text-xs font-bold text-red-500">{match.match_minute}'</span>
                       </div>
+                    )}
+                    {/* Full Time indicator for completed matches */}
+                    {displayStatus === 'completed' && (
+                      <Badge className="mt-1 bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5">
+                        FT
+                      </Badge>
                     )}
                   </div>
 
