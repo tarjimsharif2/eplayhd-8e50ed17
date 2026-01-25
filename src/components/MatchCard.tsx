@@ -435,7 +435,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
           {isCricket && (parsedToss || rawToss) && (
             <div className="mt-2 pt-2 border-t border-border/20">
               <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
-                <Coins className="w-4 h-4 text-yellow-500 animate-[spin_2s_ease-in-out_infinite]" />
+                <Coins className="w-4 h-4 text-yellow-500 animate-coin-flip" />
                 {parsedToss ? (
                   <span className="line-clamp-1">
                     <span className="font-medium text-foreground">{parsedToss.winner}</span>
