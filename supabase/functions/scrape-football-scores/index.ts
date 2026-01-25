@@ -13,12 +13,23 @@ interface FootballMatch {
   status: string;
   minute: string | null;
   competition: string | null;
-  date: string | null;
+  matchUrl: string | null;
 }
 
 // Extract text content from HTML, removing tags
 function extractText(html: string): string {
-  return html.replace(/<[^>]*>/g, '').trim();
+  return html.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+}
+
+// Decode HTML entities
+function decodeHtmlEntities(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&nbsp;/g, ' ');
 }
 
 // Parse football scores from Footballdatabase.eu HTML
@@ -26,88 +37,143 @@ function parseFootballDatabaseScores(html: string): FootballMatch[] {
   const matches: FootballMatch[] = [];
   
   try {
-    // Pattern for match rows - adjust based on actual HTML structure
-    // This is a generic pattern that may need adjustment based on the actual site structure
+    console.log('Parsing Footballdatabase.eu HTML...');
     
-    // Look for match containers
-    const matchPatterns = [
-      // Pattern 1: Common table-based structure
-      /<tr[^>]*class="[^"]*match[^"]*"[^>]*>([\s\S]*?)<\/tr>/gi,
-      // Pattern 2: Div-based structure
-      /<div[^>]*class="[^"]*match[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
-      // Pattern 3: Article/section based
-      /<article[^>]*class="[^"]*fixture[^"]*"[^>]*>([\s\S]*?)<\/article>/gi,
+    // Pattern 1: Look for match rows in tables (common structure)
+    const rowPatterns = [
+      /<tr[^>]*>([\s\S]*?)<\/tr>/gi,
+      /<div[^>]*class="[^"]*(?:match|game|fixture|result)[^"]*"[^>]*>([\s\S]*?)<\/div>/gi,
+      /<li[^>]*class="[^"]*(?:match|game|fixture)[^"]*"[^>]*>([\s\S]*?)<\/li>/gi,
     ];
 
-    for (const pattern of matchPatterns) {
+    const potentialMatches: string[] = [];
+    for (const pattern of rowPatterns) {
       let match;
       pattern.lastIndex = 0;
       while ((match = pattern.exec(html)) !== null) {
-        const matchHtml = match[1];
+        potentialMatches.push(match[1]);
+      }
+    }
+
+    console.log(`Found ${potentialMatches.length} potential match containers`);
+
+    for (const matchHtml of potentialMatches) {
+      if (matchHtml.length < 50) continue;
+      
+      const linkPattern = /<a[^>]*href="([^"]*)"[^>]*>([^<]+)<\/a>/gi;
+      const links: { href: string; text: string }[] = [];
+      let linkMatch;
+      while ((linkMatch = linkPattern.exec(matchHtml)) !== null) {
+        const text = decodeHtmlEntities(extractText(linkMatch[2]));
+        if (text.length > 2 && text.length < 50) {
+          links.push({ href: linkMatch[1], text });
+        }
+      }
+      
+      const numbers = matchHtml.match(/>(\d+)</g)?.map(n => n.replace(/[><]/g, '')) || [];
+      
+      const teamLinks = links.filter(l => 
+        l.href.includes('/club/') || 
+        l.href.includes('/team/') || 
+        l.href.includes('/en/club/') ||
+        l.href.includes('/en/team/')
+      );
+      
+      if (teamLinks.length >= 2) {
+        const homeTeam = teamLinks[0].text;
+        const awayTeam = teamLinks[1].text;
         
-        // Try to extract team names
-        const teamPattern = /<(?:span|div|td)[^>]*class="[^"]*(?:team|club|name)[^"]*"[^>]*>([^<]+)<\//gi;
-        const teams: string[] = [];
-        let teamMatch;
-        while ((teamMatch = teamPattern.exec(matchHtml)) !== null) {
-          teams.push(extractText(teamMatch[1]));
+        let homeScore: string | null = null;
+        let awayScore: string | null = null;
+        
+        const scorePattern = /(\d+)\s*[-–:]\s*(\d+)/;
+        const scoreMatch = matchHtml.match(scorePattern);
+        if (scoreMatch) {
+          homeScore = scoreMatch[1];
+          awayScore = scoreMatch[2];
+        } else if (numbers.length >= 2) {
+          homeScore = numbers[0];
+          awayScore = numbers[1];
         }
         
-        // Try to extract scores
-        const scorePattern = /<(?:span|div|td)[^>]*class="[^"]*(?:score|result|goals)[^"]*"[^>]*>(\d+)<\//gi;
-        const scores: string[] = [];
-        let scoreMatch;
-        while ((scoreMatch = scorePattern.exec(matchHtml)) !== null) {
-          scores.push(scoreMatch[1]);
+        let status = 'Scheduled';
+        let minute: string | null = null;
+        
+        if (matchHtml.toLowerCase().includes('live') || 
+            matchHtml.includes("'") ||
+            matchHtml.toLowerCase().includes('in progress')) {
+          status = 'Live';
         }
         
-        // Try to extract match status/minute
-        const statusPattern = /<(?:span|div)[^>]*class="[^"]*(?:status|minute|time|live)[^"]*"[^>]*>([^<]+)<\//gi;
-        const statusMatch = statusPattern.exec(matchHtml);
-        const status = statusMatch ? extractText(statusMatch[1]) : 'Unknown';
+        const minuteMatch = matchHtml.match(/(\d+(?:\+\d+)?)'|(\d+)\s*min/i);
+        if (minuteMatch) {
+          minute = (minuteMatch[1] || minuteMatch[2]) + "'";
+          status = 'Live';
+        }
         
-        if (teams.length >= 2) {
+        if (matchHtml.includes('FT') || matchHtml.toLowerCase().includes('full time')) {
+          status = 'Completed';
+        } else if (matchHtml.includes('HT') || matchHtml.toLowerCase().includes('half time')) {
+          status = 'Half Time';
+          minute = "45'";
+        }
+        
+        const exists = matches.some(m => 
+          m.homeTeam.toLowerCase() === homeTeam.toLowerCase() && 
+          m.awayTeam.toLowerCase() === awayTeam.toLowerCase()
+        );
+        
+        if (!exists && homeTeam !== awayTeam) {
           matches.push({
-            homeTeam: teams[0],
-            awayTeam: teams[1],
-            homeScore: scores[0] || null,
-            awayScore: scores[1] || null,
-            status: status,
-            minute: status.includes("'") ? status : null,
+            homeTeam,
+            awayTeam,
+            homeScore,
+            awayScore,
+            status,
+            minute,
             competition: null,
-            date: null,
+            matchUrl: teamLinks[0].href.split('/club/')[0] || null,
           });
         }
       }
     }
     
-    // Alternative: Look for score patterns like "Team A 2 - 1 Team B"
-    const scoreLinePattern = /([A-Za-z\s]+)\s+(\d+)\s*[-–:]\s*(\d+)\s+([A-Za-z\s]+)/gi;
-    let lineMatch;
-    while ((lineMatch = scoreLinePattern.exec(html)) !== null) {
-      const homeTeam = lineMatch[1].trim();
-      const awayTeam = lineMatch[4].trim();
+    if (matches.length === 0) {
+      console.log('Trying fallback score pattern...');
       
-      // Skip if already found or if team names are too short
-      if (homeTeam.length < 3 || awayTeam.length < 3) continue;
-      
-      const exists = matches.some(m => 
-        m.homeTeam.toLowerCase() === homeTeam.toLowerCase() && 
-        m.awayTeam.toLowerCase() === awayTeam.toLowerCase()
-      );
-      
-      if (!exists) {
-        matches.push({
-          homeTeam,
-          awayTeam,
-          homeScore: lineMatch[2],
-          awayScore: lineMatch[3],
-          status: 'Found',
-          minute: null,
-          competition: null,
-          date: null,
-        });
+      const directPattern = /([A-Za-zÀ-ÿ\s\-\.]+?)\s*(\d+)\s*[-–:]\s*(\d+)\s*([A-Za-zÀ-ÿ\s\-\.]+)/g;
+      let directMatch;
+      while ((directMatch = directPattern.exec(html)) !== null) {
+        const homeTeam = directMatch[1].trim();
+        const awayTeam = directMatch[4].trim();
+        
+        if (homeTeam.length >= 3 && homeTeam.length <= 40 &&
+            awayTeam.length >= 3 && awayTeam.length <= 40 &&
+            homeTeam !== awayTeam) {
+          
+          const exists = matches.some(m => 
+            m.homeTeam.toLowerCase() === homeTeam.toLowerCase() && 
+            m.awayTeam.toLowerCase() === awayTeam.toLowerCase()
+          );
+          
+          if (!exists) {
+            matches.push({
+              homeTeam: decodeHtmlEntities(homeTeam),
+              awayTeam: decodeHtmlEntities(awayTeam),
+              homeScore: directMatch[2],
+              awayScore: directMatch[3],
+              status: 'Found',
+              minute: null,
+              competition: null,
+              matchUrl: null,
+            });
+          }
+        }
       }
+    }
+    
+    if (matches.length === 0) {
+      console.log('No matches found. HTML sample:', html.substring(0, 2000));
     }
     
   } catch (error) {
@@ -117,18 +183,18 @@ function parseFootballDatabaseScores(html: string): FootballMatch[] {
   return matches;
 }
 
-// Parse scores from generic football websites
-function parseGenericFootballScores(html: string, url: string): FootballMatch[] {
+// Generic parser for other football sites
+function parseGenericScores(html: string): FootballMatch[] {
   const matches: FootballMatch[] = [];
   
   try {
-    // JSON-LD structured data (many sites use this)
     const jsonLdPattern = /<script[^>]*type="application\/ld\+json"[^>]*>([\s\S]*?)<\/script>/gi;
     let jsonMatch;
     while ((jsonMatch = jsonLdPattern.exec(html)) !== null) {
       try {
         const jsonData = JSON.parse(jsonMatch[1]);
-        if (jsonData['@type'] === 'SportsEvent' || jsonData['@type']?.includes('SportsEvent')) {
+        if (jsonData['@type'] === 'SportsEvent' || 
+            jsonData['@type']?.includes?.('SportsEvent')) {
           const homeTeam = jsonData.homeTeam?.name || jsonData.competitor?.[0]?.name;
           const awayTeam = jsonData.awayTeam?.name || jsonData.competitor?.[1]?.name;
           
@@ -141,39 +207,14 @@ function parseGenericFootballScores(html: string, url: string): FootballMatch[] 
               status: jsonData.eventStatus || 'Scheduled',
               minute: null,
               competition: jsonData.name || null,
-              date: jsonData.startDate || null,
+              matchUrl: null,
             });
           }
         }
-      } catch (e) {
+      } catch {
         // Not valid JSON, skip
       }
     }
-    
-    // Microdata patterns
-    const microdataPattern = /itemprop="(?:homeTeam|awayTeam|competitor)"[^>]*>([^<]+)</gi;
-    const competitors: string[] = [];
-    let mdMatch;
-    while ((mdMatch = microdataPattern.exec(html)) !== null) {
-      competitors.push(extractText(mdMatch[1]));
-    }
-    
-    // Group competitors into pairs
-    for (let i = 0; i < competitors.length - 1; i += 2) {
-      if (!matches.some(m => m.homeTeam === competitors[i])) {
-        matches.push({
-          homeTeam: competitors[i],
-          awayTeam: competitors[i + 1],
-          homeScore: null,
-          awayScore: null,
-          status: 'Found',
-          minute: null,
-          competition: null,
-          date: null,
-        });
-      }
-    }
-    
   } catch (error) {
     console.error('Error parsing generic scores:', error);
   }
@@ -182,13 +223,12 @@ function parseGenericFootballScores(html: string, url: string): FootballMatch[] 
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { url, matchId } = await req.json();
+    const { url, matchId, debug } = await req.json();
 
     if (!url) {
       return new Response(
@@ -199,16 +239,15 @@ serve(async (req) => {
 
     console.log(`Scraping football scores from: ${url}`);
 
-    // Build headers for the request
     const headers: HeadersInit = {
       'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       'Accept-Language': 'en-US,en;q=0.5',
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Cache-Control': 'no-cache',
     };
 
-    // Fetch the page with timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
+    const timeoutId = setTimeout(() => controller.abort(), 20000);
 
     const response = await fetch(url, {
       headers,
@@ -228,30 +267,36 @@ serve(async (req) => {
     const html = await response.text();
     console.log(`Fetched ${html.length} bytes`);
 
-    // Parse scores based on the URL
     let matches: FootballMatch[] = [];
     
     if (url.includes('footballdatabase.eu')) {
       matches = parseFootballDatabaseScores(html);
     } else {
-      matches = parseGenericFootballScores(html, url);
+      matches = parseGenericScores(html);
     }
     
-    // If no structured matches found, try generic parsing
     if (matches.length === 0) {
-      matches = parseFootballDatabaseScores(html);
+      matches = parseGenericScores(html);
     }
 
     console.log(`Found ${matches.length} matches`);
 
+    const responseData: Record<string, unknown> = {
+      success: true,
+      matches,
+      sourceUrl: url,
+      scrapedAt: new Date().toISOString(),
+      matchId: matchId || null,
+      totalMatches: matches.length,
+    };
+    
+    if (debug) {
+      responseData.htmlSample = html.substring(0, 5000);
+      responseData.htmlLength = html.length;
+    }
+
     return new Response(
-      JSON.stringify({
-        success: true,
-        matches,
-        sourceUrl: url,
-        scrapedAt: new Date().toISOString(),
-        matchId: matchId || null,
-      }),
+      JSON.stringify(responseData),
       { 
         status: 200, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
