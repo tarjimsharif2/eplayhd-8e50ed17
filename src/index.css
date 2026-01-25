@@ -432,4 +432,44 @@
     animation: coin-flip 2.5s ease-out infinite;
     transform-style: preserve-3d;
   }
+
+  /* Shadow animation that syncs with coin flip */
+  @keyframes coin-shadow {
+    0% {
+      transform: translateX(-50%) scale(1);
+      opacity: 0.3;
+    }
+    15% {
+      transform: translateX(-50%) scale(0.6);
+      opacity: 0.15;
+    }
+    30% {
+      transform: translateX(-50%) scale(0.4);
+      opacity: 0.1;
+    }
+    45% {
+      transform: translateX(-50%) scale(0.6);
+      opacity: 0.15;
+    }
+    60% {
+      transform: translateX(-50%) scale(0.75);
+      opacity: 0.2;
+    }
+    75% {
+      transform: translateX(-50%) scale(0.85);
+      opacity: 0.25;
+    }
+    90% {
+      transform: translateX(-50%) scale(1);
+      opacity: 0.3;
+    }
+    100% {
+      transform: translateX(-50%) scale(1);
+      opacity: 0.3;
+    }
+  }
+
+  .animate-coin-shadow {
+    animation: coin-shadow 2.5s ease-out infinite;
+  }
 }
