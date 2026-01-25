@@ -250,8 +250,12 @@ const TournamentPage = () => {
                 <div className="flex flex-col md:flex-row items-center gap-6">
                   {tournament.logo_url ? (
                     <div 
-                      className="w-24 h-24 rounded-2xl p-3 border border-border/30"
-                      style={{ backgroundColor: (tournament as any).logo_background_color || 'rgba(var(--background), 0.6)' }}
+                      className={`w-24 h-24 rounded-2xl p-3 border ${
+                        (tournament as any).logo_background_color
+                          ? 'border-border/30'
+                          : 'bg-background/60 border-border/30'
+                      }`}
+                      style={(tournament as any).logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
                     >
                       <img 
                         src={tournament.logo_url} 
