@@ -4,6 +4,7 @@ import Footer from "@/components/Footer";
 import SEOHead from "@/components/SEOHead";
 import AdSlot from "@/components/AdSlot";
 import LiveTournaments from "@/components/LiveTournaments";
+import FootballScoresWidget from "@/components/FootballScoresWidget";
 import { useMatches } from "@/hooks/useSportsData";
 import { useMatchStatusUpdater } from "@/hooks/useMatchStatusUpdater";
 import { useRealtimeLiveMatches } from "@/hooks/useRealtimeMatch";
@@ -28,6 +29,7 @@ const Index = () => {
       <AdSlot position="header" className="container mx-auto px-4 py-2" />
       <main className="flex-1">
         <MatchList />
+        <FootballScoresWidget />
         <LiveTournaments />
       </main>
       <AdSlot position="footer" className="container mx-auto px-4 py-2" />
