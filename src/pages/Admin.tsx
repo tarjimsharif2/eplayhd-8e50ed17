@@ -197,6 +197,7 @@ const Admin = () => {
     name: '',
     short_name: '',
     logo_url: '',
+    use_logo_background_color: false,
     logo_background_color: '#1a1a2e',
   });
 
@@ -205,6 +206,7 @@ const Admin = () => {
     sport: 'Cricket',
     season: '',
     logo_url: '',
+    use_logo_background_color: false,
     logo_background_color: '#1a1a2e',
     slug: '',
     is_active: true,
@@ -883,9 +885,10 @@ const Admin = () => {
   const handleSaveTeam = async () => {
     try {
       const teamData = {
-        ...teamForm,
+        name: teamForm.name,
+        short_name: teamForm.short_name,
         logo_url: teamForm.logo_url || null,
-        logo_background_color: teamForm.logo_background_color || '#1a1a2e',
+        logo_background_color: teamForm.use_logo_background_color ? teamForm.logo_background_color : null,
       };
       
       if (editingTeam) {
@@ -908,6 +911,7 @@ const Admin = () => {
       name: team.name,
       short_name: team.short_name,
       logo_url: team.logo_url || '',
+      use_logo_background_color: !!team.logo_background_color,
       logo_background_color: team.logo_background_color || '#1a1a2e',
     });
     setTeamDialogOpen(true);
@@ -967,7 +971,7 @@ const Admin = () => {
 
   const resetTeamForm = () => {
     setEditingTeam(null);
-    setTeamForm({ name: '', short_name: '', logo_url: '', logo_background_color: '#1a1a2e' });
+    setTeamForm({ name: '', short_name: '', logo_url: '', use_logo_background_color: false, logo_background_color: '#1a1a2e' });
   };
 
   // Tournament handlers
@@ -985,7 +989,7 @@ const Admin = () => {
         sport: tournamentForm.sport,
         season: tournamentForm.season,
         logo_url: tournamentForm.logo_url || null,
-        logo_background_color: tournamentForm.logo_background_color || '#1a1a2e',
+        logo_background_color: tournamentForm.use_logo_background_color ? tournamentForm.logo_background_color : null,
         slug: tournamentForm.slug || generateSlug(tournamentForm.name),
         is_active: tournamentForm.is_active,
         show_in_menu: tournamentForm.show_in_menu,
@@ -1046,6 +1050,7 @@ const Admin = () => {
       sport: tournament.sport,
       season: tournament.season,
       logo_url: tournament.logo_url || '',
+      use_logo_background_color: !!(tournament as any).logo_background_color,
       logo_background_color: (tournament as any).logo_background_color || '#1a1a2e',
       slug: tournament.slug || '',
       is_active: tournament.is_active ?? true,
@@ -1129,6 +1134,7 @@ const Admin = () => {
       sport: 'Cricket', 
       season: '', 
       logo_url: '', 
+      use_logo_background_color: false,
       logo_background_color: '#1a1a2e',
       slug: '', 
       is_active: true, 
@@ -2570,17 +2576,28 @@ const Admin = () => {
                       </div>
                       <div className="space-y-2">
                         <Label>Logo Background Color</Label>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={teamForm.use_logo_background_color}
+                            onCheckedChange={(checked) =>
+                              setTeamForm({ ...teamForm, use_logo_background_color: checked === true })
+                            }
+                          />
+                          <span className="text-xs text-muted-foreground">Use custom background</span>
+                        </div>
                         <div className="flex gap-2">
                           <Input 
                             type="color" 
                             value={teamForm.logo_background_color} 
                             onChange={(e) => setTeamForm({ ...teamForm, logo_background_color: e.target.value })} 
+                            disabled={!teamForm.use_logo_background_color}
                             className="w-14 h-10 p-1 cursor-pointer"
                           />
                           <Input 
                             placeholder="#1a1a2e" 
                             value={teamForm.logo_background_color} 
                             onChange={(e) => setTeamForm({ ...teamForm, logo_background_color: e.target.value })}
+                            disabled={!teamForm.use_logo_background_color}
                             className="flex-1"
                           />
                         </div>
@@ -2754,16 +2771,27 @@ const Admin = () => {
                         <div className="space-y-2">
                           <Label>Logo Background</Label>
                           <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={tournamentForm.use_logo_background_color}
+                              onCheckedChange={(checked) =>
+                                setTournamentForm({ ...tournamentForm, use_logo_background_color: checked === true })
+                              }
+                            />
+                            <span className="text-xs text-muted-foreground">Use custom background</span>
+                          </div>
+                          <div className="flex items-center gap-2">
                             <input 
                               type="color" 
                               value={tournamentForm.logo_background_color} 
                               onChange={(e) => setTournamentForm({ ...tournamentForm, logo_background_color: e.target.value })}
+                              disabled={!tournamentForm.use_logo_background_color}
                               className="w-12 h-10 rounded-md border border-border cursor-pointer"
                             />
                             <Input 
                               placeholder="#1a1a2e" 
                               value={tournamentForm.logo_background_color} 
                               onChange={(e) => setTournamentForm({ ...tournamentForm, logo_background_color: e.target.value })}
+                              disabled={!tournamentForm.use_logo_background_color}
                               className="flex-1"
                             />
                           </div>
@@ -3139,7 +3167,16 @@ const Admin = () => {
                                     className="mt-1"
                                   />
                                   {tournament.logo_url && (
-                                    <img src={tournament.logo_url} alt={tournament.name} className="w-12 h-12 object-contain rounded-lg" />
+                                    <div
+                                      className={`w-12 h-12 rounded-lg p-1.5 border flex items-center justify-center flex-shrink-0 ${
+                                        (tournament as any).logo_background_color
+                                          ? 'border-border/30'
+                                          : 'bg-background/60 border-border/30'
+                                      }`}
+                                      style={(tournament as any).logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
+                                    >
+                                      <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-contain" />
+                                    </div>
                                   )}
                                   <div>
                                     <h3 className="font-display text-2xl text-gradient tracking-wider mb-2">

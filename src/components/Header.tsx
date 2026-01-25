@@ -108,7 +108,16 @@ const Header = () => {
                                 className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
                               >
                                 {tournament.logo_url && (
-                                  <img src={tournament.logo_url} alt="" className="w-5 h-5 object-contain" />
+                                  <div
+                                    className={`w-5 h-5 rounded-md p-0.5 border flex items-center justify-center flex-shrink-0 ${
+                                      (tournament as any).logo_background_color
+                                        ? 'border-border/30'
+                                        : 'bg-background/60 border-border/30'
+                                    }`}
+                                    style={(tournament as any).logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
+                                  >
+                                    <img src={tournament.logo_url} alt="" className="w-full h-full object-contain" />
+                                  </div>
                                 )}
                                 {tournament.name}
                               </Link>
@@ -205,7 +214,16 @@ const Header = () => {
                               >
                                 <Button variant="ghost" className="w-full justify-start pl-10 gap-2">
                                   {tournament.logo_url && (
-                                    <img src={tournament.logo_url} alt="" className="w-4 h-4 object-contain" />
+                                     <div
+                                       className={`w-4 h-4 rounded p-0.5 border flex items-center justify-center flex-shrink-0 ${
+                                         (tournament as any).logo_background_color
+                                           ? 'border-border/30'
+                                           : 'bg-background/60 border-border/30'
+                                       }`}
+                                       style={(tournament as any).logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
+                                     >
+                                       <img src={tournament.logo_url} alt="" className="w-full h-full object-contain" />
+                                     </div>
                                   )}
                                   {tournament.name}
                                 </Button>

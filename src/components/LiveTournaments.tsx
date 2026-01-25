@@ -87,7 +87,14 @@ const LiveTournaments = () => {
               <CardContent className="p-4">
                 <div className="flex items-center gap-3">
                   {tournament.logo_url ? (
-                    <div className="w-12 h-12 rounded-lg bg-background/60 p-1.5 border border-border/30 flex-shrink-0">
+                    <div
+                      className={`w-12 h-12 rounded-lg p-1.5 border flex-shrink-0 ${
+                        (tournament as any).logo_background_color
+                          ? 'border-border/30'
+                          : 'bg-background/60 border-border/30'
+                      }`}
+                      style={(tournament as any).logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
+                    >
                       <img 
                         src={tournament.logo_url} 
                         alt={tournament.name}

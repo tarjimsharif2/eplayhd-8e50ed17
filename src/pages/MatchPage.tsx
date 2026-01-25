@@ -316,7 +316,16 @@ const MatchPage = () => {
                 <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
                   <div className="flex items-center gap-3">
                     {tournament?.logo_url && (
-                      <img src={tournament.logo_url} alt={tournament.name} className="w-10 h-10 object-contain" />
+                      <div
+                        className={`w-10 h-10 rounded-xl p-1 border flex items-center justify-center flex-shrink-0 ${
+                          (tournament as any)?.logo_background_color
+                            ? 'border-border/30'
+                            : 'bg-background/60 border-border/30'
+                        }`}
+                        style={(tournament as any)?.logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
+                      >
+                        <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-contain" />
+                      </div>
                     )}
                     <div>
                       <h2 className="font-display text-lg text-gradient">{tournament?.name || 'Match'}</h2>
