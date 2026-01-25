@@ -3,9 +3,10 @@ import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import { MapPin, Clock, Star, Calendar } from "lucide-react";
+import { MapPin, Clock, Star, Calendar, Coins } from "lucide-react";
 import InningsDisplay from "@/components/InningsDisplay";
 import FlipClock from "@/components/FlipClock";
+import { useMatchToss } from "@/hooks/useMatchToss";
 
 interface MatchCardProps {
   match: Match;
@@ -127,6 +128,10 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
 
   // Fetch innings for cricket matches
   const { data: innings } = useMatchInnings(isCricket ? match.id : undefined);
+  
+  // Fetch toss for cricket matches (live or completed)
+  const shouldFetchToss = isCricket && match.api_score_enabled && (displayStatus === 'live' || displayStatus === 'completed');
+  const { toss } = useMatchToss({ matchId: match.id, enabled: shouldFetchToss });
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -423,6 +428,16 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
           {isCricket && innings && innings.length > 0 && (
             <div className="mt-2 pt-2 border-t border-border/20">
               <InningsDisplay innings={innings} teamAId={teamA.id} teamBId={teamB.id} compact={true} />
+            </div>
+          )}
+
+          {/* Toss Info for Cricket */}
+          {isCricket && toss && (
+            <div className="mt-2 pt-2 border-t border-border/20">
+              <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
+                <Coins className="w-3 h-3 text-yellow-500" />
+                <span className="line-clamp-1">{toss}</span>
+              </div>
             </div>
           )}
 
