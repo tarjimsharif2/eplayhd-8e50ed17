@@ -386,22 +386,105 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     {/* Score Separator with Match Status */}
                     <div className="flex flex-col items-center">
                       <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
-                      {/* Half Time indicator */}
-                      {displayStatus === 'live' && match.match_minute === 45 && (
-                        <Badge className="mt-1 bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px] px-2 py-0.5">
-                          HT
-                        </Badge>
-                      )}
-                      {/* Live minute (not HT) */}
-                      {displayStatus === 'live' && match.match_minute != null && match.match_minute !== 45 && (
-                        <div className="flex items-center gap-1 mt-1">
-                          <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                          <span className="text-xs font-bold text-red-500">{match.match_minute}'</span>
-                        </div>
+                      {/* Match time indicators for football */}
+                      {displayStatus === 'live' && match.match_minute != null && (
+                        (() => {
+                          const minute = match.match_minute;
+                          
+                          // Half Time (paused at 45)
+                          if (minute === 45) {
+                            return (
+                              <Badge className="mt-1 bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px] px-2 py-0.5 font-bold">
+                                HT
+                              </Badge>
+                            );
+                          }
+                          
+                          // Full Time pause (90 minutes)
+                          if (minute === 90) {
+                            return (
+                              <Badge className="mt-1 bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5 font-bold">
+                                FT
+                              </Badge>
+                            );
+                          }
+                          
+                          // Extra Time Half Time (105 minutes)
+                          if (minute === 105) {
+                            return (
+                              <Badge className="mt-1 bg-orange-500/20 text-orange-500 border-orange-500/30 text-[10px] px-2 py-0.5 font-bold">
+                                ET HT
+                              </Badge>
+                            );
+                          }
+                          
+                          // After Extra Time (120+ minutes)
+                          if (minute >= 120) {
+                            return (
+                              <Badge className="mt-1 bg-purple-500/20 text-purple-500 border-purple-500/30 text-[10px] px-2 py-0.5 font-bold">
+                                AET
+                              </Badge>
+                            );
+                          }
+                          
+                          // 2nd Half Extra Time (106-119)
+                          if (minute > 105 && minute < 120) {
+                            return (
+                              <div className="flex flex-col items-center gap-0.5 mt-1">
+                                <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 text-[9px] px-1.5 py-0">
+                                  ET 2nd
+                                </Badge>
+                                <div className="flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                                  <span className="text-xs font-bold text-red-500">{minute}'</span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          
+                          // 1st Half Extra Time (91-104)
+                          if (minute > 90 && minute <= 105) {
+                            return (
+                              <div className="flex flex-col items-center gap-0.5 mt-1">
+                                <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 text-[9px] px-1.5 py-0">
+                                  ET 1st
+                                </Badge>
+                                <div className="flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                                  <span className="text-xs font-bold text-red-500">{minute}'</span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          
+                          // 2nd Half (46-89)
+                          if (minute > 45 && minute < 90) {
+                            return (
+                              <div className="flex flex-col items-center gap-0.5 mt-1">
+                                <span className="text-[9px] text-muted-foreground font-medium">2nd Half</span>
+                                <div className="flex items-center gap-1">
+                                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                                  <span className="text-xs font-bold text-red-500">{minute}'</span>
+                                </div>
+                              </div>
+                            );
+                          }
+                          
+                          // 1st Half (0-44)
+                          return (
+                            <div className="flex flex-col items-center gap-0.5 mt-1">
+                              <span className="text-[9px] text-muted-foreground font-medium">1st Half</span>
+                              <div className="flex items-center gap-1">
+                                <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                                <span className="text-xs font-bold text-red-500">{minute}'</span>
+                              </div>
+                            </div>
+                          );
+                        })()
                       )}
                       {/* Full Time indicator for completed matches */}
                       {displayStatus === 'completed' && (
-                        <Badge className="mt-1 bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5">
+                        <Badge className="mt-1 bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5 font-bold">
                           FT
                         </Badge>
                       )}
