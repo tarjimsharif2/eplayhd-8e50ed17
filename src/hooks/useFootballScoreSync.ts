@@ -81,7 +81,7 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
     try {
       console.log('[Football Sync] Starting sync...');
 
-      // Get all live football matches from database
+      // Get all live AND completed (within last 24h) football matches from database
       const { data: liveMatches, error: matchError } = await supabase
         .from('matches')
         .select(`
@@ -94,11 +94,12 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
           match_minute,
           sport_id,
           auto_sync_enabled,
+          match_start_time,
           team_a:teams!matches_team_a_id_fkey(name, short_name),
           team_b:teams!matches_team_b_id_fkey(name, short_name),
           sport:sports!matches_sport_id_fkey(name)
         `)
-        .eq('status', 'live')
+        .in('status', ['live', 'completed'])
         .eq('is_active', true);
 
       if (matchError) {
@@ -106,14 +107,28 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
         return results;
       }
 
-      // Filter only football matches (no auto_sync_enabled check - sync all live football matches)
-      const footballMatches = (liveMatches || []).filter(m => 
-        m.sport?.name?.toLowerCase() === 'football' || 
-        m.sport?.name?.toLowerCase().includes('football')
-      );
+      // Filter only football matches with auto_sync enabled
+      // For completed matches, only sync if completed within last 24 hours
+      const now = new Date();
+      const footballMatches = (liveMatches || []).filter(m => {
+        const isFootball = m.sport?.name?.toLowerCase() === 'football' || 
+                          m.sport?.name?.toLowerCase().includes('football');
+        const hasAutoSync = m.auto_sync_enabled === true;
+        
+        if (!isFootball || !hasAutoSync) return false;
+        
+        // For completed matches, only sync if match started within last 24 hours
+        if (m.status === 'completed' && m.match_start_time) {
+          const matchTime = new Date(m.match_start_time);
+          const hoursSinceMatch = (now.getTime() - matchTime.getTime()) / (1000 * 60 * 60);
+          return hoursSinceMatch <= 24;
+        }
+        
+        return true;
+      });
 
       if (footballMatches.length === 0) {
-        console.log('[Football Sync] No live football matches found');
+        console.log('[Football Sync] No football matches with auto-sync enabled');
         return results;
       }
 
