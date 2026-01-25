@@ -9,6 +9,7 @@ import { Users, Goal, ArrowRightLeft, Shirt, RefreshCw, Loader2 } from 'lucide-r
 import { motion } from 'framer-motion';
 import { Team, GoalEvent } from '@/hooks/useSportsData';
 import { toast } from '@/hooks/use-toast';
+import { useCurrentUserPermissions } from '@/hooks/usePermissions';
 
 interface Player {
   id: string;
@@ -99,6 +100,7 @@ const getPositionColor = (position: string | null): string => {
 
 const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }: FootballMatchDetailsProps) => {
   const queryClient = useQueryClient();
+  const { isAdmin } = useCurrentUserPermissions();
   const [isSyncing, setIsSyncing] = useState(false);
   const { data: players, isLoading: playersLoading, refetch: refetchPlayers } = usePlayingXI(matchId);
   const { data: substitutions, isLoading: subsLoading, refetch: refetchSubs } = useSubstitutions(matchId);
@@ -108,7 +110,12 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }:
   const teamASubs = substitutions?.filter(s => s.team_id === teamA.id) || [];
   const teamBSubs = substitutions?.filter(s => s.team_id === teamB.id) || [];
 
-  // No longer return null if no data - always show the component with sync button
+  // Hide component if no data and not admin
+  const hasData = teamAPlayers.length > 0 || teamBPlayers.length > 0 || goalsTeamA.length > 0 || goalsTeamB.length > 0 || teamASubs.length > 0 || teamBSubs.length > 0;
+  
+  if (!hasData && !isAdmin) {
+    return null;
+  }
 
   // Manual sync function for this specific match
   const handleSyncDetails = async () => {
@@ -461,20 +468,22 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }:
                 </p>
               </div>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleSyncDetails}
-              disabled={isSyncing}
-              className="gap-2"
-            >
-              {isSyncing ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <RefreshCw className="w-4 h-4" />
-              )}
-              {isSyncing ? 'Syncing...' : 'Sync Details'}
-            </Button>
+            {isAdmin && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleSyncDetails}
+                disabled={isSyncing}
+                className="gap-2"
+              >
+                {isSyncing ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                {isSyncing ? 'Syncing...' : 'Sync Details'}
+              </Button>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-2">
