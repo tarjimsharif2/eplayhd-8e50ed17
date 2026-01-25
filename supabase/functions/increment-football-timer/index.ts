@@ -83,9 +83,28 @@ Deno.serve(async (req) => {
     for (const match of matches as FootballMatch[]) {
       const currentMinute = match.match_minute ?? 0;
       
-      // Skip if already at halftime (45) or full time (90) - these are pause points
-      if (currentMinute === 45 || currentMinute >= 90) {
-        console.log(`[increment-football-timer] Match ${match.id} at pause point (${currentMinute}')`);
+      // Pause points where timer should stop:
+      // - 45: Halftime (end of 1st half)
+      // - 90: Full Time (end of regular time) - needs manual resume for extra time
+      // - 105: Extra Time Halftime (end of ET 1st half)
+      // - 120: After Extra Time (end of ET 2nd half)
+      const pausePoints = [45, 90, 105, 120];
+      
+      if (pausePoints.includes(currentMinute)) {
+        const pauseLabels: Record<number, string> = {
+          45: 'HALFTIME',
+          90: 'FULL TIME',
+          105: 'ET HALFTIME',
+          120: 'AFTER EXTRA TIME'
+        };
+        console.log(`[increment-football-timer] Match ${match.id} at pause point: ${pauseLabels[currentMinute]} (${currentMinute}')`);
+        updates.push({ id: match.id, from: currentMinute, to: null, paused: true });
+        continue;
+      }
+      
+      // Don't increment beyond 120 minutes
+      if (currentMinute >= 120) {
+        console.log(`[increment-football-timer] Match ${match.id} has completed extra time (${currentMinute}')`);
         updates.push({ id: match.id, from: currentMinute, to: null, paused: true });
         continue;
       }
@@ -109,9 +128,13 @@ Deno.serve(async (req) => {
 
       // Log when reaching pause points
       if (newMinute === 45) {
-        console.log(`[increment-football-timer] Match ${match.id} reached HALFTIME (45')`);
+        console.log(`[increment-football-timer] Match ${match.id} reached HALFTIME (45') - Timer paused`);
       } else if (newMinute === 90) {
-        console.log(`[increment-football-timer] Match ${match.id} reached FULL TIME (90')`);
+        console.log(`[increment-football-timer] Match ${match.id} reached FULL TIME (90') - Timer paused. Start Extra Time manually if needed.`);
+      } else if (newMinute === 105) {
+        console.log(`[increment-football-timer] Match ${match.id} reached ET HALFTIME (105') - Timer paused`);
+      } else if (newMinute === 120) {
+        console.log(`[increment-football-timer] Match ${match.id} reached AFTER EXTRA TIME (120') - Match should end`);
       }
     }
 
