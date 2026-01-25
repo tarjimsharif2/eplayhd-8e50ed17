@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.scrape-football-scores]
 verify_jwt = false
+
+[functions.increment-football-timer]
+verify_jwt = false
