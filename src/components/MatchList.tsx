@@ -69,8 +69,9 @@ const MatchList = () => {
     };
 
     // Helper function to check if a match should be treated as completed (frontend fallback)
-    // IMPORTANT: Only use EXPLICIT end time or duration - NO default durations!
-    // This matches the server-side logic in update-match-status edge function
+    // IMPORTANT: Match server-side logic in update-match-status edge function
+    // - For Cricket: Only use EXPLICIT end time or duration
+    // - For Football: Use default 120 minutes if no explicit duration
     const shouldBeCompleted = (match: typeof matches[0]): boolean => {
       // If manual override is enabled, trust the database status
       if (match.manual_status_override) {
@@ -83,11 +84,23 @@ const MatchList = () => {
         if (endTime < now) return true;
       }
       
-      // Only use EXPLICIT duration set by admin - NO defaults!
-      if (match.match_start_time && match.match_duration_minutes && match.match_format !== 'test') {
+      // Calculate using duration
+      if (match.match_start_time && match.match_format !== 'test') {
         const startTime = new Date(match.match_start_time);
-        const expectedEnd = new Date(startTime.getTime() + match.match_duration_minutes * 60 * 1000);
-        if (expectedEnd < now) return true;
+        
+        // Use explicit duration, or sport-based default for football only
+        let durationMinutes = match.match_duration_minutes;
+        if (!durationMinutes) {
+          const sportName = match.sport?.name?.toLowerCase() || '';
+          if (sportName === 'football' || sportName === 'soccer') {
+            durationMinutes = 120; // 2 hours for football
+          }
+        }
+        
+        if (durationMinutes) {
+          const expectedEnd = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+          if (expectedEnd < now) return true;
+        }
       }
       
       return false;
@@ -246,8 +259,8 @@ const MatchList = () => {
     const now = new Date();
     const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
     
-    // Helper function to check if a match should be treated as completed (same as above)
-    // IMPORTANT: Only use EXPLICIT end time or duration - NO default durations!
+    // Helper function to check if a match should be treated as completed (same logic as above)
+    // For Football: Use default 120 minutes if no explicit duration
     const shouldBeCompletedForCount = (match: typeof matches[0]): boolean => {
       // If manual override is enabled, trust the database status
       if (match.manual_status_override) {
@@ -259,11 +272,21 @@ const MatchList = () => {
         if (endTime < now) return true;
       }
       
-      // Only use EXPLICIT duration - NO defaults!
-      if (match.match_start_time && match.match_duration_minutes && match.match_format !== 'test') {
+      if (match.match_start_time && match.match_format !== 'test') {
         const startTime = new Date(match.match_start_time);
-        const expectedEnd = new Date(startTime.getTime() + match.match_duration_minutes * 60 * 1000);
-        if (expectedEnd < now) return true;
+        
+        let durationMinutes = match.match_duration_minutes;
+        if (!durationMinutes) {
+          const sportName = match.sport?.name?.toLowerCase() || '';
+          if (sportName === 'football' || sportName === 'soccer') {
+            durationMinutes = 120;
+          }
+        }
+        
+        if (durationMinutes) {
+          const expectedEnd = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+          if (expectedEnd < now) return true;
+        }
       }
       
       return false;
@@ -323,7 +346,7 @@ const MatchList = () => {
     const now = new Date();
     const statusMap = new Map<string, string>();
     
-    // IMPORTANT: Only use EXPLICIT end time or duration - NO default durations!
+    // For Football: Use default 120 minutes if no explicit duration
     const shouldBeCompletedCheck = (match: typeof matches[0]): boolean => {
       // If manual override is enabled, trust the database status
       if (match.manual_status_override) {
@@ -335,11 +358,21 @@ const MatchList = () => {
         if (endTime < now) return true;
       }
       
-      // Only use EXPLICIT duration - NO defaults!
-      if (match.match_start_time && match.match_duration_minutes && match.match_format !== 'test') {
+      if (match.match_start_time && match.match_format !== 'test') {
         const startTime = new Date(match.match_start_time);
-        const expectedEnd = new Date(startTime.getTime() + match.match_duration_minutes * 60 * 1000);
-        if (expectedEnd < now) return true;
+        
+        let durationMinutes = match.match_duration_minutes;
+        if (!durationMinutes) {
+          const sportName = match.sport?.name?.toLowerCase() || '';
+          if (sportName === 'football' || sportName === 'soccer') {
+            durationMinutes = 120;
+          }
+        }
+        
+        if (durationMinutes) {
+          const expectedEnd = new Date(startTime.getTime() + durationMinutes * 60 * 1000);
+          if (expectedEnd < now) return true;
+        }
       }
       
       return false;
