@@ -333,8 +333,12 @@ const MatchPage = () => {
                 <div className="flex items-center justify-between gap-4 py-6">
                   <div className="flex-1 flex flex-col items-center text-center gap-3">
                     <div 
-                      className="w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center border border-border/30 p-2"
-                      style={{ backgroundColor: teamA?.logo_background_color || '#1a1a2e' }}
+                      className={`w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 ${
+                        teamA?.logo_background_color 
+                          ? 'border border-border/30' 
+                          : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                      }`}
+                      style={teamA?.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
                     >
                       {teamA?.logo_url ? (
                         <img src={teamA.logo_url} alt={teamA.name} className="w-14 h-14 md:w-16 md:h-16 object-contain" />
@@ -354,8 +358,12 @@ const MatchPage = () => {
 
                   <div className="flex-1 flex flex-col items-center text-center gap-3">
                     <div 
-                      className="w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center border border-border/30 p-2"
-                      style={{ backgroundColor: teamB?.logo_background_color || '#1a1a2e' }}
+                      className={`w-20 h-20 md:w-24 md:h-24 rounded-2xl flex items-center justify-center p-2 ${
+                        teamB?.logo_background_color 
+                          ? 'border border-border/30' 
+                          : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                      }`}
+                      style={teamB?.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
                     >
                       {teamB?.logo_url ? (
                         <img src={teamB.logo_url} alt={teamB.name} className="w-14 h-14 md:w-16 md:h-16 object-contain" />
