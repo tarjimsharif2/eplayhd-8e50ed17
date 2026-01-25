@@ -3,6 +3,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 
+interface GoalEvent {
+  player: string;
+  minute: string;
+  assist?: string;
+  type: 'goal' | 'penalty' | 'own_goal';
+}
+
 interface FootballMatch {
   homeTeam: string;
   awayTeam: string;
@@ -12,6 +19,8 @@ interface FootballMatch {
   minute: string | null;
   competition: string | null;
   startTime: string | null;
+  homeGoals?: GoalEvent[];
+  awayGoals?: GoalEvent[];
 }
 
 interface SyncResult {
