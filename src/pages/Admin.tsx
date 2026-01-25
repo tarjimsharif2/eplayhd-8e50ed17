@@ -197,6 +197,7 @@ const Admin = () => {
     name: '',
     short_name: '',
     logo_url: '',
+    logo_background_color: '#1a1a2e',
   });
 
   const [tournamentForm, setTournamentForm] = useState({
@@ -884,6 +885,7 @@ const Admin = () => {
       const teamData = {
         ...teamForm,
         logo_url: teamForm.logo_url || null,
+        logo_background_color: teamForm.logo_background_color || '#1a1a2e',
       };
       
       if (editingTeam) {
@@ -906,6 +908,7 @@ const Admin = () => {
       name: team.name,
       short_name: team.short_name,
       logo_url: team.logo_url || '',
+      logo_background_color: team.logo_background_color || '#1a1a2e',
     });
     setTeamDialogOpen(true);
   };
@@ -964,7 +967,7 @@ const Admin = () => {
 
   const resetTeamForm = () => {
     setEditingTeam(null);
-    setTeamForm({ name: '', short_name: '', logo_url: '' });
+    setTeamForm({ name: '', short_name: '', logo_url: '', logo_background_color: '#1a1a2e' });
   };
 
   // Tournament handlers
@@ -2564,6 +2567,23 @@ const Admin = () => {
                       <div className="space-y-2">
                         <Label>Logo URL (optional)</Label>
                         <Input placeholder="https://..." value={teamForm.logo_url} onChange={(e) => setTeamForm({ ...teamForm, logo_url: e.target.value })} />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Logo Background Color</Label>
+                        <div className="flex gap-2">
+                          <Input 
+                            type="color" 
+                            value={teamForm.logo_background_color} 
+                            onChange={(e) => setTeamForm({ ...teamForm, logo_background_color: e.target.value })} 
+                            className="w-14 h-10 p-1 cursor-pointer"
+                          />
+                          <Input 
+                            placeholder="#1a1a2e" 
+                            value={teamForm.logo_background_color} 
+                            onChange={(e) => setTeamForm({ ...teamForm, logo_background_color: e.target.value })}
+                            className="flex-1"
+                          />
+                        </div>
                       </div>
                     </div>
                     <DialogFooter>

@@ -1150,6 +1150,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          logo_background_color: string | null
           logo_url: string | null
           name: string
           short_name: string
@@ -1158,6 +1159,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          logo_background_color?: string | null
           logo_url?: string | null
           name: string
           short_name: string
@@ -1166,6 +1168,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          logo_background_color?: string | null
           logo_url?: string | null
           name?: string
           short_name?: string

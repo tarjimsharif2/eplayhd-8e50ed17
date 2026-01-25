@@ -339,9 +339,12 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
           <div className="flex items-center justify-between gap-1">
             {/* Team A */}
             <div className="flex-1 flex flex-col items-center text-center gap-1.5">
-              <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-primary/15 to-transparent flex items-center justify-center border border-primary/20">
+              <div 
+                className="w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center border border-primary/20 p-1.5"
+                style={{ backgroundColor: (teamA as any).logo_background_color || 'rgba(var(--primary), 0.15)' }}
+              >
                 {teamA.logo_url ? (
-                  <img src={teamA.logo_url} alt={teamA.name} className="w-10 h-10 md:w-12 md:h-12 object-contain" />
+                  <img src={teamA.logo_url} alt={teamA.name} className="w-full h-full object-contain" />
                 ) : (
                   <span className="font-display text-lg text-primary">{getInitials(teamA.name)}</span>
                 )}
@@ -382,9 +385,12 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
 
             {/* Team B */}
             <div className="flex-1 flex flex-col items-center text-center gap-1.5">
-              <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-gradient-to-br from-primary/15 to-transparent flex items-center justify-center border border-primary/20">
+              <div 
+                className="w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center border border-primary/20 p-1.5"
+                style={{ backgroundColor: (teamB as any).logo_background_color || 'rgba(var(--primary), 0.15)' }}
+              >
                 {teamB.logo_url ? (
-                  <img src={teamB.logo_url} alt={teamB.name} className="w-10 h-10 md:w-12 md:h-12 object-contain" />
+                  <img src={teamB.logo_url} alt={teamB.name} className="w-full h-full object-contain" />
                 ) : (
                   <span className="font-display text-lg text-primary">{getInitials(teamB.name)}</span>
                 )}

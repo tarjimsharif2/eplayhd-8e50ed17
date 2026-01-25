@@ -15,6 +15,7 @@ export interface Team {
   name: string;
   short_name: string;
   logo_url: string | null;
+  logo_background_color: string | null;
   created_at: string;
   updated_at: string;
 }
