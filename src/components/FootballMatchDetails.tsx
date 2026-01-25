@@ -1,0 +1,360 @@
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Users, Goal, ArrowRightLeft, Shirt } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Team, GoalEvent } from '@/hooks/useSportsData';
+
+interface Player {
+  id: string;
+  match_id: string;
+  team_id: string;
+  player_name: string;
+  player_role: string | null;
+  is_captain: boolean;
+  is_vice_captain: boolean;
+  batting_order: number | null;
+}
+
+interface Substitution {
+  id: string;
+  match_id: string;
+  team_id: string;
+  player_out: string;
+  player_in: string;
+  minute: string;
+}
+
+interface FootballMatchDetailsProps {
+  matchId: string;
+  teamA: Team;
+  teamB: Team;
+  goalsTeamA: GoalEvent[];
+  goalsTeamB: GoalEvent[];
+}
+
+// Hook for fetching playing XI
+const usePlayingXI = (matchId: string) => {
+  return useQuery({
+    queryKey: ['playing_xi', matchId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('match_playing_xi')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('batting_order', { ascending: true, nullsFirst: false });
+      
+      if (error) throw error;
+      return data as Player[];
+    },
+    enabled: !!matchId,
+  });
+};
+
+// Hook for fetching substitutions
+const useSubstitutions = (matchId: string) => {
+  return useQuery({
+    queryKey: ['substitutions', matchId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('match_substitutions')
+        .select('*')
+        .eq('match_id', matchId)
+        .order('minute', { ascending: true });
+      
+      if (error) throw error;
+      return data as Substitution[];
+    },
+    enabled: !!matchId,
+  });
+};
+
+// Position color mapping
+const getPositionColor = (position: string | null): string => {
+  const pos = (position || '').toLowerCase();
+  if (pos.includes('goal')) return 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30';
+  if (pos.includes('back') || pos.includes('defender')) return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+  if (pos.includes('mid')) return 'bg-green-500/20 text-green-400 border-green-500/30';
+  if (pos.includes('wing') || pos.includes('forward') || pos.includes('striker')) return 'bg-red-500/20 text-red-400 border-red-500/30';
+  return 'bg-muted/50 text-muted-foreground border-border/50';
+};
+
+const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }: FootballMatchDetailsProps) => {
+  const { data: players, isLoading: playersLoading } = usePlayingXI(matchId);
+  const { data: substitutions, isLoading: subsLoading } = useSubstitutions(matchId);
+
+  const teamAPlayers = players?.filter(p => p.team_id === teamA.id) || [];
+  const teamBPlayers = players?.filter(p => p.team_id === teamB.id) || [];
+  const teamASubs = substitutions?.filter(s => s.team_id === teamA.id) || [];
+  const teamBSubs = substitutions?.filter(s => s.team_id === teamB.id) || [];
+
+  const hasData = (teamAPlayers.length > 0 || teamBPlayers.length > 0) || 
+                  (goalsTeamA.length > 0 || goalsTeamB.length > 0) ||
+                  (teamASubs.length > 0 || teamBSubs.length > 0);
+
+  if (!hasData && !playersLoading && !subsLoading) {
+    return null;
+  }
+
+  const renderGoalBadge = (goal: GoalEvent) => {
+    if (goal.type === 'penalty') {
+      return <Badge className="text-[9px] px-1.5 py-0 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">P</Badge>;
+    }
+    if (goal.type === 'own_goal') {
+      return <Badge className="text-[9px] px-1.5 py-0 bg-red-500/20 text-red-400 border-red-500/30">OG</Badge>;
+    }
+    return null;
+  };
+
+  const renderGoalsList = (goals: GoalEvent[], teamName: string, teamLogo?: string | null) => (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2 pb-2 border-b border-border/30">
+        {teamLogo ? (
+          <img src={teamLogo} alt={teamName} className="w-5 h-5 object-contain" />
+        ) : (
+          <Goal className="w-4 h-4 text-green-500" />
+        )}
+        <span className="text-sm font-medium">{teamName}</span>
+        <Badge variant="secondary" className="text-[10px]">{goals.length}</Badge>
+      </div>
+      {goals.length === 0 ? (
+        <p className="text-xs text-muted-foreground py-2">No goals</p>
+      ) : (
+        <div className="space-y-1.5">
+          {goals.map((goal, index) => (
+            <motion.div 
+              key={index}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="flex items-center gap-2 bg-muted/30 rounded-md px-3 py-2"
+            >
+              <Goal className="w-3.5 h-3.5 text-green-500 flex-shrink-0" />
+              <span className="text-sm font-medium">{goal.player}</span>
+              <span className="text-sm text-primary font-medium">{goal.minute}</span>
+              {renderGoalBadge(goal)}
+              {goal.assist && (
+                <span className="text-xs text-muted-foreground ml-1">(Assist: {goal.assist})</span>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
+  const renderPlayersList = (teamPlayers: Player[], teamName: string, teamLogo?: string | null, teamSubs?: Substitution[]) => (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 pb-2 border-b border-border/30">
+        {teamLogo ? (
+          <img src={teamLogo} alt={teamName} className="w-5 h-5 object-contain" />
+        ) : (
+          <Users className="w-4 h-4 text-primary" />
+        )}
+        <span className="text-sm font-medium">{teamName}</span>
+        <Badge variant="secondary" className="text-[10px]">{teamPlayers.length}</Badge>
+      </div>
+      
+      {/* Starting XI */}
+      {teamPlayers.length > 0 ? (
+        <div className="space-y-1.5">
+          {teamPlayers.map((player, index) => (
+            <motion.div 
+              key={player.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.03 }}
+              className="flex items-center justify-between gap-2 bg-muted/30 rounded-md px-3 py-2"
+            >
+              <div className="flex items-center gap-2 flex-wrap">
+                {player.batting_order && (
+                  <span className="text-xs font-bold bg-primary/20 text-primary px-1.5 py-0.5 rounded min-w-[24px] text-center">
+                    {player.batting_order}
+                  </span>
+                )}
+                <span className="text-sm font-medium">{player.player_name}</span>
+                {player.is_captain && (
+                  <Badge className="text-[9px] px-1.5 py-0 bg-amber-500/20 text-amber-400 border-amber-500/30">C</Badge>
+                )}
+                {player.is_vice_captain && (
+                  <Badge className="text-[9px] px-1.5 py-0 bg-blue-500/20 text-blue-400 border-blue-500/30">VC</Badge>
+                )}
+              </div>
+              {player.player_role && (
+                <Badge 
+                  variant="outline" 
+                  className={`text-[10px] px-2 py-0.5 font-medium ${getPositionColor(player.player_role)}`}
+                >
+                  {player.player_role}
+                </Badge>
+              )}
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-muted-foreground py-2">Lineup not available</p>
+      )}
+
+      {/* Substitutions */}
+      {teamSubs && teamSubs.length > 0 && (
+        <div className="mt-4 pt-3 border-t border-border/30">
+          <div className="flex items-center gap-2 mb-2">
+            <ArrowRightLeft className="w-3.5 h-3.5 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">Substitutions</span>
+          </div>
+          <div className="space-y-1.5">
+            {teamSubs.map((sub, index) => (
+              <motion.div 
+                key={sub.id}
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: index * 0.05 }}
+                className="flex items-center gap-2 bg-muted/20 rounded-md px-3 py-1.5 text-sm"
+              >
+                <span className="text-primary font-medium">{sub.minute}'</span>
+                <span className="text-red-400">↓ {sub.player_out}</span>
+                <span className="text-muted-foreground">→</span>
+                <span className="text-green-400">↑ {sub.player_in}</span>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.3 }}
+      className="mb-6"
+    >
+      <Card className="overflow-hidden border-border/50 bg-gradient-to-br from-card via-card to-card/80 backdrop-blur shadow-lg">
+        <CardHeader className="pb-4 bg-gradient-to-r from-green-500/10 via-transparent to-green-500/5">
+          <CardTitle className="flex items-center gap-3 text-lg">
+            <div className="w-9 h-9 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <Shirt className="w-5 h-5 text-green-500" />
+            </div>
+            <div>
+              <span>Match Details</span>
+              <p className="text-xs font-normal text-muted-foreground mt-0.5">
+                Lineups, goals & substitutions
+              </p>
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="pt-2">
+          <Tabs defaultValue="lineups" className="w-full">
+            <TabsList className="w-full grid grid-cols-3 mb-4">
+              <TabsTrigger value="lineups" className="gap-1.5 text-xs">
+                <Users className="w-3.5 h-3.5" />
+                Lineups
+              </TabsTrigger>
+              <TabsTrigger value="goals" className="gap-1.5 text-xs">
+                <Goal className="w-3.5 h-3.5" />
+                Goals
+              </TabsTrigger>
+              <TabsTrigger value="subs" className="gap-1.5 text-xs">
+                <ArrowRightLeft className="w-3.5 h-3.5" />
+                Subs
+              </TabsTrigger>
+            </TabsList>
+
+            {/* Lineups Tab */}
+            <TabsContent value="lineups">
+              <div className="grid md:grid-cols-2 gap-6">
+                {renderPlayersList(teamAPlayers, teamA.name, teamA.logo_url, teamASubs)}
+                {renderPlayersList(teamBPlayers, teamB.name, teamB.logo_url, teamBSubs)}
+              </div>
+            </TabsContent>
+
+            {/* Goals Tab */}
+            <TabsContent value="goals">
+              <div className="grid md:grid-cols-2 gap-6">
+                {renderGoalsList(goalsTeamA, teamA.name, teamA.logo_url)}
+                {renderGoalsList(goalsTeamB, teamB.name, teamB.logo_url)}
+              </div>
+            </TabsContent>
+
+            {/* Substitutions Tab */}
+            <TabsContent value="subs">
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border/30">
+                    {teamA.logo_url && <img src={teamA.logo_url} alt={teamA.name} className="w-5 h-5 object-contain" />}
+                    <span className="text-sm font-medium">{teamA.name}</span>
+                    <Badge variant="secondary" className="text-[10px]">{teamASubs.length}</Badge>
+                  </div>
+                  {teamASubs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2">No substitutions</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {teamASubs.map((sub, index) => (
+                        <motion.div 
+                          key={sub.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="flex items-center gap-2 bg-muted/30 rounded-md px-3 py-2 text-sm"
+                        >
+                          <Badge className="text-[10px] bg-primary/20 text-primary border-primary/30">{sub.minute}'</Badge>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-red-400 flex items-center gap-1">
+                              <span className="text-[10px]">OUT</span> {sub.player_out}
+                            </span>
+                            <ArrowRightLeft className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-green-400 flex items-center gap-1">
+                              <span className="text-[10px]">IN</span> {sub.player_in}
+                            </span>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 pb-2 border-b border-border/30">
+                    {teamB.logo_url && <img src={teamB.logo_url} alt={teamB.name} className="w-5 h-5 object-contain" />}
+                    <span className="text-sm font-medium">{teamB.name}</span>
+                    <Badge variant="secondary" className="text-[10px]">{teamBSubs.length}</Badge>
+                  </div>
+                  {teamBSubs.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2">No substitutions</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {teamBSubs.map((sub, index) => (
+                        <motion.div 
+                          key={sub.id}
+                          initial={{ opacity: 0, x: -10 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="flex items-center gap-2 bg-muted/30 rounded-md px-3 py-2 text-sm"
+                        >
+                          <Badge className="text-[10px] bg-primary/20 text-primary border-primary/30">{sub.minute}'</Badge>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-red-400 flex items-center gap-1">
+                              <span className="text-[10px]">OUT</span> {sub.player_out}
+                            </span>
+                            <ArrowRightLeft className="w-3 h-3 text-muted-foreground" />
+                            <span className="text-green-400 flex items-center gap-1">
+                              <span className="text-[10px]">IN</span> {sub.player_in}
+                            </span>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+    </motion.div>
+  );
+};
+
+export default FootballMatchDetails;

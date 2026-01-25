@@ -10,6 +10,7 @@ import PointsTable from '@/components/PointsTable';
 import ManualScoreCard from '@/components/ManualScoreCard';
 import ApiCricketLiveScore from '@/components/ApiCricketLiveScore';
 import SponsorNotice from '@/components/SponsorNotice';
+import FootballMatchDetails from '@/components/FootballMatchDetails';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,7 @@ import { useStreamingServers, StreamingServer } from '@/hooks/useStreamingServer
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { supabase } from '@/integrations/supabase/client';
-import { Match } from '@/hooks/useSportsData';
+import { Match, GoalEvent } from '@/hooks/useSportsData';
 import { MapPin, Clock, Calendar, Tv, Server, Loader2, Radio } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -147,6 +148,19 @@ const MatchPage = () => {
   const teamB = match.team_b;
   const tournament = match.tournament;
   const sport = match.sport;
+  
+  // Check if it's a football match
+  const sportName = sport?.name?.toLowerCase() || tournament?.sport?.toLowerCase() || '';
+  const isFootball = sportName.includes('football') || sportName.includes('soccer');
+  
+  // Parse goals from JSON
+  const parseGoals = (goals: unknown): GoalEvent[] => {
+    if (Array.isArray(goals)) return goals as GoalEvent[];
+    return [];
+  };
+  
+  const goalsTeamA = parseGoals(match.goals_team_a);
+  const goalsTeamB = parseGoals(match.goals_team_b);
 
   // SEO data
   const seoTitle = match.seo_title || `${teamA?.name} vs ${teamB?.name} Live Stream - ${siteSettings?.site_name || 'Live Sports'}`;
@@ -265,8 +279,19 @@ const MatchPage = () => {
             />
           )}
 
-          {/* Playing XI Section - Below Full Scoreboard */}
-          {teamA && teamB && (
+          {/* Football Match Details - Lineups, Goals, Substitutions */}
+          {isFootball && teamA && teamB && (
+            <FootballMatchDetails
+              matchId={match.id}
+              teamA={teamA}
+              teamB={teamB}
+              goalsTeamA={goalsTeamA}
+              goalsTeamB={goalsTeamB}
+            />
+          )}
+
+          {/* Playing XI Section - For non-football matches */}
+          {!isFootball && teamA && teamB && (
             <div className="mb-6">
               <PlayingXI
                 matchId={match.id}

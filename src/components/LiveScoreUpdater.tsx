@@ -10,6 +10,7 @@ import { Save, Play, Clock, RefreshCw, Pause, RotateCcw, Coffee } from "lucide-r
 import TestMatchManager from "@/components/TestMatchManager";
 import InningsManager from "@/components/InningsManager";
 import FootballGoalManager from "@/components/FootballGoalManager";
+import FootballSubstitutionManager from "@/components/FootballSubstitutionManager";
 
 interface LiveScoreUpdaterProps {
   match: Match;
@@ -345,9 +346,14 @@ const LiveScoreUpdater = ({ match }: LiveScoreUpdaterProps) => {
 
         {/* Football Goal Manager */}
         {isFootball && teamA && teamB && (
-          <div className="pt-4 border-t border-border/30">
+          <div className="pt-4 border-t border-border/30 space-y-4">
             <FootballGoalManager 
               match={match}
+              teamA={teamA as Team}
+              teamB={teamB as Team}
+            />
+            <FootballSubstitutionManager
+              matchId={match.id}
               teamA={teamA as Team}
               teamB={teamB as Team}
             />
