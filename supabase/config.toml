@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.sitemap-ping]
 verify_jwt = false
+
+[functions.scrape-football-scores]
+verify_jwt = false
