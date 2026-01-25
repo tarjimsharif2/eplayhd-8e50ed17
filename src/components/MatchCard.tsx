@@ -131,7 +131,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
   
   // Fetch toss for cricket matches (live or completed)
   const shouldFetchToss = isCricket && match.api_score_enabled && (displayStatus === 'live' || displayStatus === 'completed');
-  const { toss } = useMatchToss({ matchId: match.id, enabled: shouldFetchToss });
+  const { parsedToss, toss: rawToss } = useMatchToss({ matchId: match.id, enabled: shouldFetchToss });
 
   useEffect(() => {
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -432,11 +432,21 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
           )}
 
           {/* Toss Info for Cricket */}
-          {isCricket && toss && (
+          {isCricket && (parsedToss || rawToss) && (
             <div className="mt-2 pt-2 border-t border-border/20">
               <div className="flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
                 <Coins className="w-3 h-3 text-yellow-500" />
-                <span className="line-clamp-1">{toss}</span>
+                {parsedToss ? (
+                  <span className="line-clamp-1">
+                    <span className="font-medium text-foreground">{parsedToss.winner}</span>
+                    {' elected to '}
+                    <span className={`font-semibold ${parsedToss.decision === 'bat' ? 'text-green-500' : 'text-blue-500'}`}>
+                      {parsedToss.decision === 'bat' ? 'Bat' : 'Bowl'}
+                    </span>
+                  </span>
+                ) : (
+                  <span className="line-clamp-1">{rawToss}</span>
+                )}
               </div>
             </div>
           )}

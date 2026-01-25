@@ -1,14 +1,53 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+
+interface ParsedToss {
+  winner: string;
+  decision: 'bat' | 'bowl';
+  rawText: string;
+}
 
 interface UseMatchTossOptions {
   matchId: string;
   enabled?: boolean;
 }
 
+// Parse toss string like "Delhi Capitals Women, elected to bowl first"
+const parseToss = (tossText: string): ParsedToss | null => {
+  if (!tossText) return null;
+  
+  // Pattern: "TeamName, elected to bat/bowl first"
+  const match = tossText.match(/^(.+?),?\s*elected\s+to\s+(bat|bowl)\s*(?:first)?$/i);
+  
+  if (match) {
+    return {
+      winner: match[1].trim(),
+      decision: match[2].toLowerCase() as 'bat' | 'bowl',
+      rawText: tossText,
+    };
+  }
+  
+  // Fallback: try alternate patterns
+  const altMatch = tossText.match(/^(.+?)\s+(?:won|wins)\s+(?:the\s+)?toss\s+(?:and\s+)?(?:chose|opt(?:ed)?)\s+to\s+(bat|bowl)/i);
+  if (altMatch) {
+    return {
+      winner: altMatch[1].trim(),
+      decision: altMatch[2].toLowerCase() as 'bat' | 'bowl',
+      rawText: tossText,
+    };
+  }
+  
+  return null;
+};
+
 export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) => {
-  const [toss, setToss] = useState<string | null>(null);
+  const [tossRaw, setTossRaw] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+
+  const parsedToss = useMemo(() => {
+    if (!tossRaw) return null;
+    return parseToss(tossRaw);
+  }, [tossRaw]);
 
   useEffect(() => {
     if (!enabled || !matchId) return;
@@ -23,7 +62,7 @@ export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) =
           .maybeSingle();
 
         if (!error && data?.toss) {
-          setToss(data.toss);
+          setTossRaw(data.toss);
         }
       } catch (err) {
         console.error('Error fetching toss:', err);
@@ -47,7 +86,7 @@ export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) =
         },
         (payload: any) => {
           if (payload.new?.toss) {
-            setToss(payload.new.toss);
+            setTossRaw(payload.new.toss);
           }
         }
       )
@@ -58,5 +97,5 @@ export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) =
     };
   }, [matchId, enabled]);
 
-  return { toss, isLoading };
+  return { toss: tossRaw, parsedToss, isLoading };
 };
