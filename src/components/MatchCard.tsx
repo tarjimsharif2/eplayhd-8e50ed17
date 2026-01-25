@@ -111,6 +111,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
   const displayStatus = effectiveStatus || match.status;
   const [countdown, setCountdown] = useState<string | null>(null);
   const [localTime, setLocalTime] = useState<string>("");
+  const [matchSeconds, setMatchSeconds] = useState<number>(0);
   const [timezone, setTimezone] = useState<string>("");
 
   // Get date label (Today/Tomorrow/Date)
@@ -141,6 +142,27 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
     const tzAbbr = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop() || '';
     setTimezone(tzAbbr);
   }, []);
+
+  // Live seconds counter for football matches
+  useEffect(() => {
+    if (displayStatus === 'live' && isFootball && match.match_minute != null) {
+      // Reset seconds when minute changes
+      setMatchSeconds(0);
+      
+      // Paused states - don't count seconds
+      const pausedMinutes = [45, 90, 105, 120];
+      if (pausedMinutes.includes(match.match_minute)) {
+        return;
+      }
+      
+      // Start counting seconds
+      const interval = setInterval(() => {
+        setMatchSeconds(prev => (prev >= 59 ? 0 : prev + 1));
+      }, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [displayStatus, isFootball, match.match_minute]);
 
   useEffect(() => {
     if (match.match_start_time) {
@@ -357,8 +379,19 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
             
             if (isFootball && hasFootballScore && (displayStatus === 'live' || displayStatus === 'completed')) {
               // Football Score Display - Horizontal layout with scores
+              const formatTime = (min: number, sec: number) => {
+                return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
+              };
+              
               return (
                 <div className="py-3">
+                  {/* Team Names Row with VS */}
+                  <div className="flex items-center justify-center gap-2 mb-3">
+                    <span className="font-semibold text-foreground text-sm md:text-base text-center flex-1 text-right">{teamA.name}</span>
+                    <span className="text-muted-foreground text-xs font-medium px-2">vs</span>
+                    <span className="font-semibold text-foreground text-sm md:text-base text-center flex-1 text-left">{teamB.name}</span>
+                  </div>
+                  
                   <div className="flex items-center justify-center gap-3">
                     {/* Team A with Score */}
                     <div className="flex items-center gap-3">
@@ -377,7 +410,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                             <span className="font-display text-base text-primary">{getInitials(teamA.name)}</span>
                           )}
                         </div>
-                        <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[70px] line-clamp-1">{teamA.short_name || teamA.name}</span>
+                        <span className="font-medium text-foreground text-xs leading-tight text-center">{teamA.short_name}</span>
                       </div>
                       {/* Score A */}
                       <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_a || '0'}</span>
@@ -436,7 +469,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                                 </Badge>
                                 <div className="flex items-center gap-1">
                                   <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                  <span className="text-xs font-bold text-red-500">{minute}'</span>
+                                  <span className="text-xs font-bold text-red-500 font-mono">{formatTime(minute, matchSeconds)}</span>
                                 </div>
                               </div>
                             );
@@ -451,7 +484,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                                 </Badge>
                                 <div className="flex items-center gap-1">
                                   <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                  <span className="text-xs font-bold text-red-500">{minute}'</span>
+                                  <span className="text-xs font-bold text-red-500 font-mono">{formatTime(minute, matchSeconds)}</span>
                                 </div>
                               </div>
                             );
@@ -464,7 +497,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                                 <span className="text-[9px] text-muted-foreground font-medium">2nd Half</span>
                                 <div className="flex items-center gap-1">
                                   <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                  <span className="text-xs font-bold text-red-500">{minute}'</span>
+                                  <span className="text-xs font-bold text-red-500 font-mono">{formatTime(minute, matchSeconds)}</span>
                                 </div>
                               </div>
                             );
@@ -476,7 +509,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                               <span className="text-[9px] text-muted-foreground font-medium">1st Half</span>
                               <div className="flex items-center gap-1">
                                 <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                                <span className="text-xs font-bold text-red-500">{minute}'</span>
+                                <span className="text-xs font-bold text-red-500 font-mono">{formatTime(minute, matchSeconds)}</span>
                               </div>
                             </div>
                           );
@@ -509,7 +542,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                             <span className="font-display text-base text-primary">{getInitials(teamB.name)}</span>
                           )}
                         </div>
-                        <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[70px] line-clamp-1">{teamB.short_name || teamB.name}</span>
+                        <span className="font-medium text-foreground text-xs leading-tight text-center">{teamB.short_name}</span>
                       </div>
                     </div>
                   </div>
