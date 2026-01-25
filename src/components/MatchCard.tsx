@@ -1,4 +1,4 @@
-import { Match, useMatchInnings } from "@/hooks/useSportsData";
+import { Match, useMatchInnings, GoalEvent } from "@/hooks/useSportsData";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
@@ -350,9 +350,9 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
             const isFootball = sportName.toLowerCase() === 'football' || sportName.toLowerCase() === 'soccer';
             const hasFootballScore = isFootball && (match.score_a || match.score_b);
             
-            // Parse goal data from match
-            const goalsTeamA = (match as any).goals_team_a || [];
-            const goalsTeamB = (match as any).goals_team_b || [];
+            // Parse goal data from match - ensure arrays
+            const goalsTeamA: GoalEvent[] = Array.isArray(match.goals_team_a) ? match.goals_team_a as GoalEvent[] : [];
+            const goalsTeamB: GoalEvent[] = Array.isArray(match.goals_team_b) ? match.goals_team_b as GoalEvent[] : [];
             
             if (isFootball && hasFootballScore && (displayStatus === 'live' || displayStatus === 'completed')) {
               // Football Score Display - Horizontal layout with scores

@@ -50,6 +50,13 @@ export interface Tournament {
 
 export type MatchResult = 'team_a_won' | 'team_b_won' | 'tied' | 'no_result' | 'draw' | null;
 
+export interface GoalEvent {
+  player: string;
+  minute: string;
+  assist?: string;
+  type: 'goal' | 'penalty' | 'own_goal';
+}
+
 export interface Match {
   id: string;
   tournament_id: string | null;
@@ -87,6 +94,8 @@ export interface Match {
   cricbuzz_match_id: string | null;
   manual_status_override: boolean;
   is_active: boolean;
+  goals_team_a: GoalEvent[] | unknown;
+  goals_team_b: GoalEvent[] | unknown;
   created_at: string;
   updated_at: string;
   tournament?: Tournament;
@@ -415,10 +424,10 @@ export const useCreateMatch = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (match: Omit<Match, 'id' | 'created_at' | 'updated_at' | 'tournament' | 'team_a' | 'team_b' | 'sport'>) => {
+    mutationFn: async (match: Omit<Match, 'id' | 'created_at' | 'updated_at' | 'tournament' | 'team_a' | 'team_b' | 'sport' | 'goals_team_a' | 'goals_team_b'> & { goals_team_a?: unknown; goals_team_b?: unknown }) => {
       const { data, error } = await supabase
         .from('matches')
-        .insert(match)
+        .insert(match as any)
         .select()
         .single();
       
@@ -435,10 +444,10 @@ export const useUpdateMatch = () => {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async ({ id, ...match }: Partial<Match> & { id: string }) => {
+    mutationFn: async ({ id, ...match }: Partial<Omit<Match, 'goals_team_a' | 'goals_team_b'>> & { id: string; goals_team_a?: unknown; goals_team_b?: unknown }) => {
       const { data, error } = await supabase
         .from('matches')
-        .update(match)
+        .update(match as any)
         .eq('id', id)
         .select()
         .single();
