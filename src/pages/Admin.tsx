@@ -882,6 +882,50 @@ const Admin = () => {
     }
   };
 
+  // Force Re-sync using sync-api-scores edge function
+  const [forceSyncingMatchId, setForceSyncingMatchId] = useState<string | null>(null);
+  
+  const handleForceResync = async (match: Match) => {
+    if (forceSyncingMatchId) return;
+    
+    setForceSyncingMatchId(match.id);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-api-scores', {
+        body: { matchId: match.id }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (!data?.success) {
+        toast({
+          title: "Re-sync failed",
+          description: data?.error || "Failed to re-sync match data",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      toast({
+        title: "Match re-synced",
+        description: `Successfully re-synced ${data.synced || 1} match(es)`,
+      });
+      
+      // Refresh matches data
+      window.location.reload();
+    } catch (error: any) {
+      console.error('Force Re-sync error:', error);
+      toast({
+        title: "Re-sync failed",
+        description: error.message || "Failed to force re-sync",
+        variant: "destructive"
+      });
+    } finally {
+      setForceSyncingMatchId(null);
+    }
+  };
+
   // Team handlers
   const handleSaveTeam = async () => {
     try {
@@ -2252,6 +2296,19 @@ const Admin = () => {
                                       <Loader2 className="w-4 h-4 animate-spin text-blue-500" />
                                     ) : (
                                       <CloudDownload className="w-4 h-4 text-blue-500" />
+                                    )}
+                                  </Button>
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => handleForceResync(match)} 
+                                    disabled={forceSyncingMatchId === match.id}
+                                    title="Force Re-sync scores"
+                                  >
+                                    {forceSyncingMatchId === match.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin text-orange-500" />
+                                    ) : (
+                                      <RefreshCw className="w-4 h-4 text-orange-500" />
                                     )}
                                   </Button>
                                   {match.page_type === 'page' && (

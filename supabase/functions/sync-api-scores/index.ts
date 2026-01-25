@@ -200,7 +200,19 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('[sync-api-scores] Starting scheduled API score sync...');
+    // Check for single match force-sync request
+    let forceSyncMatchId: string | null = null;
+    try {
+      const body = await req.json();
+      if (body?.matchId) {
+        forceSyncMatchId = body.matchId;
+        console.log(`[sync-api-scores] Force sync requested for match: ${forceSyncMatchId}`);
+      }
+    } catch {
+      // No body or invalid JSON - proceed with normal sync
+    }
+
+    console.log('[sync-api-scores] Starting API score sync...');
 
     // Get the API key and sync interval from site_settings
     const { data: settings, error: settingsError } = await supabase
@@ -238,7 +250,8 @@ Deno.serve(async (req) => {
     // This prevents the issue where second innings data stops syncing when match completes
     const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
     
-    const { data: matches, error: matchesError } = await supabase
+    // Build query based on whether we're force-syncing a specific match
+    let matchQuery = supabase
       .from('matches')
       .select(`
         id,
@@ -253,9 +266,17 @@ Deno.serve(async (req) => {
         score_b,
         team_a:teams!matches_team_a_id_fkey(name, short_name),
         team_b:teams!matches_team_b_id_fkey(name, short_name)
-      `)
-      .eq('api_score_enabled', true)
-      .order('match_date', { ascending: true });
+      `);
+    
+    if (forceSyncMatchId) {
+      // Force sync: get specific match regardless of api_score_enabled
+      matchQuery = matchQuery.eq('id', forceSyncMatchId);
+    } else {
+      // Normal sync: only get api-enabled matches
+      matchQuery = matchQuery.eq('api_score_enabled', true);
+    }
+    
+    const { data: matches, error: matchesError } = await matchQuery.order('match_date', { ascending: true });
 
     if (matchesError) {
       console.error('[sync-api-scores] Error fetching matches:', matchesError);
@@ -275,6 +296,12 @@ Deno.serve(async (req) => {
 
     // Filter matches that should be synced
     const matchesToSync = matches.filter(match => {
+      // If force syncing a specific match, always include it
+      if (forceSyncMatchId && match.id === forceSyncMatchId) {
+        console.log(`[sync-api-scores] Force sync: including match ${match.id} (bypassing all filters)`);
+        return true;
+      }
+      
       // Helper to check if scores are incomplete (one team hasn't batted)
       const hasIncompleteScores = () => {
         // If match is completed but one or both scores are missing, it's incomplete
