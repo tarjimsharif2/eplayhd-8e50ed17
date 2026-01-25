@@ -245,6 +245,7 @@ const Admin = () => {
   const [sportForm, setSportForm] = useState({
     name: '',
     icon_url: '',
+    display_order: 0,
   });
 
   const [siteSettingsForm, setSiteSettingsForm] = useState({
@@ -1235,6 +1236,7 @@ const Admin = () => {
       const sportData = {
         name: sportForm.name,
         icon_url: sportForm.icon_url || null,
+        display_order: sportForm.display_order,
       };
       
       if (editingSport) {
@@ -1256,6 +1258,7 @@ const Admin = () => {
     setSportForm({
       name: sport.name,
       icon_url: sport.icon_url || '',
+      display_order: sport.display_order ?? 0,
     });
     setSportDialogOpen(true);
   };
@@ -1271,7 +1274,7 @@ const Admin = () => {
 
   const resetSportForm = () => {
     setEditingSport(null);
-    setSportForm({ name: '', icon_url: '' });
+    setSportForm({ name: '', icon_url: '', display_order: 0 });
   };
 
   // Site Settings handler
@@ -3279,6 +3282,17 @@ const Admin = () => {
                         <Input placeholder="https://..." value={sportForm.icon_url} onChange={(e) => setSportForm({ ...sportForm, icon_url: e.target.value })} />
                         <p className="text-xs text-muted-foreground">Leave empty to use default icon</p>
                       </div>
+                      <div className="space-y-2">
+                        <Label>Display Order</Label>
+                        <Input 
+                          type="number" 
+                          placeholder="1, 2, 3..." 
+                          min={0}
+                          value={sportForm.display_order} 
+                          onChange={(e) => setSportForm({ ...sportForm, display_order: parseInt(e.target.value) || 0 })} 
+                        />
+                        <p className="text-xs text-muted-foreground">Lower numbers appear first (e.g., 1 = first, 2 = second)</p>
+                      </div>
                     </div>
                     <DialogFooter>
                       <Button variant="outline" onClick={() => setSportDialogOpen(false)}>Cancel</Button>
@@ -3308,6 +3322,9 @@ const Admin = () => {
                       <Card className="hover:border-primary/50 transition-colors">
                         <CardContent className="p-4">
                           <div className="flex items-center gap-4">
+                            <div className="w-8 h-8 rounded-md bg-muted flex items-center justify-center text-sm font-bold text-muted-foreground">
+                              {sport.display_order ?? 0}
+                            </div>
                             <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-primary/30 to-accent/20 flex items-center justify-center border border-primary/20">
                               {sport.icon_url ? (
                                 <img src={sport.icon_url} alt={sport.name} className="w-6 h-6 object-contain" />

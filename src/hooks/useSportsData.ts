@@ -6,6 +6,7 @@ export interface Sport {
   id: string;
   name: string;
   icon_url: string | null;
+  display_order: number;
   created_at: string;
   updated_at: string;
 }
@@ -136,7 +137,8 @@ export const useSports = () => {
       const { data, error } = await supabase
         .from('sports')
         .select('*')
-        .order('name');
+        .order('display_order', { ascending: true })
+        .order('name', { ascending: true });
       
       if (error) throw error;
       return data as Sport[];

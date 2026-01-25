@@ -1051,6 +1051,7 @@ export type Database = {
       sports: {
         Row: {
           created_at: string
+          display_order: number | null
           icon_url: string | null
           id: string
           name: string
@@ -1058,6 +1059,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          display_order?: number | null
           icon_url?: string | null
           id?: string
           name: string
@@ -1065,6 +1067,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          display_order?: number | null
           icon_url?: string | null
           id?: string
           name?: string
