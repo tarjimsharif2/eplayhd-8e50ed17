@@ -410,6 +410,52 @@ const MatchPage = () => {
                   </div>
                 </div>
 
+                {/* Goal Scorers for Football */}
+                {isFootball && (goalsTeamA.length > 0 || goalsTeamB.length > 0) && (
+                  <div className="pt-4 mt-4 border-t border-border/30">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      {/* Team A Goals */}
+                      {goalsTeamA.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            {teamA?.logo_url && <img src={teamA.logo_url} className="w-4 h-4 object-contain" />}
+                            <span>{teamA?.short_name || teamA?.name}</span>
+                          </div>
+                          {goalsTeamA.map((goal, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              <span className="text-green-500">⚽</span>
+                              <span className="font-medium">{goal.player}</span>
+                              <span className="text-primary">{goal.minute}</span>
+                              {goal.type === 'penalty' && <span className="text-yellow-500 text-xs">(P)</span>}
+                              {goal.type === 'own_goal' && <span className="text-red-500 text-xs">(OG)</span>}
+                              {goal.assist && <span className="text-muted-foreground text-xs">({goal.assist})</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {/* Team B Goals */}
+                      {goalsTeamB.length > 0 && (
+                        <div className="space-y-1.5">
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                            {teamB?.logo_url && <img src={teamB.logo_url} className="w-4 h-4 object-contain" />}
+                            <span>{teamB?.short_name || teamB?.name}</span>
+                          </div>
+                          {goalsTeamB.map((goal, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-sm">
+                              <span className="text-green-500">⚽</span>
+                              <span className="font-medium">{goal.player}</span>
+                              <span className="text-primary">{goal.minute}</span>
+                              {goal.type === 'penalty' && <span className="text-yellow-500 text-xs">(P)</span>}
+                              {goal.type === 'own_goal' && <span className="text-red-500 text-xs">(OG)</span>}
+                              {goal.assist && <span className="text-muted-foreground text-xs">({goal.assist})</span>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Match Info Footer */}
                 <div className="flex flex-wrap items-center justify-center gap-4 pt-4 border-t border-border/30 text-sm text-muted-foreground">
                   <div className="flex items-center gap-1.5">
