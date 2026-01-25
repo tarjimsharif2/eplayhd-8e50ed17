@@ -279,26 +279,32 @@ Deno.serve(async (req) => {
       const hasIncompleteScores = () => {
         // If match is completed but one or both scores are missing, it's incomplete
         if (match.status === 'completed') {
-          return !match.score_a || !match.score_b;
+          const scoreAMissing = !match.score_a || match.score_a.trim() === '';
+          const scoreBMissing = !match.score_b || match.score_b.trim() === '';
+          return scoreAMissing || scoreBMissing;
         }
         return false;
       };
       
-      // Skip matches that are completed for more than 30 minutes (unless scores are incomplete)
+      const isIncomplete = hasIncompleteScores();
+      
+      // For completed matches with incomplete scores - ALWAYS force sync (ignore all time checks)
+      if (match.status === 'completed' && isIncomplete) {
+        console.log(`[sync-api-scores] FORCE SYNCING completed match ${match.id} - has incomplete scores (score_a="${match.score_a}", score_b="${match.score_b}")`);
+        return true; // Skip ALL other checks
+      }
+      
+      // Skip matches that are completed for more than 30 minutes (only if scores are complete)
       if (match.status === 'completed') {
         const updatedAt = new Date(match.updated_at || match.last_api_sync || 0);
-        if (updatedAt < thirtyMinutesAgo && !hasIncompleteScores()) {
+        if (updatedAt < thirtyMinutesAgo) {
           console.log(`[sync-api-scores] Skipping completed match ${match.id} - completed more than 30 mins ago with full scores`);
           return false;
-        }
-        // For recently completed matches OR matches with incomplete scores, force sync
-        if (hasIncompleteScores()) {
-          console.log(`[sync-api-scores] Force syncing completed match ${match.id} - has incomplete scores (score_a=${match.score_a}, score_b=${match.score_b})`);
-          return true; // Skip the last_api_sync check for incomplete data
         }
         console.log(`[sync-api-scores] Recently completed match ${match.id} - checking for final sync`);
       }
       
+      // Check sync interval for non-incomplete matches
       if (match.last_api_sync) {
         const lastSyncTime = new Date(match.last_api_sync).getTime();
         const timeSinceLastSync = now.getTime() - lastSyncTime;
