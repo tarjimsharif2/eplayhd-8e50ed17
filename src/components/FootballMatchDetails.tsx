@@ -1,15 +1,11 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Goal, ArrowRightLeft, Shirt, RefreshCw, Loader2 } from 'lucide-react';
+import { Users, Goal, ArrowRightLeft, Shirt } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Team, GoalEvent } from '@/hooks/useSportsData';
-import { toast } from '@/hooks/use-toast';
-import { useCurrentUserPermissions } from '@/hooks/usePermissions';
 
 interface Player {
   id: string;
@@ -99,219 +95,20 @@ const getPositionColor = (position: string | null): string => {
 };
 
 const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }: FootballMatchDetailsProps) => {
-  const queryClient = useQueryClient();
-  const { isAdmin } = useCurrentUserPermissions();
-  const [isSyncing, setIsSyncing] = useState(false);
-  const { data: players, isLoading: playersLoading, refetch: refetchPlayers } = usePlayingXI(matchId);
-  const { data: substitutions, isLoading: subsLoading, refetch: refetchSubs } = useSubstitutions(matchId);
+  const { data: players, isLoading: playersLoading } = usePlayingXI(matchId);
+  const { data: substitutions, isLoading: subsLoading } = useSubstitutions(matchId);
 
   const teamAPlayers = players?.filter(p => p.team_id === teamA.id) || [];
   const teamBPlayers = players?.filter(p => p.team_id === teamB.id) || [];
   const teamASubs = substitutions?.filter(s => s.team_id === teamA.id) || [];
   const teamBSubs = substitutions?.filter(s => s.team_id === teamB.id) || [];
 
-  // Hide component if no data and not admin
+  // Hide component if no data
   const hasData = teamAPlayers.length > 0 || teamBPlayers.length > 0 || goalsTeamA.length > 0 || goalsTeamB.length > 0 || teamASubs.length > 0 || teamBSubs.length > 0;
   
-  if (!hasData && !isAdmin) {
+  if (!hasData) {
     return null;
   }
-
-  // Manual sync function for this specific match
-  const handleSyncDetails = async () => {
-    setIsSyncing(true);
-    try {
-      // Fetch from all leagues with details
-      const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
-        'scrape-football-scores',
-        { body: { allLeagues: true, includeDetails: true } }
-      );
-
-      if (apiError || !apiResponse?.success) {
-        throw new Error(apiError?.message || 'Failed to fetch match data');
-      }
-
-      const apiMatches = apiResponse.matches || [];
-      
-      // Find matching match using fuzzy matching
-      const normalizeTeamName = (name: string): string => {
-        return name
-          .toLowerCase()
-          .replace(/\s+fc$/i, '')
-          .replace(/\s+united$/i, ' utd')
-          .replace(/\s+city$/i, '')
-          .replace(/manchester\s+/i, 'man ')
-          .replace(/tottenham\s+hotspur/i, 'spurs')
-          .replace(/wolverhampton\s+wanderers/i, 'wolves')
-          .replace(/west\s+ham\s+united/i, 'west ham')
-          .replace(/newcastle\s+united/i, 'newcastle')
-          .replace(/\s+/g, ' ')
-          .trim();
-      };
-
-      const teamsMatch = (dbTeam: string, apiTeam: string): boolean => {
-        const normalizedDb = normalizeTeamName(dbTeam);
-        const normalizedApi = normalizeTeamName(apiTeam);
-        if (normalizedDb === normalizedApi) return true;
-        if (normalizedDb.includes(normalizedApi) || normalizedApi.includes(normalizedDb)) return true;
-        const dbWords = normalizedDb.split(' ').filter(w => w.length > 2);
-        const apiWords = normalizedApi.split(' ').filter(w => w.length > 2);
-        const matchingWords = dbWords.filter(w => apiWords.includes(w));
-        return matchingWords.length >= 1 && matchingWords.length >= Math.min(dbWords.length, apiWords.length) * 0.5;
-      };
-
-      // Find the matching API match
-      const apiMatch = apiMatches.find((api: { homeTeam: string; awayTeam: string }) => {
-        const homeMatches = teamsMatch(teamA.name, api.homeTeam) || teamsMatch(teamA.short_name, api.homeTeam);
-        const awayMatches = teamsMatch(teamB.name, api.awayTeam) || teamsMatch(teamB.short_name, api.awayTeam);
-        return homeMatches && awayMatches;
-      });
-
-      const apiMatchReverse = !apiMatch ? apiMatches.find((api: { homeTeam: string; awayTeam: string }) => {
-        const homeMatches = teamsMatch(teamB.name, api.homeTeam) || teamsMatch(teamB.short_name, api.homeTeam);
-        const awayMatches = teamsMatch(teamA.name, api.awayTeam) || teamsMatch(teamA.short_name, api.awayTeam);
-        return homeMatches && awayMatches;
-      }) : null;
-
-      const matchedApi = apiMatch || apiMatchReverse;
-      const isReversed = !!apiMatchReverse && !apiMatch;
-
-      if (!matchedApi) {
-        toast({
-          title: "No Match Found",
-          description: `Could not find API data for ${teamA.name} vs ${teamB.name}`,
-          variant: "destructive",
-        });
-        setIsSyncing(false);
-        return;
-      }
-
-      // Get lineup (swap if reversed)
-      const lineupTeamA: PlayerInfo[] = isReversed ? matchedApi.awayLineup : matchedApi.homeLineup;
-      const lineupTeamB: PlayerInfo[] = isReversed ? matchedApi.homeLineup : matchedApi.awayLineup;
-      const subsTeamA: SubstitutionEvent[] = isReversed ? matchedApi.awaySubs : matchedApi.homeSubs;
-      const subsTeamB: SubstitutionEvent[] = isReversed ? matchedApi.homeSubs : matchedApi.awaySubs;
-
-      let insertedPlayers = 0;
-      let insertedSubs = 0;
-
-      // Delete existing lineup and insert new
-      if (lineupTeamA?.length || lineupTeamB?.length) {
-        await supabase
-          .from('match_playing_xi')
-          .delete()
-          .eq('match_id', matchId);
-
-        const lineupInserts = [];
-        
-        if (lineupTeamA) {
-          for (let i = 0; i < lineupTeamA.length; i++) {
-            const player = lineupTeamA[i];
-            lineupInserts.push({
-              match_id: matchId,
-              team_id: teamA.id,
-              player_name: player.name,
-              player_role: player.position || null,
-              batting_order: i + 1,
-              is_captain: player.isCaptain || false,
-              is_vice_captain: false,
-            });
-          }
-        }
-        
-        if (lineupTeamB) {
-          for (let i = 0; i < lineupTeamB.length; i++) {
-            const player = lineupTeamB[i];
-            lineupInserts.push({
-              match_id: matchId,
-              team_id: teamB.id,
-              player_name: player.name,
-              player_role: player.position || null,
-              batting_order: i + 1,
-              is_captain: player.isCaptain || false,
-              is_vice_captain: false,
-            });
-          }
-        }
-        
-        if (lineupInserts.length > 0) {
-          const { error: lineupError } = await supabase
-            .from('match_playing_xi')
-            .insert(lineupInserts);
-          
-          if (!lineupError) {
-            insertedPlayers = lineupInserts.length;
-          }
-        }
-      }
-
-      // Sync substitutions
-      if (subsTeamA?.length || subsTeamB?.length) {
-        // Delete existing and insert new
-        await supabase
-          .from('match_substitutions')
-          .delete()
-          .eq('match_id', matchId);
-
-        const subsInserts = [];
-        
-        if (subsTeamA) {
-          for (const sub of subsTeamA) {
-            subsInserts.push({
-              match_id: matchId,
-              team_id: teamA.id,
-              player_out: sub.playerOut,
-              player_in: sub.playerIn,
-              minute: sub.minute,
-            });
-          }
-        }
-        
-        if (subsTeamB) {
-          for (const sub of subsTeamB) {
-            subsInserts.push({
-              match_id: matchId,
-              team_id: teamB.id,
-              player_out: sub.playerOut,
-              player_in: sub.playerIn,
-              minute: sub.minute,
-            });
-          }
-        }
-        
-        if (subsInserts.length > 0) {
-          const { error: subsError } = await supabase
-            .from('match_substitutions')
-            .insert(subsInserts);
-          
-          if (!subsError) {
-            insertedSubs = subsInserts.length;
-          }
-        }
-      }
-
-      // Refetch data
-      await refetchPlayers();
-      await refetchSubs();
-      queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
-      queryClient.invalidateQueries({ queryKey: ['substitutions', matchId] });
-
-      toast({
-        title: "Sync Complete",
-        description: `Added ${insertedPlayers} players and ${insertedSubs} substitutions`,
-      });
-
-    } catch (error) {
-      console.error('Sync error:', error);
-      toast({
-        title: "Sync Failed",
-        description: error instanceof Error ? error.message : 'Unknown error occurred',
-        variant: "destructive",
-      });
-    } finally {
-      setIsSyncing(false);
-    }
-  };
 
   const renderGoalBadge = (goal: GoalEvent) => {
     if (goal.type === 'penalty') {
@@ -456,7 +253,7 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }:
     >
       <Card className="overflow-hidden border-border/50 bg-gradient-to-br from-card via-card to-card/80 backdrop-blur shadow-lg">
         <CardHeader className="pb-4 bg-gradient-to-r from-green-500/10 via-transparent to-green-500/5">
-          <CardTitle className="flex items-center justify-between gap-3 text-lg">
+          <CardTitle className="flex items-center gap-3 text-lg">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-green-500/20 flex items-center justify-center">
                 <Shirt className="w-5 h-5 text-green-500" />
@@ -468,22 +265,6 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }:
                 </p>
               </div>
             </div>
-            {isAdmin && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleSyncDetails}
-                disabled={isSyncing}
-                className="gap-2"
-              >
-                {isSyncing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <RefreshCw className="w-4 h-4" />
-                )}
-                {isSyncing ? 'Syncing...' : 'Sync Details'}
-              </Button>
-            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-2">

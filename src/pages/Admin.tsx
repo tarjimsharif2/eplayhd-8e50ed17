@@ -887,12 +887,203 @@ const Admin = () => {
     }
   };
 
-  // Force Re-sync using sync-api-scores edge function
+  // Force Re-sync using sync-api-scores edge function (cricket) or scrape-football-scores (football)
   const handleForceResync = async (match: Match) => {
     if (forceSyncingMatchId) return;
     
     setForceSyncingMatchId(match.id);
     try {
+      // Check if it's a football match
+      const sport = sports?.find(s => s.id === match.sport_id);
+      const isFootball = sport?.name?.toLowerCase() === 'football' || sport?.name?.toLowerCase() === 'soccer';
+      
+      if (isFootball) {
+        // For football - sync scores, lineups, and substitutions
+        const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
+          'scrape-football-scores',
+          { body: { allLeagues: true, includeDetails: true } }
+        );
+
+        if (apiError || !apiResponse?.success) {
+          throw new Error(apiError?.message || 'Failed to fetch football data');
+        }
+
+        const apiMatches = apiResponse.matches || [];
+        
+        // Find matching match using fuzzy matching
+        const normalizeTeamName = (name: string): string => {
+          return name
+            .toLowerCase()
+            .replace(/\s+fc$/i, '')
+            .replace(/\s+united$/i, ' utd')
+            .replace(/\s+city$/i, '')
+            .replace(/manchester\s+/i, 'man ')
+            .replace(/tottenham\s+hotspur/i, 'spurs')
+            .replace(/wolverhampton\s+wanderers/i, 'wolves')
+            .replace(/west\s+ham\s+united/i, 'west ham')
+            .replace(/newcastle\s+united/i, 'newcastle')
+            .replace(/\s+/g, ' ')
+            .trim();
+        };
+
+        const teamsMatch = (dbTeam: string, apiTeam: string): boolean => {
+          const normalizedDb = normalizeTeamName(dbTeam);
+          const normalizedApi = normalizeTeamName(apiTeam);
+          if (normalizedDb === normalizedApi) return true;
+          if (normalizedDb.includes(normalizedApi) || normalizedApi.includes(normalizedDb)) return true;
+          const dbWords = normalizedDb.split(' ').filter(w => w.length > 2);
+          const apiWords = normalizedApi.split(' ').filter(w => w.length > 2);
+          const matchingWords = dbWords.filter(w => apiWords.includes(w));
+          return matchingWords.length >= 1 && matchingWords.length >= Math.min(dbWords.length, apiWords.length) * 0.5;
+        };
+
+        const teamA = teams?.find(t => t.id === match.team_a_id);
+        const teamB = teams?.find(t => t.id === match.team_b_id);
+        
+        if (!teamA || !teamB) {
+          throw new Error('Team data not found');
+        }
+
+        // Find the matching API match
+        const apiMatch = apiMatches.find((api: { homeTeam: string; awayTeam: string }) => {
+          const homeMatches = teamsMatch(teamA.name, api.homeTeam) || teamsMatch(teamA.short_name, api.homeTeam);
+          const awayMatches = teamsMatch(teamB.name, api.awayTeam) || teamsMatch(teamB.short_name, api.awayTeam);
+          return homeMatches && awayMatches;
+        });
+
+        const apiMatchReverse = !apiMatch ? apiMatches.find((api: { homeTeam: string; awayTeam: string }) => {
+          const homeMatches = teamsMatch(teamB.name, api.homeTeam) || teamsMatch(teamB.short_name, api.homeTeam);
+          const awayMatches = teamsMatch(teamA.name, api.awayTeam) || teamsMatch(teamA.short_name, api.awayTeam);
+          return homeMatches && awayMatches;
+        }) : null;
+
+        const matchedApi = apiMatch || apiMatchReverse;
+        const isReversed = !!apiMatchReverse && !apiMatch;
+
+        if (!matchedApi) {
+          toast({
+            title: "No match found",
+            description: `Could not find API data for ${teamA.name} vs ${teamB.name}`,
+            variant: "destructive"
+          });
+          return;
+        }
+
+        // Update scores and goals in database
+        const homeScore = matchedApi.homeScore ?? null;
+        const awayScore = matchedApi.awayScore ?? null;
+        const homeGoals = matchedApi.homeGoals || [];
+        const awayGoals = matchedApi.awayGoals || [];
+        
+        await supabase
+          .from('matches')
+          .update({
+            score_a: isReversed ? String(awayScore) : String(homeScore),
+            score_b: isReversed ? String(homeScore) : String(awayScore),
+            match_minute: matchedApi.minute || null,
+            goals_team_a: isReversed ? awayGoals : homeGoals,
+            goals_team_b: isReversed ? homeGoals : awayGoals,
+            last_api_sync: new Date().toISOString()
+          })
+          .eq('id', match.id);
+
+        // Sync lineups
+        const lineupTeamA = isReversed ? matchedApi.awayLineup : matchedApi.homeLineup;
+        const lineupTeamB = isReversed ? matchedApi.homeLineup : matchedApi.awayLineup;
+        const subsTeamA = isReversed ? matchedApi.awaySubs : matchedApi.homeSubs;
+        const subsTeamB = isReversed ? matchedApi.homeSubs : matchedApi.awaySubs;
+
+        let insertedPlayers = 0;
+        let insertedSubs = 0;
+
+        // Delete existing lineup and insert new
+        if (lineupTeamA?.length || lineupTeamB?.length) {
+          await supabase.from('match_playing_xi').delete().eq('match_id', match.id);
+
+          const lineupInserts: any[] = [];
+          
+          if (lineupTeamA) {
+            for (let i = 0; i < lineupTeamA.length; i++) {
+              const player = lineupTeamA[i];
+              lineupInserts.push({
+                match_id: match.id,
+                team_id: teamA.id,
+                player_name: player.name,
+                player_role: player.position || null,
+                batting_order: i + 1,
+                is_captain: player.isCaptain || false,
+                is_vice_captain: false,
+              });
+            }
+          }
+          
+          if (lineupTeamB) {
+            for (let i = 0; i < lineupTeamB.length; i++) {
+              const player = lineupTeamB[i];
+              lineupInserts.push({
+                match_id: match.id,
+                team_id: teamB.id,
+                player_name: player.name,
+                player_role: player.position || null,
+                batting_order: i + 1,
+                is_captain: player.isCaptain || false,
+                is_vice_captain: false,
+              });
+            }
+          }
+          
+          if (lineupInserts.length > 0) {
+            const { error: lineupError } = await supabase.from('match_playing_xi').insert(lineupInserts);
+            if (!lineupError) insertedPlayers = lineupInserts.length;
+          }
+        }
+
+        // Sync substitutions
+        if (subsTeamA?.length || subsTeamB?.length) {
+          await supabase.from('match_substitutions').delete().eq('match_id', match.id);
+
+          const subsInserts: any[] = [];
+          
+          if (subsTeamA) {
+            for (const sub of subsTeamA) {
+              subsInserts.push({
+                match_id: match.id,
+                team_id: teamA.id,
+                player_out: sub.playerOut,
+                player_in: sub.playerIn,
+                minute: sub.minute,
+              });
+            }
+          }
+          
+          if (subsTeamB) {
+            for (const sub of subsTeamB) {
+              subsInserts.push({
+                match_id: match.id,
+                team_id: teamB.id,
+                player_out: sub.playerOut,
+                player_in: sub.playerIn,
+                minute: sub.minute,
+              });
+            }
+          }
+          
+          if (subsInserts.length > 0) {
+            const { error: subsError } = await supabase.from('match_substitutions').insert(subsInserts);
+            if (!subsError) insertedSubs = subsInserts.length;
+          }
+        }
+
+        toast({
+          title: "Football match synced",
+          description: `Score: ${isReversed ? awayScore : homeScore}-${isReversed ? homeScore : awayScore}, ${insertedPlayers} players, ${insertedSubs} subs`,
+        });
+        
+        window.location.reload();
+        return;
+      }
+
+      // For cricket - use existing sync-api-scores
       const { data, error } = await supabase.functions.invoke('sync-api-scores', {
         body: { matchId: match.id }
       });
