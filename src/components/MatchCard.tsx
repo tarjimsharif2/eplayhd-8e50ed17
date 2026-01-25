@@ -345,86 +345,157 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
             </div>
           </div>
 
-          {/* Teams Section - More Compact */}
-          <div className="flex items-center justify-between gap-1">
-            {/* Team A */}
-            <div className="flex-1 flex flex-col items-center text-center gap-1.5">
-              <div 
-                className={`w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center p-1.5 ${
-                  teamA.logo_background_color 
-                    ? 'border border-border/30' 
-                    : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
-                }`}
-                style={teamA.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
-              >
-                {teamA.logo_url ? (
-                  <img src={teamA.logo_url} alt={teamA.name} className="w-full h-full object-contain" />
-                ) : (
-                  <span className="font-display text-lg text-primary">{getInitials(teamA.name)}</span>
-                )}
-              </div>
-              <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamA.name}</span>
-              {scoreA && (
-                <div className="flex flex-col items-center">
-                  <span className="text-lg md:text-xl font-bold text-primary">{scoreA.score}</span>
-                  {scoreA.overs && (
-                    <span className="text-xs text-muted-foreground">({scoreA.overs} ov)</span>
-                  )}
-                </div>
-              )}
-            </div>
+          {/* Check if it's a football match */}
+          {(() => {
+            const isFootball = sportName.toLowerCase() === 'football' || sportName.toLowerCase() === 'soccer';
+            const hasFootballScore = isFootball && (match.score_a || match.score_b);
+            
+            if (isFootball && hasFootballScore && (displayStatus === 'live' || displayStatus === 'completed')) {
+              // Football Score Display - Horizontal layout with scores
+              return (
+                <div className="flex items-center justify-center gap-3 py-3">
+                  {/* Team A with Score */}
+                  <div className="flex items-center gap-3">
+                    <div className="flex flex-col items-center gap-1">
+                      <div 
+                        className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center p-1.5 ${
+                          teamA.logo_background_color 
+                            ? 'border border-border/30' 
+                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                        }`}
+                        style={teamA.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
+                      >
+                        {teamA.logo_url ? (
+                          <img src={teamA.logo_url} alt={teamA.name} className="w-full h-full object-contain" />
+                        ) : (
+                          <span className="font-display text-base text-primary">{getInitials(teamA.name)}</span>
+                        )}
+                      </div>
+                      <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[70px] line-clamp-1">{teamA.short_name || teamA.name}</span>
+                    </div>
+                    {/* Score A */}
+                    <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_a || '0'}</span>
+                  </div>
 
-            {/* VS / Countdown / Match Minute */}
-            <div className="flex flex-col items-center gap-1 px-1">
-              {countdown ? (
-                <div className="flex flex-col items-center gap-1">
-                  <span className="text-[11px] text-primary uppercase tracking-widest font-bold">
-                    Starts in
-                  </span>
-                  <FlipClock time={countdown} />
-                </div>
-              ) : displayStatus === 'live' && match.match_minute != null && (sportName.toLowerCase() === 'football' || sportName.toLowerCase() === 'soccer') ? (
-                <div className="flex flex-col items-center">
-                  <div className="w-11 h-11 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/30 relative">
-                    <span className="font-display text-base text-red-500 font-bold">{match.match_minute}'</span>
-                    <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                  {/* Score Separator with Match Minute */}
+                  <div className="flex flex-col items-center">
+                    <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
+                    {displayStatus === 'live' && match.match_minute != null && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                        <span className="text-xs font-bold text-red-500">{match.match_minute}'</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Team B with Score */}
+                  <div className="flex items-center gap-3">
+                    {/* Score B */}
+                    <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_b || '0'}</span>
+                    <div className="flex flex-col items-center gap-1">
+                      <div 
+                        className={`w-12 h-12 md:w-14 md:h-14 rounded-xl flex items-center justify-center p-1.5 ${
+                          teamB.logo_background_color 
+                            ? 'border border-border/30' 
+                            : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                        }`}
+                        style={teamB.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
+                      >
+                        {teamB.logo_url ? (
+                          <img src={teamB.logo_url} alt={teamB.name} className="w-full h-full object-contain" />
+                        ) : (
+                          <span className="font-display text-base text-primary">{getInitials(teamB.name)}</span>
+                        )}
+                      </div>
+                      <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[70px] line-clamp-1">{teamB.short_name || teamB.name}</span>
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30">
-                  <span className="font-display text-sm text-foreground/80">VS</span>
-                </div>
-              )}
-            </div>
-
-            {/* Team B */}
-            <div className="flex-1 flex flex-col items-center text-center gap-1.5">
-              <div 
-                className={`w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center p-1.5 ${
-                  teamB.logo_background_color 
-                    ? 'border border-border/30' 
-                    : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
-                }`}
-                style={teamB.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
-              >
-                {teamB.logo_url ? (
-                  <img src={teamB.logo_url} alt={teamB.name} className="w-full h-full object-contain" />
-                ) : (
-                  <span className="font-display text-lg text-primary">{getInitials(teamB.name)}</span>
-                )}
-              </div>
-              <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamB.name}</span>
-              {scoreB && (
-                <div className="flex flex-col items-center">
-                  <span className="text-lg md:text-xl font-bold text-primary">{scoreB.score}</span>
-                  {scoreB.overs && (
-                    <span className="text-xs text-muted-foreground">({scoreB.overs} ov)</span>
+              );
+            }
+            
+            // Default layout for Cricket and other sports / upcoming matches
+            return (
+              <div className="flex items-center justify-between gap-1">
+                {/* Team A */}
+                <div className="flex-1 flex flex-col items-center text-center gap-1.5">
+                  <div 
+                    className={`w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center p-1.5 ${
+                      teamA.logo_background_color 
+                        ? 'border border-border/30' 
+                        : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                    }`}
+                    style={teamA.logo_background_color ? { backgroundColor: teamA.logo_background_color } : undefined}
+                  >
+                    {teamA.logo_url ? (
+                      <img src={teamA.logo_url} alt={teamA.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <span className="font-display text-lg text-primary">{getInitials(teamA.name)}</span>
+                    )}
+                  </div>
+                  <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamA.name}</span>
+                  {scoreA && (
+                    <div className="flex flex-col items-center">
+                      <span className="text-lg md:text-xl font-bold text-primary">{scoreA.score}</span>
+                      {scoreA.overs && (
+                        <span className="text-xs text-muted-foreground">({scoreA.overs} ov)</span>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
-          </div>
 
+                {/* VS / Countdown / Match Minute */}
+                <div className="flex flex-col items-center gap-1 px-1">
+                  {countdown ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <span className="text-[11px] text-primary uppercase tracking-widest font-bold">
+                        Starts in
+                      </span>
+                      <FlipClock time={countdown} />
+                    </div>
+                  ) : displayStatus === 'live' && match.match_minute != null && isFootball ? (
+                    <div className="flex flex-col items-center">
+                      <div className="w-11 h-11 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/30 relative">
+                        <span className="font-display text-base text-red-500 font-bold">{match.match_minute}'</span>
+                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30">
+                      <span className="font-display text-sm text-foreground/80">VS</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Team B */}
+                <div className="flex-1 flex flex-col items-center text-center gap-1.5">
+                  <div 
+                    className={`w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center p-1.5 ${
+                      teamB.logo_background_color 
+                        ? 'border border-border/30' 
+                        : 'bg-gradient-to-br from-primary/15 to-transparent border border-primary/20'
+                    }`}
+                    style={teamB.logo_background_color ? { backgroundColor: teamB.logo_background_color } : undefined}
+                  >
+                    {teamB.logo_url ? (
+                      <img src={teamB.logo_url} alt={teamB.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <span className="font-display text-lg text-primary">{getInitials(teamB.name)}</span>
+                    )}
+                  </div>
+                  <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamB.name}</span>
+                  {scoreB && (
+                    <div className="flex flex-col items-center">
+                      <span className="text-lg md:text-xl font-bold text-primary">{scoreB.score}</span>
+                      {scoreB.overs && (
+                        <span className="text-xs text-muted-foreground">({scoreB.overs} ov)</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
           {/* Innings Display for Cricket */}
           {isCricket && innings && innings.length > 0 && (
             <div className="mt-2 pt-2 border-t border-border/20">
