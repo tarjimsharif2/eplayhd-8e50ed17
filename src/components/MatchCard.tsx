@@ -340,8 +340,8 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
             {/* Team A */}
             <div className="flex-1 flex flex-col items-center text-center gap-1.5">
               <div 
-                className="w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center border border-primary/20 p-1.5"
-                style={{ backgroundColor: (teamA as any).logo_background_color || 'rgba(var(--primary), 0.15)' }}
+                className="w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center border border-border/30 p-1.5"
+                style={{ backgroundColor: teamA.logo_background_color || '#1a1a2e' }}
               >
                 {teamA.logo_url ? (
                   <img src={teamA.logo_url} alt={teamA.name} className="w-full h-full object-contain" />
@@ -386,8 +386,8 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
             {/* Team B */}
             <div className="flex-1 flex flex-col items-center text-center gap-1.5">
               <div 
-                className="w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center border border-primary/20 p-1.5"
-                style={{ backgroundColor: (teamB as any).logo_background_color || 'rgba(var(--primary), 0.15)' }}
+                className="w-14 h-14 md:w-16 md:h-16 rounded-xl flex items-center justify-center border border-border/30 p-1.5"
+                style={{ backgroundColor: teamB.logo_background_color || '#1a1a2e' }}
               >
                 {teamB.logo_url ? (
                   <img src={teamB.logo_url} alt={teamB.name} className="w-full h-full object-contain" />
