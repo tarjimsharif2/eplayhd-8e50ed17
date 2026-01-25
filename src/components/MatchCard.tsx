@@ -508,11 +508,16 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                           );
                         })()
                       )}
-                      {/* Full Time indicator for completed matches */}
+                      {/* Full Time indicator for completed matches with match minute */}
                       {displayStatus === 'completed' && (
-                        <Badge className="mt-1 bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5 font-bold">
-                          FT
-                        </Badge>
+                        <div className="flex flex-col items-center gap-0.5 mt-1">
+                          <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5 font-bold">
+                            FT
+                          </Badge>
+                          {match.match_minute != null && match.match_minute > 0 && (
+                            <span className="text-[10px] text-muted-foreground font-medium">{match.match_minute}'</span>
+                          )}
+                        </div>
                       )}
                     </div>
 
