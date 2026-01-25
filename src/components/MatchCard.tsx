@@ -385,13 +385,6 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
               
               return (
                 <div className="py-3">
-                  {/* Team Names Row with VS */}
-                  <div className="flex items-center justify-center gap-2 mb-3">
-                    <span className="font-semibold text-foreground text-sm md:text-base text-center flex-1 text-right">{teamA.name}</span>
-                    <span className="text-muted-foreground text-xs font-medium px-2">vs</span>
-                    <span className="font-semibold text-foreground text-sm md:text-base text-center flex-1 text-left">{teamB.name}</span>
-                  </div>
-                  
                   <div className="flex items-center justify-center gap-3">
                     {/* Team A with Score */}
                     <div className="flex items-center gap-3">
@@ -410,7 +403,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                             <span className="font-display text-base text-primary">{getInitials(teamA.name)}</span>
                           )}
                         </div>
-                        <span className="font-medium text-foreground text-xs leading-tight text-center">{teamA.short_name}</span>
+                        <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[80px] line-clamp-2">{teamA.name}</span>
                       </div>
                       {/* Score A */}
                       <span className="text-3xl md:text-4xl font-bold text-foreground">{match.score_a || '0'}</span>
@@ -542,7 +535,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                             <span className="font-display text-base text-primary">{getInitials(teamB.name)}</span>
                           )}
                         </div>
-                        <span className="font-medium text-foreground text-xs leading-tight text-center">{teamB.short_name}</span>
+                        <span className="font-medium text-foreground text-xs leading-tight text-center max-w-[80px] line-clamp-2">{teamB.name}</span>
                       </div>
                     </div>
                   </div>
