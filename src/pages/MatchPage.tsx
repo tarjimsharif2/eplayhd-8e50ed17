@@ -87,7 +87,7 @@ const MatchPage = () => {
         data = dataById;
       }
       
-      setMatch(data as Match);
+      setMatch(data as unknown as Match);
       setLoading(false);
     };
 
