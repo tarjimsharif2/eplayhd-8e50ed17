@@ -1,4 +1,4 @@
-import { useMatches } from "@/hooks/useSportsData";
+import { useMatches, useSports } from "@/hooks/useSportsData";
 import MatchCard from "@/components/MatchCard";
 import MatchFilters, { MatchFilter } from "@/components/MatchFilters";
 import BannerSlider from "@/components/BannerSlider";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 
 const MatchList = () => {
   const { data: matches, isLoading, error } = useMatches();
+  const { data: sports } = useSports();
   const [activeFilter, setActiveFilter] = useState<MatchFilter>('all');
   const [activeSportFilter, setActiveSportFilter] = useState<string>('all');
 
@@ -183,7 +184,7 @@ const MatchList = () => {
     });
   }, [matches, activeFilter, activeSportFilter]);
 
-  // Get unique sports that have matches (for sport filter)
+  // Get unique sports that have matches (for sport filter) - sorted by display_order
   const sportsWithMatches = useMemo(() => {
     if (!matches) return [];
     
@@ -220,8 +221,24 @@ const MatchList = () => {
       }
     });
     
-    return Array.from(sportSet).sort();
-  }, [matches]);
+    const sportNames = Array.from(sportSet);
+    
+    // Sort by display_order from sports data
+    if (sports && sports.length > 0) {
+      const orderMap = new Map<string, number>();
+      sports.forEach((sport, index) => {
+        orderMap.set(sport.name.toLowerCase(), sport.display_order ?? index);
+      });
+      
+      return sportNames.sort((a, b) => {
+        const orderA = orderMap.get(a.toLowerCase()) ?? 999;
+        const orderB = orderMap.get(b.toLowerCase()) ?? 999;
+        return orderA - orderB;
+      });
+    }
+    
+    return sportNames.sort();
+  }, [matches, sports]);
 
   // Calculate counts for filter badges (using effective status for accurate counts)
   const counts = useMemo(() => {
