@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Goal, ArrowRightLeft, Shirt } from 'lucide-react';
+import { Users, Goal, ArrowRightLeft, Shirt, Clock } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Team, GoalEvent } from '@/hooks/useSportsData';
 
@@ -46,6 +46,10 @@ interface FootballMatchDetailsProps {
   teamB: Team;
   goalsTeamA: GoalEvent[];
   goalsTeamB: GoalEvent[];
+  scoreA?: string | null;
+  scoreB?: string | null;
+  matchMinute?: number | null;
+  matchStatus?: string;
 }
 
 // Hook for fetching playing XI
@@ -94,7 +98,7 @@ const getPositionColor = (position: string | null): string => {
   return 'bg-muted/50 text-muted-foreground border-border/50';
 };
 
-const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }: FootballMatchDetailsProps) => {
+const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB, scoreA, scoreB, matchMinute, matchStatus }: FootballMatchDetailsProps) => {
   const { data: players, isLoading: playersLoading } = usePlayingXI(matchId);
   const { data: substitutions, isLoading: subsLoading } = useSubstitutions(matchId);
 
@@ -252,8 +256,8 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }:
       className="mb-6"
     >
       <Card className="overflow-hidden border-border/50 bg-gradient-to-br from-card via-card to-card/80 backdrop-blur shadow-lg">
-        <CardHeader className="pb-4 bg-gradient-to-r from-green-500/10 via-transparent to-green-500/5">
-          <CardTitle className="flex items-center gap-3 text-lg">
+        <CardHeader className="pb-3 bg-gradient-to-r from-green-500/10 via-transparent to-green-500/5">
+          <CardTitle className="flex items-center justify-between gap-3 text-lg">
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 rounded-lg bg-green-500/20 flex items-center justify-center">
                 <Shirt className="w-5 h-5 text-green-500" />
@@ -265,6 +269,29 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB }:
                 </p>
               </div>
             </div>
+            
+            {/* Compact Score Display */}
+            {(scoreA || scoreB) && (
+              <div className="flex items-center gap-2">
+                {matchStatus === 'live' && matchMinute && (
+                  <div className="flex items-center gap-1 bg-red-500/20 text-red-400 px-2 py-1 rounded-md">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    <Clock className="w-3 h-3" />
+                    <span className="text-xs font-bold">{matchMinute}'</span>
+                  </div>
+                )}
+                {matchStatus === 'completed' && (
+                  <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">FT</Badge>
+                )}
+                <div className="flex items-center gap-1.5 bg-muted/50 px-3 py-1.5 rounded-lg">
+                  <img src={teamA.logo_url || ''} alt={teamA.short_name} className="w-5 h-5 object-contain" />
+                  <span className="text-lg font-bold text-primary">{scoreA || '0'}</span>
+                  <span className="text-muted-foreground text-sm">-</span>
+                  <span className="text-lg font-bold text-primary">{scoreB || '0'}</span>
+                  <img src={teamB.logo_url || ''} alt={teamB.short_name} className="w-5 h-5 object-contain" />
+                </div>
+              </div>
+            )}
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-2">

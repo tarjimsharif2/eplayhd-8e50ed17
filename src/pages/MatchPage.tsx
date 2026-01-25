@@ -287,6 +287,10 @@ const MatchPage = () => {
               teamB={teamB}
               goalsTeamA={goalsTeamA}
               goalsTeamB={goalsTeamB}
+              scoreA={match.score_a}
+              scoreB={match.score_b}
+              matchMinute={match.match_minute}
+              matchStatus={match.status}
             />
           )}
 
