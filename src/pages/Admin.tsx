@@ -595,6 +595,8 @@ const Admin = () => {
         auto_sync_enabled: matchForm.auto_sync_enabled,
         cricbuzz_match_id: matchForm.cricbuzz_match_id || null,
         manual_status_override: matchForm.manual_status_override,
+        score_source: matchForm.score_source || 'manual',
+        espn_event_id: matchForm.espn_event_id || null,
       };
       let matchId: string | undefined;
       
@@ -2313,7 +2315,7 @@ const Admin = () => {
                             Cricket Score Source
                           </Label>
                           <p className="text-sm text-muted-foreground">
-                            টস, লাইভ স্কোর, স্কোরকার্ড sync করতে enable করুন
+                            Enable to sync toss, live score, and scorecard
                           </p>
                         </div>
                         <Switch
@@ -2334,7 +2336,7 @@ const Admin = () => {
                             ESPN Cricinfo
                           </Label>
                           <p className="text-sm text-muted-foreground">
-                            টস, লাইভ স্কোর, স্কোরকার্ড ও Playing XI sync করতে enable করুন
+                            Enable to sync toss, live score, scorecard and Playing XI
                           </p>
                         </div>
                         <Switch
@@ -2351,7 +2353,7 @@ const Admin = () => {
                         <div className="space-y-2 pl-4 border-l-2 border-blue-500/50">
                           <Label className="text-sm">ESPN Event ID (Optional)</Label>
                           <Input
-                            placeholder="Auto-detect হবে, না হলে manually দিন"
+                            placeholder="Auto-detected, enter manually if needed"
                             value={matchForm.espn_event_id || ''}
                             onChange={(e) => setMatchForm({ ...matchForm, espn_event_id: e.target.value })}
                           />
