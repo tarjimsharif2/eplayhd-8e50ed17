@@ -195,13 +195,75 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
     }
   };
 
+  // Generate short name from full name
+  const generateShortName = (fullName: string): string => {
+    const words = fullName.trim().split(/\s+/);
+    if (words.length === 1) {
+      return fullName.substring(0, 3).toUpperCase();
+    }
+    // Take first letter of each word, max 3-4 characters
+    return words.slice(0, 3).map(w => w[0]).join('').toUpperCase();
+  };
+
+  // Create team if it doesn't exist
+  const getOrCreateTeam = async (teamName: string, existingTeamId: string | null): Promise<string | null> => {
+    // If already matched, return the existing ID
+    if (existingTeamId) {
+      return existingTeamId;
+    }
+
+    // Try to find again in database (in case teams were just created)
+    const foundId = findTeamMatch(teamName);
+    if (foundId) {
+      return foundId;
+    }
+
+    // Create new team
+    try {
+      const newTeam = {
+        name: teamName,
+        short_name: generateShortName(teamName),
+        logo_url: null,
+        logo_background_color: null,
+      };
+
+      const { data, error } = await supabase
+        .from('teams')
+        .insert(newTeam)
+        .select()
+        .single();
+
+      if (error) {
+        // If duplicate error, try to fetch the existing one
+        if (error.code === '23505') {
+          const { data: existingTeam } = await supabase
+            .from('teams')
+            .select('id')
+            .eq('name', teamName)
+            .maybeSingle();
+          return existingTeam?.id || null;
+        }
+        throw error;
+      }
+
+      // Refresh teams query cache
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      
+      return data?.id || null;
+    } catch (error) {
+      console.error('Error creating team:', teamName, error);
+      return null;
+    }
+  };
+
   const importSelectedMatches = async () => {
-    const selectedMatches = apiMatches.filter(m => m.selected && m.teamAId && m.teamBId);
+    // Now we can import even if teams are not mapped - they'll be auto-created
+    const selectedMatches = apiMatches.filter(m => m.selected);
     
     if (selectedMatches.length === 0) {
       toast({
         title: "No matches selected",
-        description: "Please select at least one match with valid teams to import",
+        description: "Please select at least one match to import",
         variant: "destructive"
       });
       return;
@@ -210,9 +272,24 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
     setImporting(true);
     let successCount = 0;
     let errorCount = 0;
+    let teamsCreated = 0;
 
     for (const match of selectedMatches) {
       try {
+        // Get or create teams
+        const teamAId = await getOrCreateTeam(match.homeTeam, match.teamAId);
+        const teamBId = await getOrCreateTeam(match.awayTeam, match.teamBId);
+
+        if (!teamAId || !teamBId) {
+          console.error('Could not get/create teams for match:', match.homeTeam, 'vs', match.awayTeam);
+          errorCount++;
+          continue;
+        }
+
+        // Count newly created teams
+        if (!match.teamAId && teamAId) teamsCreated++;
+        if (!match.teamBId && teamBId) teamsCreated++;
+
         const { date, time } = formatMatchDate(match.startTime);
         const status = getMatchStatus(match.status);
         
@@ -230,16 +307,14 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
           }
         }
         
-        // Generate slug from team names
-        const teamA = teams?.find(t => t.id === match.teamAId);
-        const teamB = teams?.find(t => t.id === match.teamBId);
-        const slug = teamA && teamB 
-          ? `${teamA.name.toLowerCase().replace(/\s+/g, '-')}-vs-${teamB.name.toLowerCase().replace(/\s+/g, '-')}-live`
-          : null;
+        // Generate slug from team names (use ESPN names if teams were just created)
+        const teamAName = teams?.find(t => t.id === teamAId)?.name || match.homeTeam;
+        const teamBName = teams?.find(t => t.id === teamBId)?.name || match.awayTeam;
+        const slug = `${teamAName.toLowerCase().replace(/\s+/g, '-')}-vs-${teamBName.toLowerCase().replace(/\s+/g, '-')}-live`;
 
         const matchData = {
-          team_a_id: match.teamAId!,
-          team_b_id: match.teamBId!,
+          team_a_id: teamAId,
+          team_b_id: teamBId,
           tournament_id: match.tournamentId,
           sport_id: footballSportId || null,
           match_date: date,
@@ -276,9 +351,12 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
 
     if (successCount > 0) {
       queryClient.invalidateQueries({ queryKey: ['matches'] });
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      
+      const teamsMsg = teamsCreated > 0 ? ` (${teamsCreated} new team(s) created)` : '';
       toast({
         title: "Import Complete",
-        description: `Successfully imported ${successCount} match(es)${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+        description: `Successfully imported ${successCount} match(es)${teamsMsg}${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
       });
       onImportComplete?.();
       setOpen(false);
@@ -292,7 +370,9 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
   };
 
   const selectedCount = apiMatches.filter(m => m.selected).length;
-  const validSelectedCount = apiMatches.filter(m => m.selected && m.teamAId && m.teamBId).length;
+  const unmatchedTeamsCount = apiMatches.filter(m => m.selected && (!m.teamAId || !m.teamBId)).reduce((acc, m) => {
+    return acc + (m.teamAId ? 0 : 1) + (m.teamBId ? 0 : 1);
+  }, 0);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -373,7 +453,7 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
                   </Button>
                 </div>
                 <Badge variant="secondary">
-                  {selectedCount} selected ({validSelectedCount} valid)
+                  {selectedCount} selected{unmatchedTeamsCount > 0 ? ` (${unmatchedTeamsCount} new teams)` : ''}
                 </Badge>
               </div>
 
@@ -444,7 +524,7 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
                               emptyText="No teams"
                             />
                             {!match.teamAId && (
-                              <p className="text-xs text-amber-500">Not matched</p>
+                              <p className="text-xs text-green-500">✨ Will be created</p>
                             )}
                           </div>
                           
@@ -464,7 +544,7 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
                               emptyText="No teams"
                             />
                             {!match.teamBId && (
-                              <p className="text-xs text-amber-500">Not matched</p>
+                              <p className="text-xs text-green-500">✨ Will be created</p>
                             )}
                           </div>
                           
@@ -513,15 +593,15 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
         {apiMatches.length > 0 && (
           <div className="flex items-center justify-between pt-4 border-t">
             <p className="text-sm text-muted-foreground">
-              {validSelectedCount} match(es) ready to import
+              {selectedCount} match(es) ready to import{unmatchedTeamsCount > 0 ? ` (${unmatchedTeamsCount} teams will be created)` : ''}
             </p>
             <Button 
               onClick={importSelectedMatches} 
-              disabled={importing || validSelectedCount === 0}
+              disabled={importing || selectedCount === 0}
               className="gap-2"
             >
               {importing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              Import {validSelectedCount} Match(es)
+              Import {selectedCount} Match(es)
             </Button>
           </div>
         )}
