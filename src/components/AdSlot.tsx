@@ -10,10 +10,9 @@ interface AdSlotProps {
 const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = '' }, ref) => {
   const { data: settings } = useSiteSettings();
   const containerRef = useRef<HTMLDivElement>(null);
-  const hiddenContainerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
-  const [hasContent, setHasContent] = useState(false);
+  const [adStatus, setAdStatus] = useState<'loading' | 'filled' | 'unfilled'>('loading');
 
   const adCode = useMemo(() => {
     if (!settings?.ads_enabled) return null;
@@ -30,9 +29,9 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   }, [settings, position]);
 
   useEffect(() => {
-    if (!adCode || !hiddenContainerRef.current || hasExecuted.current) return;
+    if (!adCode || !containerRef.current || hasExecuted.current) return;
 
-    const container = hiddenContainerRef.current;
+    const container = containerRef.current;
     
     // Clear existing content
     container.innerHTML = '';
@@ -93,50 +92,53 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
     };
   }, [adCode, position]);
 
-  // Use MutationObserver to detect when ad content is added
+  // Use MutationObserver to detect when ad content is loaded
   useEffect(() => {
-    if (!hiddenContainerRef.current || !adCode) return;
+    if (!containerRef.current || !adCode) return;
 
     const checkForAds = () => {
-      if (hiddenContainerRef.current) {
-        // Check for common ad elements
-        const hasAdElements = hiddenContainerRef.current.querySelector('ins.adsbygoogle, iframe, img[src*="ad"], div[data-ad-slot]') !== null;
-        // Also check if the container has reasonable height (ad loaded)
-        const hasHeight = hiddenContainerRef.current.offsetHeight > 20;
-        
-        if (hasAdElements || hasHeight) {
-          setHasContent(true);
-          // Move content to visible container
-          if (containerRef.current && hiddenContainerRef.current) {
-            containerRef.current.innerHTML = hiddenContainerRef.current.innerHTML;
-            // Clone and execute scripts
-            hiddenContainerRef.current.querySelectorAll('script').forEach(script => {
-              const newScript = document.createElement('script');
-              Array.from(script.attributes).forEach(attr => {
-                newScript.setAttribute(attr.name, attr.value);
-              });
-              if (script.src) {
-                newScript.src = script.src;
-              } else {
-                newScript.textContent = script.textContent;
-              }
-              containerRef.current?.appendChild(newScript);
-            });
-          }
-        }
+      if (!containerRef.current) return;
+      
+      // Check for AdSense data-ad-status attribute
+      const adSlot = containerRef.current.querySelector('ins.adsbygoogle');
+      const adStatusAttr = adSlot?.getAttribute('data-ad-status');
+      
+      if (adStatusAttr === 'filled') {
+        setAdStatus('filled');
+        return;
+      }
+      
+      if (adStatusAttr === 'unfilled') {
+        setAdStatus('unfilled');
+        return;
+      }
+      
+      // Fallback: check for iframe or img which means ad loaded
+      const hasIframe = containerRef.current.querySelector('iframe') !== null;
+      const hasImg = containerRef.current.querySelector('img[src]') !== null;
+      
+      if (hasIframe || hasImg) {
+        setAdStatus('filled');
+        return;
+      }
+      
+      // Check container height as last resort
+      const insElement = containerRef.current.querySelector('ins');
+      if (insElement && insElement.offsetHeight > 10) {
+        setAdStatus('filled');
       }
     };
 
-    // Check periodically for 5 seconds
-    const intervals = [500, 1000, 2000, 3000, 5000];
+    // Check periodically for ad status changes
+    const intervals = [500, 1000, 1500, 2000, 3000, 5000, 8000];
     const timers = intervals.map(delay => setTimeout(checkForAds, delay));
 
     const observer = new MutationObserver(checkForAds);
-    observer.observe(hiddenContainerRef.current, { 
+    observer.observe(containerRef.current, { 
       childList: true, 
       subtree: true,
       attributes: true,
-      characterData: true
+      attributeFilter: ['data-ad-status', 'src', 'style', 'height']
     });
 
     return () => {
@@ -149,37 +151,34 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
-    setHasContent(false);
+    setAdStatus('loading');
   }, [position]);
 
+  // Don't render anything if no ad code
   if (!adCode) return null;
 
+  // Hide completely if ad failed to load
+  const isHidden = adStatus === 'unfilled';
+
   return (
-    <>
-      {/* Hidden container where ads load initially */}
-      <div 
-        ref={hiddenContainerRef}
-        style={{ 
-          position: 'absolute',
-          left: '-9999px',
-          top: '-9999px',
-          visibility: 'hidden',
-          pointerEvents: 'none'
-        }}
-        aria-hidden="true"
-      />
-      {/* Visible container - only shows when ad has content */}
-      {hasContent && (
-        <div 
-          ref={(node) => {
-            containerRef.current = node;
-            if (typeof ref === 'function') ref(node);
-            else if (ref) ref.current = node;
-          }}
-          className={`ad-slot ad-slot-${position} ${className}`}
-        />
-      )}
-    </>
+    <div 
+      ref={(node) => {
+        containerRef.current = node;
+        if (typeof ref === 'function') ref(node);
+        else if (ref) ref.current = node;
+      }}
+      className={`ad-slot ad-slot-${position} ${isHidden ? '' : className}`}
+      style={{
+        height: isHidden ? 0 : undefined,
+        minHeight: isHidden ? 0 : undefined,
+        padding: isHidden ? 0 : undefined,
+        margin: isHidden ? 0 : undefined,
+        overflow: 'hidden',
+        visibility: adStatus === 'loading' ? 'hidden' : 'visible',
+        position: adStatus === 'loading' ? 'absolute' : 'relative',
+        left: adStatus === 'loading' ? '-9999px' : undefined
+      }}
+    />
   );
 });
 
