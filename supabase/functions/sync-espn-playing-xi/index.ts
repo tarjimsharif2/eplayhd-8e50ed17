@@ -119,30 +119,66 @@ Deno.serve(async (req) => {
     let espnEventId = matchData?.espn_event_id;
     const playersToAdd: any[] = [];
 
+    // Check if this is a U19 match (ESPN doesn't support U19 tournaments)
+    const isU19Match = teamAName.toLowerCase().includes('u19') || 
+                       teamAName.toLowerCase().includes('under-19') ||
+                       teamAName.toLowerCase().includes('under 19') ||
+                       teamBName.toLowerCase().includes('u19') || 
+                       teamBName.toLowerCase().includes('under-19') ||
+                       teamBName.toLowerCase().includes('under 19');
+
+    if (isU19Match) {
+      console.log(`[sync-espn-playing-xi] U19 match detected - ESPN does not support U19 tournaments`);
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'ESPN does not support U19 matches. Use Cricbuzz or API Cricket instead, or add players manually.',
+          playersAdded: 0
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // If no ESPN event ID, try to find match by searching
     if (!espnEventId) {
       console.log(`[sync-espn-playing-xi] No ESPN event ID, searching for: ${teamAName} vs ${teamBName}`);
       
       // Try to find match in ESPN schedule
       const matchDate = matchData?.match_date;
-      const dateRange = matchDate 
-        ? `${matchDate.replace(/-/g, '')}-${matchDate.replace(/-/g, '')}`
-        : (() => {
-            const today = new Date();
-            const weekLater = new Date(today);
-            weekLater.setDate(today.getDate() + 7);
-            return `${today.toISOString().slice(0, 10).replace(/-/g, '')}-${weekLater.toISOString().slice(0, 10).replace(/-/g, '')}`;
-          })();
+      // Handle various date formats
+      let dateRange: string;
+      if (matchDate) {
+        // Try to parse date - could be "26th January 2026" or "2026-01-26" format
+        const dateMatch = matchDate.match(/(\d{4})-(\d{2})-(\d{2})/);
+        if (dateMatch) {
+          dateRange = `${matchDate.replace(/-/g, '')}-${matchDate.replace(/-/g, '')}`;
+        } else {
+          // Try to parse readable date format
+          const today = new Date();
+          const weekLater = new Date(today);
+          weekLater.setDate(today.getDate() + 7);
+          dateRange = `${today.toISOString().slice(0, 10).replace(/-/g, '')}-${weekLater.toISOString().slice(0, 10).replace(/-/g, '')}`;
+        }
+      } else {
+        const today = new Date();
+        const weekLater = new Date(today);
+        weekLater.setDate(today.getDate() + 7);
+        dateRange = `${today.toISOString().slice(0, 10).replace(/-/g, '')}-${weekLater.toISOString().slice(0, 10).replace(/-/g, '')}`;
+      }
 
       // Search multiple league endpoints
       const leagues = [
         'icc.cricket',       // ICC tournaments
-        'intl.cricket',      // International cricket
+        'intl.cricket',      // International cricket  
         'cricket.world.cup', // World cups
+        'cricket.t20blast',  // T20 Blast
         'big.bash',          // Big Bash
         'indian.premier',    // IPL
         'psl',               // PSL
         'bbl',               // BBL
+        'sa20',              // SA20
+        'bpl',               // BPL
+        'cricket',           // Generic cricket
       ];
 
       for (const league of leagues) {
@@ -190,7 +226,7 @@ Deno.serve(async (req) => {
         return new Response(
           JSON.stringify({ 
             success: false, 
-            error: `Match not found in ESPN schedule. Please set ESPN Event ID manually or ensure team names match.`,
+            error: `Match not found in ESPN. Try Cricbuzz instead, or add players manually.`,
             playersAdded: 0
           }),
           { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
