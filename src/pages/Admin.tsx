@@ -3362,130 +3362,162 @@ const Admin = () => {
                 </Dialog>
               </div>
 
-              {/* Tournament Search */}
-              <div className="mb-4">
-                <Input
-                  placeholder="Search tournaments by name or sport..."
-                  value={tournamentSearchQuery}
-                  onChange={(e) => setTournamentSearchQuery(e.target.value)}
-                  className="max-w-md"
-                />
-              </div>
-
+              {/* Tournament Sub-Tabs */}
               {tournamentsLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
               ) : (() => {
-                const filteredTournaments = tournaments
-                  ?.filter((tournament) => {
-                    if (!tournamentSearchQuery.trim()) return true;
-                    const query = tournamentSearchQuery.toLowerCase();
-                    return (
-                      tournament.name?.toLowerCase().includes(query) ||
-                      tournament.sport?.toLowerCase().includes(query) ||
-                      tournament.season?.toLowerCase().includes(query)
-                    );
-                  }) || [];
-                const filteredTournamentIds = filteredTournaments.map(t => t.id);
-                const allSelected = filteredTournamentIds.length > 0 && filteredTournamentIds.every(id => selectedTournaments.has(id));
+                const activeTournaments = tournaments?.filter(t => !t.is_completed) || [];
+                const completedTournaments = tournaments?.filter(t => t.is_completed) || [];
+                
+                const renderTournamentList = (tournamentsToShow: typeof tournaments, emptyMessage: string) => {
+                  const filteredTournaments = tournamentsToShow
+                    ?.filter((tournament) => {
+                      if (!tournamentSearchQuery.trim()) return true;
+                      const query = tournamentSearchQuery.toLowerCase();
+                      return (
+                        tournament.name?.toLowerCase().includes(query) ||
+                        tournament.sport?.toLowerCase().includes(query) ||
+                        tournament.season?.toLowerCase().includes(query)
+                      );
+                    }) || [];
+                  const filteredTournamentIds = filteredTournaments.map(t => t.id);
+                  const allSelected = filteredTournamentIds.length > 0 && filteredTournamentIds.every(id => selectedTournaments.has(id));
 
-                return (
-                  <div className="space-y-4">
-                    {/* Bulk Actions Bar */}
-                    {filteredTournaments.length > 0 && (
-                      <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 border">
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={allSelected}
-                            onCheckedChange={() => toggleAllTournamentsSelection(filteredTournamentIds)}
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            {selectedTournaments.size > 0 ? `${selectedTournaments.size} selected` : 'Select all'}
-                          </span>
-                        </div>
-                        {selectedTournaments.size > 0 && (
-                          <Button
-                            variant="destructive"
-                            size="sm"
-                            onClick={() => setBulkDeleteTournamentsDialogOpen(true)}
-                            disabled={isBulkDeleting}
-                          >
-                            {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-                            <Trash2 className="w-4 h-4 mr-1" />
-                            Delete {selectedTournaments.size}
-                          </Button>
-                        )}
+                  return (
+                    <div className="space-y-4">
+                      {/* Tournament Search */}
+                      <div className="mb-4">
+                        <Input
+                          placeholder="Search tournaments by name or sport..."
+                          value={tournamentSearchQuery}
+                          onChange={(e) => setTournamentSearchQuery(e.target.value)}
+                          className="max-w-md"
+                        />
                       </div>
-                    )}
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                      {filteredTournaments.length === 0 && (
-                        <p className="text-center text-muted-foreground py-8 col-span-full">No tournaments yet. Add your first tournament!</p>
+                      
+                      {/* Bulk Actions Bar */}
+                      {filteredTournaments.length > 0 && (
+                        <div className="flex items-center gap-4 p-3 rounded-lg bg-muted/50 border">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={allSelected}
+                              onCheckedChange={() => toggleAllTournamentsSelection(filteredTournamentIds)}
+                            />
+                            <span className="text-sm text-muted-foreground">
+                              {selectedTournaments.size > 0 ? `${selectedTournaments.size} selected` : 'Select all'}
+                            </span>
+                          </div>
+                          {selectedTournaments.size > 0 && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => setBulkDeleteTournamentsDialogOpen(true)}
+                              disabled={isBulkDeleting}
+                            >
+                              {isBulkDeleting && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Delete {selectedTournaments.size}
+                            </Button>
+                          )}
+                        </div>
                       )}
-                      {filteredTournaments.map((tournament, index) => (
-                        <motion.div
-                          key={tournament.id}
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: index * 0.1 }}
-                        >
-                          <Card className={`hover:border-primary/50 transition-colors ${selectedTournaments.has(tournament.id) ? 'border-primary bg-primary/5' : ''}`}>
-                            <CardContent className="p-6">
-                              <div className="flex items-start justify-between">
-                                <div className="flex items-start gap-4">
-                                  <Checkbox
-                                    checked={selectedTournaments.has(tournament.id)}
-                                    onCheckedChange={() => toggleTournamentSelection(tournament.id)}
-                                    className="mt-1"
-                                  />
-                                  {tournament.logo_url && (
-                                    <div
-                                      className={`w-12 h-12 rounded-lg p-1.5 border flex items-center justify-center flex-shrink-0 ${
-                                        (tournament as any).logo_background_color
-                                          ? 'border-border/30'
-                                          : 'bg-background/60 border-border/30'
-                                      }`}
-                                      style={(tournament as any).logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
-                                    >
-                                      <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-contain" />
-                                    </div>
-                                  )}
-                                  <div>
-                                    <h3 className="font-display text-2xl text-gradient tracking-wider mb-2">
-                                      {tournament.name}
-                                    </h3>
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="sport">{tournament.sport}</Badge>
-                                      <span className="text-muted-foreground text-sm">
-                                        Season {tournament.season}
-                                      </span>
+
+                      <div className="grid gap-4 md:grid-cols-2">
+                        {filteredTournaments.length === 0 && (
+                          <p className="text-center text-muted-foreground py-8 col-span-full">{emptyMessage}</p>
+                        )}
+                        {filteredTournaments.map((tournament, index) => (
+                          <motion.div
+                            key={tournament.id}
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: index * 0.05 }}
+                          >
+                            <Card className={`hover:border-primary/50 transition-colors ${selectedTournaments.has(tournament.id) ? 'border-primary bg-primary/5' : ''}`}>
+                              <CardContent className="p-6">
+                                <div className="flex items-start justify-between">
+                                  <div className="flex items-start gap-4">
+                                    <Checkbox
+                                      checked={selectedTournaments.has(tournament.id)}
+                                      onCheckedChange={() => toggleTournamentSelection(tournament.id)}
+                                      className="mt-1"
+                                    />
+                                    {tournament.logo_url && (
+                                      <div
+                                        className={`w-12 h-12 rounded-lg p-1.5 border flex items-center justify-center flex-shrink-0 ${
+                                          (tournament as any).logo_background_color
+                                            ? 'border-border/30'
+                                            : 'bg-background/60 border-border/30'
+                                        }`}
+                                        style={(tournament as any).logo_background_color ? { backgroundColor: (tournament as any).logo_background_color } : undefined}
+                                      >
+                                        <img src={tournament.logo_url} alt={tournament.name} className="w-full h-full object-contain" />
+                                      </div>
+                                    )}
+                                    <div>
+                                      <h3 className="font-display text-2xl text-gradient tracking-wider mb-2">
+                                        {tournament.name}
+                                      </h3>
+                                      <div className="flex items-center gap-2">
+                                        <Badge variant="sport">{tournament.sport}</Badge>
+                                        <span className="text-muted-foreground text-sm">
+                                          Season {tournament.season}
+                                        </span>
+                                        {tournament.is_completed && (
+                                          <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30 text-[10px]">
+                                            Completed
+                                          </Badge>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Button variant="ghost" size="icon" onClick={() => handleEditTournament(tournament)}>
-                                    <Edit2 className="w-4 h-4" />
-                                  </Button>
-                                  {tournament.slug && (
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      onClick={() => submitTournamentForIndexing(tournament.slug!)} 
-                                      title="Submit to Google"
-                                    >
-                                      <Globe className="w-4 h-4 text-green-500" />
+                                  <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" onClick={() => handleEditTournament(tournament)}>
+                                      <Edit2 className="w-4 h-4" />
                                     </Button>
-                                  )}
-                                  <Button variant="ghost" size="icon" onClick={() => setDeleteTournamentId(tournament.id)}>
-                                    <Trash2 className="w-4 h-4 text-destructive" />
-                                  </Button>
+                                    {tournament.slug && (
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        onClick={() => submitTournamentForIndexing(tournament.slug!)} 
+                                        title="Submit to Google"
+                                      >
+                                        <Globe className="w-4 h-4 text-green-500" />
+                                      </Button>
+                                    )}
+                                    <Button variant="ghost" size="icon" onClick={() => setDeleteTournamentId(tournament.id)}>
+                                      <Trash2 className="w-4 h-4 text-destructive" />
+                                    </Button>
+                                  </div>
                                 </div>
-                              </div>
-                            </CardContent>
-                          </Card>
-                        </motion.div>
-                      ))}
+                              </CardContent>
+                            </Card>
+                          </motion.div>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  );
+                };
+
+                return (
+                  <Tabs defaultValue="active" className="w-full">
+                    <TabsList className="mb-4">
+                      <TabsTrigger value="active" className="gap-2">
+                        Active
+                        <Badge variant="secondary" className="ml-1 text-[10px]">{activeTournaments.length}</Badge>
+                      </TabsTrigger>
+                      <TabsTrigger value="completed" className="gap-2">
+                        Completed
+                        <Badge variant="secondary" className="ml-1 text-[10px]">{completedTournaments.length}</Badge>
+                      </TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="active">
+                      {renderTournamentList(activeTournaments, 'No active tournaments yet. Add your first tournament!')}
+                    </TabsContent>
+                    <TabsContent value="completed">
+                      {renderTournamentList(completedTournaments, 'No completed tournaments yet.')}
+                    </TabsContent>
+                  </Tabs>
                 );
               })()}
             </TabsContent>
