@@ -1,0 +1,654 @@
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
+import { Download, Loader2, RefreshCw, Clock, Trophy } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
+import SearchableSelect from "@/components/SearchableSelect";
+import { useTeams, useTournaments, useSports } from "@/hooks/useSportsData";
+import { useQueryClient } from '@tanstack/react-query';
+
+interface ESPNCricketMatch {
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: string | null;
+  awayScore: string | null;
+  status: string;
+  matchFormat: string | null;
+  competition: string | null;
+  matchUrl: string | null;
+  startTime: string | null;
+  venue?: string | null;
+  eventId?: string;
+  matchNumber?: string | null;
+  seriesName?: string | null;
+  homeTeamLogo?: string | null;
+  awayTeamLogo?: string | null;
+}
+
+interface MatchToImport extends ESPNCricketMatch {
+  selected: boolean;
+  teamAId: string | null;
+  teamBId: string | null;
+  tournamentId: string | null;
+}
+
+interface CricketMatchImporterProps {
+  onImportComplete?: () => void;
+}
+
+const ESPN_CRICKET_SERIES = [
+  { value: 'all', label: 'All Live/Upcoming Matches' },
+  { value: 'ipl', label: 'IPL' },
+  { value: 'bpl', label: 'BPL' },
+  { value: 'psl', label: 'PSL' },
+  { value: 'bbl', label: 'BBL' },
+  { value: 'cpl', label: 'CPL' },
+  { value: 'icc-wc', label: 'ICC World Cup' },
+  { value: 'icc-t20wc', label: 'ICC T20 World Cup' },
+  { value: 'asia-cup', label: 'Asia Cup' },
+];
+
+export default function CricketMatchImporter({ onImportComplete }: CricketMatchImporterProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { data: teams } = useTeams();
+  const { data: tournaments } = useTournaments();
+  const { data: sports } = useSports();
+
+  const [open, setOpen] = useState(false);
+  const [selectedSeries, setSelectedSeries] = useState('all');
+  const [loading, setLoading] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [apiMatches, setApiMatches] = useState<MatchToImport[]>([]);
+  const [defaultTournamentId, setDefaultTournamentId] = useState<string | null>(null);
+
+  // Get Cricket sport ID
+  const cricketSportId = sports?.find(s => 
+    s.name.toLowerCase().includes('cricket')
+  )?.id;
+
+  // Fuzzy match team name to database
+  const findTeamMatch = (apiTeamName: string): string | null => {
+    if (!teams) return null;
+    
+    const normalizedApiName = apiTeamName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    for (const team of teams) {
+      const normalizedDbName = team.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      const normalizedShortName = team.short_name.toLowerCase().replace(/[^a-z0-9]/g, '');
+      
+      if (normalizedDbName === normalizedApiName || normalizedShortName === normalizedApiName) {
+        return team.id;
+      }
+      
+      // Partial match
+      if (normalizedApiName.includes(normalizedDbName) || normalizedDbName.includes(normalizedApiName)) {
+        return team.id;
+      }
+      
+      // Check for common variations
+      const apiWords = normalizedApiName.split(/(?=[A-Z])/).join('').toLowerCase();
+      if (normalizedDbName.includes(apiWords) || apiWords.includes(normalizedDbName)) {
+        return team.id;
+      }
+    }
+    
+    return null;
+  };
+
+  const fetchMatches = async () => {
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('scrape-cricket-matches', {
+        body: { seriesId: selectedSeries }
+      });
+
+      if (error) throw error;
+
+      if (data?.matches) {
+        // Filter out completed matches - only import upcoming/live
+        const filteredMatches = data.matches.filter((m: ESPNCricketMatch) => {
+          const status = m.status?.toLowerCase() || '';
+          const isCompleted = status.includes('completed') || status.includes('final') || status.includes('result');
+          return !isCompleted;
+        });
+
+        const matchesWithMappings: MatchToImport[] = filteredMatches.map((m: ESPNCricketMatch) => ({
+          ...m,
+          selected: false,
+          teamAId: findTeamMatch(m.homeTeam),
+          teamBId: findTeamMatch(m.awayTeam),
+          tournamentId: defaultTournamentId,
+        }));
+        setApiMatches(matchesWithMappings);
+        
+        if (filteredMatches.length === 0 && data.matches.length > 0) {
+          toast({
+            title: "No upcoming matches",
+            description: `All ${data.matches.length} matches are completed.`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching matches:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch matches from ESPN Cricinfo",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Update all selected matches' tournament when default changes
+  useEffect(() => {
+    if (defaultTournamentId) {
+      setApiMatches(prev => prev.map(m => ({
+        ...m,
+        tournamentId: m.tournamentId || defaultTournamentId
+      })));
+    }
+  }, [defaultTournamentId]);
+
+  const toggleMatchSelection = (index: number) => {
+    setApiMatches(prev => prev.map((m, i) => 
+      i === index ? { ...m, selected: !m.selected } : m
+    ));
+  };
+
+  const updateMatchTeam = (index: number, field: 'teamAId' | 'teamBId', value: string | null) => {
+    setApiMatches(prev => prev.map((m, i) => 
+      i === index ? { ...m, [field]: value } : m
+    ));
+  };
+
+  const updateMatchTournament = (index: number, value: string | null) => {
+    setApiMatches(prev => prev.map((m, i) => 
+      i === index ? { ...m, tournamentId: value } : m
+    ));
+  };
+
+  const updateMatchNumber = (index: number, value: string) => {
+    setApiMatches(prev => prev.map((m, i) => 
+      i === index ? { ...m, matchNumber: value || null } : m
+    ));
+  };
+
+  const selectAllValid = () => {
+    setApiMatches(prev => prev.map(m => ({
+      ...m,
+      selected: m.teamAId !== null && m.teamBId !== null
+    })));
+  };
+
+  const deselectAll = () => {
+    setApiMatches(prev => prev.map(m => ({ ...m, selected: false })));
+  };
+
+  const getMatchStatus = (apiStatus: string): 'upcoming' | 'live' | 'completed' => {
+    const status = apiStatus.toLowerCase();
+    if (status.includes('live') || status.includes('progress')) return 'live';
+    if (status.includes('completed') || status.includes('final') || status.includes('result')) return 'completed';
+    return 'upcoming';
+  };
+
+  const formatMatchDate = (startTime: string | null): { date: string; time: string } => {
+    if (!startTime) {
+      const now = new Date();
+      return {
+        date: format(now, 'yyyy-MM-dd'),
+        time: format(now, 'HH:mm')
+      };
+    }
+    try {
+      const date = new Date(startTime);
+      return {
+        date: format(date, 'yyyy-MM-dd'),
+        time: format(date, 'HH:mm')
+      };
+    } catch {
+      const now = new Date();
+      return {
+        date: format(now, 'yyyy-MM-dd'),
+        time: format(now, 'HH:mm')
+      };
+    }
+  };
+
+  // Generate short name from full name
+  const generateShortName = (fullName: string): string => {
+    const words = fullName.trim().split(/\s+/);
+    if (words.length === 1) {
+      return fullName.substring(0, 3).toUpperCase();
+    }
+    return words.slice(0, 3).map(w => w[0]).join('').toUpperCase();
+  };
+
+  // Create team if it doesn't exist
+  const getOrCreateTeam = async (teamName: string, existingTeamId: string | null, logoUrl?: string | null): Promise<string | null> => {
+    if (existingTeamId) {
+      return existingTeamId;
+    }
+
+    const foundId = findTeamMatch(teamName);
+    if (foundId) {
+      return foundId;
+    }
+
+    try {
+      const newTeam = {
+        name: teamName,
+        short_name: generateShortName(teamName),
+        logo_url: logoUrl || null,
+        logo_background_color: null,
+      };
+
+      const { data, error } = await supabase
+        .from('teams')
+        .insert(newTeam)
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === '23505') {
+          const { data: existingTeam } = await supabase
+            .from('teams')
+            .select('id')
+            .eq('name', teamName)
+            .maybeSingle();
+          return existingTeam?.id || null;
+        }
+        throw error;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      
+      return data?.id || null;
+    } catch (error) {
+      console.error('Error creating team:', teamName, error);
+      return null;
+    }
+  };
+
+  const importSelectedMatches = async () => {
+    const selectedMatches = apiMatches.filter(m => m.selected);
+    
+    if (selectedMatches.length === 0) {
+      toast({
+        title: "No matches selected",
+        description: "Please select at least one match to import",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setImporting(true);
+    let successCount = 0;
+    let errorCount = 0;
+    let teamsCreated = 0;
+
+    for (const match of selectedMatches) {
+      try {
+        const teamAId = await getOrCreateTeam(match.homeTeam, match.teamAId, match.homeTeamLogo);
+        const teamBId = await getOrCreateTeam(match.awayTeam, match.teamBId, match.awayTeamLogo);
+
+        if (!teamAId || !teamBId) {
+          console.error('Could not get/create teams for match:', match.homeTeam, 'vs', match.awayTeam);
+          errorCount++;
+          continue;
+        }
+
+        if (!match.teamAId && teamAId) teamsCreated++;
+        if (!match.teamBId && teamBId) teamsCreated++;
+
+        const { date, time } = formatMatchDate(match.startTime);
+        const status = getMatchStatus(match.status);
+        
+        // Get tournament SEO if available
+        let seoTitle: string | null = null;
+        let seoDescription: string | null = null;
+        let seoKeywords: string | null = null;
+        
+        if (match.tournamentId) {
+          const tournament = tournaments?.find(t => t.id === match.tournamentId);
+          if (tournament) {
+            seoTitle = tournament.seo_title || null;
+            seoDescription = tournament.seo_description || null;
+            seoKeywords = tournament.seo_keywords || null;
+          }
+        }
+        
+        const teamAName = teams?.find(t => t.id === teamAId)?.name || match.homeTeam;
+        const teamBName = teams?.find(t => t.id === teamBId)?.name || match.awayTeam;
+        const slug = `${teamAName.toLowerCase().replace(/\s+/g, '-')}-vs-${teamBName.toLowerCase().replace(/\s+/g, '-')}-live`;
+
+        const matchData = {
+          team_a_id: teamAId,
+          team_b_id: teamBId,
+          tournament_id: match.tournamentId,
+          sport_id: cricketSportId || null,
+          match_date: date,
+          match_time: time,
+          status,
+          score_a: match.homeScore || null,
+          score_b: match.awayScore || null,
+          is_active: true,
+          page_type: 'match_page',
+          slug,
+          seo_title: seoTitle,
+          seo_description: seoDescription,
+          seo_keywords: seoKeywords,
+          auto_sync_enabled: status === 'live' || status === 'upcoming',
+          match_start_time: match.startTime ? new Date(match.startTime).toISOString() : null,
+          venue: match.venue || null,
+          match_number: match.matchNumber || null,
+          match_format: match.matchFormat || 'T20',
+          match_label: null,
+        };
+
+        const { error } = await supabase.from('matches').insert(matchData);
+        if (error) throw error;
+        
+        successCount++;
+      } catch (error) {
+        console.error('Error importing match:', error);
+        errorCount++;
+      }
+    }
+
+    setImporting(false);
+
+    if (successCount > 0) {
+      queryClient.invalidateQueries({ queryKey: ['matches'] });
+      queryClient.invalidateQueries({ queryKey: ['teams'] });
+      
+      const teamsMsg = teamsCreated > 0 ? ` (${teamsCreated} new team(s) created)` : '';
+      toast({
+        title: "Import Complete",
+        description: `Successfully imported ${successCount} match(es)${teamsMsg}${errorCount > 0 ? `, ${errorCount} failed` : ''}`,
+      });
+      onImportComplete?.();
+      setOpen(false);
+    } else {
+      toast({
+        title: "Import Failed",
+        description: "Failed to import matches. Please try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const selectedCount = apiMatches.filter(m => m.selected).length;
+  const unmatchedTeamsCount = apiMatches.filter(m => m.selected && (!m.teamAId || !m.teamBId)).reduce((acc, m) => {
+    return acc + (m.teamAId ? 0 : 1) + (m.teamBId ? 0 : 1);
+  }, 0);
+
+  const getFormatBadgeColor = (format: string | null) => {
+    switch (format?.toLowerCase()) {
+      case 'test': return 'bg-red-500/20 text-red-400 border-red-500/30';
+      case 'odi': return 'bg-blue-500/20 text-blue-400 border-blue-500/30';
+      case 't20': return 'bg-green-500/20 text-green-400 border-green-500/30';
+      default: return 'bg-muted text-muted-foreground';
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm" className="gap-2">
+          <Download className="w-4 h-4" />
+          Import Cricket
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Trophy className="w-5 h-5" />
+            Import Cricket Matches
+          </DialogTitle>
+          <DialogDescription>
+            Fetch matches from ESPN Cricinfo and import them with auto-mapped teams. SEO will be imported from tournament.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+          {/* Controls */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <Label>Series/Source</Label>
+              <Select value={selectedSeries} onValueChange={setSelectedSeries}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ESPN_CRICKET_SERIES.map(series => (
+                    <SelectItem key={series.value} value={series.value}>
+                      {series.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-2">
+              <Label>Default Tournament (SEO source)</Label>
+              <SearchableSelect
+                options={[
+                  { value: 'none', label: 'No Tournament' },
+                  ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                    value: t.id,
+                    label: t.name,
+                    sublabel: t.season,
+                    imageUrl: t.logo_url,
+                  })) || [])
+                ]}
+                value={defaultTournamentId || 'none'}
+                onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
+                placeholder="Select tournament"
+                searchPlaceholder="Search..."
+                emptyText="No tournaments"
+              />
+            </div>
+            
+            <div className="flex items-end">
+              <Button onClick={fetchMatches} disabled={loading} className="w-full gap-2">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Fetch Matches
+              </Button>
+            </div>
+          </div>
+
+          {/* Match List */}
+          {apiMatches.length > 0 && (
+            <>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={selectAllValid}>
+                    Select All Valid
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={deselectAll}>
+                    Deselect All
+                  </Button>
+                </div>
+                <Badge variant="secondary">
+                  {selectedCount} selected{unmatchedTeamsCount > 0 ? ` (${unmatchedTeamsCount} new teams)` : ''}
+                </Badge>
+              </div>
+
+              <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+                {apiMatches.map((match, index) => (
+                  <div 
+                    key={index} 
+                    className={`p-3 rounded-lg border transition-colors ${
+                      match.selected 
+                        ? 'border-primary bg-primary/5' 
+                        : 'border-border hover:border-muted-foreground/50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <Checkbox
+                        checked={match.selected}
+                        onCheckedChange={() => toggleMatchSelection(index)}
+                        className="mt-1"
+                      />
+                      
+                      <div className="flex-1 space-y-2">
+                        {/* Match Header */}
+                        <div className="flex items-center justify-between gap-2 flex-wrap">
+                          <div className="flex items-center gap-2">
+                            {match.homeTeamLogo && (
+                              <img src={match.homeTeamLogo} alt="" className="w-5 h-5 object-contain" />
+                            )}
+                            <span className="font-medium">{match.homeTeam}</span>
+                            <span className="text-muted-foreground">vs</span>
+                            <span className="font-medium">{match.awayTeam}</span>
+                            {match.awayTeamLogo && (
+                              <img src={match.awayTeamLogo} alt="" className="w-5 h-5 object-contain" />
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Badge className={getFormatBadgeColor(match.matchFormat)}>
+                              {match.matchFormat || 'T20'}
+                            </Badge>
+                            <Badge variant={match.status === 'Live' ? 'destructive' : 'secondary'}>
+                              {match.status}
+                            </Badge>
+                          </div>
+                        </div>
+                        
+                        {/* Match Info */}
+                        <div className="flex items-center gap-4 text-xs text-muted-foreground flex-wrap">
+                          {match.startTime && (
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {format(new Date(match.startTime), 'dd MMM, HH:mm')}
+                            </span>
+                          )}
+                          {match.venue && (
+                            <span className="truncate max-w-[200px]">{match.venue}</span>
+                          )}
+                          {match.seriesName && (
+                            <span className="truncate max-w-[200px]">{match.seriesName}</span>
+                          )}
+                        </div>
+                        
+                        {/* Team Mapping */}
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Home Team</Label>
+                            <SearchableSelect
+                              options={[
+                                { value: 'auto', label: `🆕 ${match.homeTeam}`, sublabel: 'Create new' },
+                                ...(teams?.map((t) => ({
+                                  value: t.id,
+                                  label: t.name,
+                                  sublabel: t.short_name,
+                                  imageUrl: t.logo_url,
+                                })) || [])
+                              ]}
+                              value={match.teamAId || 'auto'}
+                              onValueChange={(v) => updateMatchTeam(index, 'teamAId', v === 'auto' ? null : v)}
+                              placeholder="Map team"
+                              searchPlaceholder="Search..."
+                              emptyText="No teams"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Away Team</Label>
+                            <SearchableSelect
+                              options={[
+                                { value: 'auto', label: `🆕 ${match.awayTeam}`, sublabel: 'Create new' },
+                                ...(teams?.map((t) => ({
+                                  value: t.id,
+                                  label: t.name,
+                                  sublabel: t.short_name,
+                                  imageUrl: t.logo_url,
+                                })) || [])
+                              ]}
+                              value={match.teamBId || 'auto'}
+                              onValueChange={(v) => updateMatchTeam(index, 'teamBId', v === 'auto' ? null : v)}
+                              placeholder="Map team"
+                              searchPlaceholder="Search..."
+                              emptyText="No teams"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Tournament (SEO)</Label>
+                            <SearchableSelect
+                              options={[
+                                { value: 'none', label: 'No Tournament' },
+                                ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                                  value: t.id,
+                                  label: t.name,
+                                  sublabel: t.season,
+                                  imageUrl: t.logo_url,
+                                })) || [])
+                              ]}
+                              value={match.tournamentId || 'none'}
+                              onValueChange={(v) => updateMatchTournament(index, v === 'none' ? null : v)}
+                              placeholder="Tournament"
+                              searchPlaceholder="Search..."
+                              emptyText="No tournaments"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Match Number</Label>
+                            <Input
+                              value={match.matchNumber || ''}
+                              onChange={(e) => updateMatchNumber(index, e.target.value)}
+                              placeholder="e.g., Match 5, Final"
+                              className="h-9"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Import Button */}
+              <div className="pt-4 border-t">
+                <Button 
+                  onClick={importSelectedMatches} 
+                  disabled={importing || selectedCount === 0}
+                  className="w-full gap-2"
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Importing...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="w-4 h-4" />
+                      Import {selectedCount} Match{selectedCount !== 1 ? 'es' : ''}
+                      {unmatchedTeamsCount > 0 && ` (will create ${unmatchedTeamsCount} team${unmatchedTeamsCount !== 1 ? 's' : ''})`}
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+
+          {apiMatches.length === 0 && !loading && (
+            <div className="flex-1 flex items-center justify-center text-muted-foreground">
+              Select a series and click "Fetch Matches" to load matches
+            </div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}

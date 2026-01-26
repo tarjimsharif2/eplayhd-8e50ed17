@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.increment-football-timer]
 verify_jwt = false
+
+[functions.scrape-cricket-matches]
+verify_jwt = false

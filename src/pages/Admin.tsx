@@ -53,6 +53,7 @@ import UserRolesManager from "@/components/UserRolesManager";
 import { useVisibleAdminTabs, useHasPermission, useHasAdminAccess } from "@/hooks/usePermissions";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import FootballMatchImporter from "@/components/FootballMatchImporter";
+import CricketMatchImporter from "@/components/CricketMatchImporter";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -1689,6 +1690,7 @@ const Admin = () => {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-xl font-semibold">All Matches</h2>
                 <div className="flex items-center gap-2 flex-wrap">
+                  <CricketMatchImporter />
                   <FootballMatchImporter />
                   <Dialog open={matchDialogOpen} onOpenChange={(open) => {
                     setMatchDialogOpen(open);
