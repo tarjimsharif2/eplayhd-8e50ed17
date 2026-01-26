@@ -412,16 +412,46 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
       } else if (event.season?.type?.week?.number) {
         round = `${event.season.type.week.number}`;
       }
-      // For knockout rounds (UCL, UEL etc), check competition notes or event name
-      if (!round && event.name) {
-        const roundMatch = event.name.match(/(?:Round|Matchday|Week)\s*(\d+)/i);
-        if (roundMatch) {
-          round = roundMatch[1];
+      
+      // For league stage and knockout rounds, check competition type and event name
+      if (!round) {
+        // Check competition type for round info
+        const competitionType = event.seasonType?.name || event.season?.type?.name || '';
+        
+        // Check if event name or competition type contains round info
+        const eventName = event.name || '';
+        const combined = `${eventName} ${competitionType}`;
+        
+        // Match various round patterns
+        const roundPatterns = [
+          /(?:Round|Matchday|Week|Gameweek|Match Day)\s*(\d+)/i,
+          /(?:League Phase|Group Stage)\s*-?\s*(?:Matchday|Day|Round)?\s*(\d+)/i,
+          /MD?\s*(\d+)/i,  // Matchday shortcuts like "MD8", "M8"
+        ];
+        
+        for (const pattern of roundPatterns) {
+          const match = combined.match(pattern);
+          if (match) {
+            round = match[1];
+            break;
+          }
         }
+        
         // Check for knockout stages
-        const knockoutMatch = event.name.match(/(Final|Semi-?Final|Quarter-?Final|Round of \d+|Group Stage)/i);
-        if (knockoutMatch) {
-          round = knockoutMatch[1];
+        if (!round) {
+          const knockoutMatch = combined.match(/(Final|Semi-?Final|Quarter-?Final|Round of \d+|Playoffs?|Group Stage)/i);
+          if (knockoutMatch) {
+            round = knockoutMatch[1];
+          }
+        }
+      }
+      
+      // Also try extracting from competition notes
+      if (!round && competition.notes) {
+        const notes = Array.isArray(competition.notes) ? competition.notes.join(' ') : String(competition.notes);
+        const noteMatch = notes.match(/(?:Matchday|Round|Week)\s*(\d+)/i);
+        if (noteMatch) {
+          round = noteMatch[1];
         }
       }
       

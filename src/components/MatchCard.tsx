@@ -600,7 +600,8 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     )}
                   </div>
                   <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamA.name}</span>
-                  {scoreA && (
+                  {/* Only show scores for non-football OR live/completed football matches */}
+                  {scoreA && (!isFootball || displayStatus === 'live' || displayStatus === 'completed') && (
                     <div className="flex flex-col items-center">
                       <span className="text-lg md:text-xl font-bold text-primary">{scoreA.score}</span>
                       {scoreA.overs && (
@@ -650,7 +651,8 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     )}
                   </div>
                   <span className="font-medium text-foreground text-xs md:text-sm leading-tight line-clamp-2">{teamB.name}</span>
-                  {scoreB && (
+                  {/* Only show scores for non-football OR live/completed football matches */}
+                  {scoreB && (!isFootball || displayStatus === 'live' || displayStatus === 'completed') && (
                     <div className="flex flex-col items-center">
                       <span className="text-lg md:text-xl font-bold text-primary">{scoreB.score}</span>
                       {scoreB.overs && (
