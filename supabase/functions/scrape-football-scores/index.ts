@@ -35,6 +35,7 @@ interface FootballMatch {
   competition: string | null;
   matchUrl: string | null;
   startTime: string | null;
+  venue?: string | null;
   eventId?: string;
   homeGoals?: GoalEvent[];
   awayGoals?: GoalEvent[];
@@ -397,6 +398,9 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
       }
       
       // Build match object
+      // Get venue from competition
+      const venue = competition.venue?.fullName || competition.venue?.shortName || null;
+      
       const matchObj: FootballMatch = {
         homeTeam: homeTeam.team?.displayName || homeTeam.team?.name || 'Unknown',
         awayTeam: awayTeam.team?.displayName || awayTeam.team?.name || 'Unknown',
@@ -407,6 +411,7 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
         competition: data.leagues?.[0]?.name || event.name || null,
         matchUrl: event.links?.[0]?.href || null,
         startTime: event.date || null,
+        venue,
         eventId: event.id,
         homeGoals: homeGoals.length > 0 ? homeGoals : undefined,
         awayGoals: awayGoals.length > 0 ? awayGoals : undefined,

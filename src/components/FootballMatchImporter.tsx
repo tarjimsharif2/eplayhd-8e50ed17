@@ -23,6 +23,7 @@ interface ESPNMatch {
   competition: string | null;
   matchUrl: string | null;
   startTime: string | null;
+  venue?: string | null;
   eventId?: string;
 }
 
@@ -345,10 +346,10 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
           seo_keywords: seoKeywords,
           auto_sync_enabled: status === 'live' || status === 'upcoming',
           match_start_time: match.startTime ? new Date(match.startTime).toISOString() : null,
-          venue: null,
+          venue: match.venue || null,
           match_number: null,
           match_label: match.competition || null,
-          match_duration_minutes: 120,
+          match_duration_minutes: 180,
         };
 
         const { error } = await supabase.from('matches').insert(matchData);
