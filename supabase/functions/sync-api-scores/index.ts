@@ -260,6 +260,7 @@ Deno.serve(async (req) => {
         match_time,
         match_start_time,
         api_score_enabled,
+        score_source,
         last_api_sync,
         updated_at,
         score_a,
@@ -269,11 +270,11 @@ Deno.serve(async (req) => {
       `);
     
     if (forceSyncMatchId) {
-      // Force sync: get specific match regardless of api_score_enabled
+      // Force sync: get specific match regardless of score_source
       matchQuery = matchQuery.eq('id', forceSyncMatchId);
     } else {
-      // Normal sync: only get api-enabled matches
-      matchQuery = matchQuery.eq('api_score_enabled', true);
+      // Normal sync: only get matches with api_cricket score source
+      matchQuery = matchQuery.eq('score_source', 'api_cricket');
     }
     
     const { data: matches, error: matchesError } = await matchQuery.order('match_date', { ascending: true });
