@@ -352,22 +352,28 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
           // Sync substitution data to match_substitutions table
           if (hasSubsData) {
             try {
-              // Get existing subs count
+              // Get existing subs with full details for proper duplicate check
               const { data: existingSubs } = await supabase
                 .from('match_substitutions')
-                .select('id, minute, player_in')
+                .select('id, minute, player_in, player_out')
                 .eq('match_id', dbMatch.id);
               
+              // Use combination of minute + player_in + player_out for duplicate detection
               const existingSubsSet = new Set(
-                (existingSubs || []).map(s => `${s.minute}-${s.player_in}`)
+                (existingSubs || []).map(s => `${s.minute}-${s.player_in}-${s.player_out}`)
               );
               
               const subsInserts = [];
               
-              // Team A subs
+              // Team A subs - filter out Unknown entries
               if (subsTeamA) {
                 for (const sub of subsTeamA) {
-                  const key = `${sub.minute}-${sub.playerIn}`;
+                  // Skip Unknown entries
+                  if (!sub.playerIn || !sub.playerOut || 
+                      sub.playerIn === 'Unknown' || sub.playerOut === 'Unknown') {
+                    continue;
+                  }
+                  const key = `${sub.minute}-${sub.playerIn}-${sub.playerOut}`;
                   if (!existingSubsSet.has(key)) {
                     subsInserts.push({
                       match_id: dbMatch.id,
@@ -376,14 +382,21 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
                       player_in: sub.playerIn,
                       minute: sub.minute,
                     });
+                    // Add to set to avoid duplicates within same batch
+                    existingSubsSet.add(key);
                   }
                 }
               }
               
-              // Team B subs
+              // Team B subs - filter out Unknown entries
               if (subsTeamB) {
                 for (const sub of subsTeamB) {
-                  const key = `${sub.minute}-${sub.playerIn}`;
+                  // Skip Unknown entries
+                  if (!sub.playerIn || !sub.playerOut || 
+                      sub.playerIn === 'Unknown' || sub.playerOut === 'Unknown') {
+                    continue;
+                  }
+                  const key = `${sub.minute}-${sub.playerIn}-${sub.playerOut}`;
                   if (!existingSubsSet.has(key)) {
                     subsInserts.push({
                       match_id: dbMatch.id,
@@ -392,6 +405,8 @@ export function useFootballScoreSync(intervalSeconds: number = 60) {
                       player_in: sub.playerIn,
                       minute: sub.minute,
                     });
+                    // Add to set to avoid duplicates within same batch
+                    existingSubsSet.add(key);
                   }
                 }
               }

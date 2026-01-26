@@ -225,12 +225,18 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
           }
         }
         
-        if (playerOut || playerIn) {
-          subsList.push({
-            playerOut: playerOut || 'Unknown',
-            playerIn: playerIn || 'Unknown',
-            minute: event.clock?.displayValue || event.time?.displayValue || event.period?.displayValue || '',
-          });
+        // Only add if we have BOTH valid player names (skip Unknown entries)
+        if (playerOut && playerIn && playerOut !== 'Unknown' && playerIn !== 'Unknown') {
+          const minute = event.clock?.displayValue || event.time?.displayValue || event.period?.displayValue || '';
+          // Avoid duplicates within this parsing session
+          const exists = subsList.some(s => s.minute === minute && s.playerIn === playerIn && s.playerOut === playerOut);
+          if (!exists) {
+            subsList.push({
+              playerOut,
+              playerIn,
+              minute,
+            });
+          }
         }
       }
     }
@@ -265,12 +271,13 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
         
         const minute = detail.clock?.displayValue || detail.time?.displayValue || '';
         
-        // Avoid duplicates
-        const exists = subsList.some(s => s.minute === minute && s.playerIn === playerIn);
-        if (!exists && (playerOut || playerIn)) {
+        // Only add if we have BOTH valid player names (skip Unknown entries)
+        // Use full duplicate check with minute, playerIn, AND playerOut
+        const exists = subsList.some(s => s.minute === minute && s.playerIn === playerIn && s.playerOut === playerOut);
+        if (!exists && playerOut && playerIn && playerOut !== 'Unknown' && playerIn !== 'Unknown') {
           subsList.push({
-            playerOut: playerOut || 'Unknown',
-            playerIn: playerIn || 'Unknown',
+            playerOut,
+            playerIn,
             minute,
           });
         }
