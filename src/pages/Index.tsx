@@ -25,12 +25,12 @@ const Index = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <SEOHead />
       <Header />
-      <AdSlot position="header" className="container mx-auto px-4 py-2" />
+      <AdSlot position="header" className="container mx-auto px-4" />
       <main className="flex-1">
         <MatchList />
         <LiveTournaments />
       </main>
-      <AdSlot position="footer" className="container mx-auto px-4 py-2" />
+      <AdSlot position="footer" className="container mx-auto px-4" />
       <Footer />
     </div>
   );
