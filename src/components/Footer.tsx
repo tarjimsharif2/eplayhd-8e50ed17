@@ -14,7 +14,7 @@ const Footer = () => {
   const footerText = settings?.footer_text || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`;
   const telegramLink = settings?.telegram_link || "#";
   // Only show tournaments that have show_in_menu enabled (same setting as header)
-  const activeTournaments = tournaments?.filter(t => t.is_active && t.show_in_menu) || [];
+  const activeTournaments = tournaments?.filter(t => t.is_active && t.show_in_menu && !t.is_completed) || [];
 
   // Group tournaments by sport
   const tournamentsBySport = useMemo(() => {

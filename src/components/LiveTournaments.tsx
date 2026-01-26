@@ -23,12 +23,13 @@ export const useActiveTournaments = () => {
         ?.map(m => m.tournament_id)
         .filter(Boolean) || [];
 
-      // Get tournaments marked as active AND show_in_homepage = true
+      // Get tournaments marked as active AND show_in_homepage = true AND not completed
       const { data, error } = await supabase
         .from('tournaments')
         .select('*')
         .eq('is_active', true)
         .neq('show_in_homepage', false) // Only show if show_in_homepage is true or null
+        .neq('is_completed', true) // Hide completed tournaments
         .order('name');
       
       if (error) throw error;

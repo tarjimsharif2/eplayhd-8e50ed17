@@ -23,7 +23,7 @@ const Header = () => {
     { name: "Matches", path: "/#matches" },
   ];
 
-  const menuTournaments = tournaments?.filter((t) => t.is_active && t.show_in_menu) || [];
+  const menuTournaments = tournaments?.filter((t) => t.is_active && t.show_in_menu && !t.is_completed) || [];
 
   // Group tournaments by sport
   const tournamentsBySport = useMemo(() => {
