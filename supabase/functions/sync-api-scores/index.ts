@@ -699,23 +699,41 @@ Deno.serve(async (req) => {
               
               try {
                 const lineupUrl = `https://apiv2.api-cricket.com/cricket/?method=get_lineups&APIkey=${apiKey}&event_id=${eventKey}`;
+                console.log(`[sync-api-scores] Lineup URL: ${lineupUrl.replace(apiKey, 'KEY_HIDDEN')}`);
+                
                 const lineupResponse = await fetchWithRetry(lineupUrl, {
                   method: 'GET',
                   headers: { 'Content-Type': 'application/json' },
                 });
                 
+                console.log(`[sync-api-scores] Lineup API status: ${lineupResponse.status}`);
+                
                 if (lineupResponse.ok) {
                   const lineupData = await lineupResponse.json();
-                  console.log(`[sync-api-scores] Lineup API response success: ${lineupData.success}`);
+                  console.log(`[sync-api-scores] Lineup API response success: ${lineupData.success}, has result: ${!!lineupData.result}`);
+                  console.log(`[sync-api-scores] Lineup API result keys: ${lineupData.result ? Object.keys(lineupData.result).join(', ') : 'none'}`);
                   
                   if (lineupData.success === 1 && lineupData.result) {
                     const result = lineupData.result;
                     
-                    // Process home team lineup
-                    const homeLineup = result.home?.starting_lineups || result.lineup?.home?.starting_lineups || [];
-                    const awayLineup = result.away?.starting_lineups || result.lineup?.away?.starting_lineups || [];
+                    // Try different data structures
+                    const homeLineup = result.home?.starting_lineups || 
+                                       result.lineup?.home?.starting_lineups || 
+                                       result.home?.players ||
+                                       result.home_lineup ||
+                                       (Array.isArray(result.home) ? result.home : []);
+                    const awayLineup = result.away?.starting_lineups || 
+                                       result.lineup?.away?.starting_lineups || 
+                                       result.away?.players ||
+                                       result.away_lineup ||
+                                       (Array.isArray(result.away) ? result.away : []);
                     
                     console.log(`[sync-api-scores] Lineup API: Home=${homeLineup.length}, Away=${awayLineup.length} players`);
+                    
+                    // Log first player structure for debugging
+                    if (homeLineup.length > 0) {
+                      console.log(`[sync-api-scores] Sample player structure: ${JSON.stringify(homeLineup[0])}`);
+                    }
                     
                     if (homeLineup.length > 0) {
                       let battingOrder = 1;
