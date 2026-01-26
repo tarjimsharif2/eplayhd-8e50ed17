@@ -324,7 +324,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
   };
 
   // Fetch squad from RapidAPI (Cricbuzz)
-  const handleFetchSquad = async (source: 'cricbuzz' | 'espn', forceRefresh = false) => {
+  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape', forceRefresh = false) => {
     setFetchingSquad(true);
 
     try {
@@ -340,7 +340,12 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         }
       }
 
-      const functionName = source === 'espn' ? 'sync-espn-playing-xi' : 'sync-playing-xi';
+      let functionName = 'sync-playing-xi';
+      if (source === 'espn') {
+        functionName = 'sync-espn-playing-xi';
+      } else if (source === 'scrape') {
+        functionName = 'scrape-playing-xi';
+      }
       
       const response = await supabase.functions.invoke(functionName, {
         body: {
@@ -376,7 +381,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
 
       toast({ 
         title: "Squad synced!", 
-        description: `${result.playersAdded || 0} players added from ${source === 'espn' ? 'ESPN Cricinfo' : 'Cricbuzz'}`
+        description: `${result.playersAdded || 0} players added from ${source === 'espn' ? 'ESPN Cricinfo' : source === 'scrape' ? 'Cricbuzz (Scrape)' : 'Cricbuzz'}`
       });
 
     } catch (err: any) {
@@ -552,6 +557,13 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
             >
               <CloudDownload className="w-4 h-4 mr-2" />
               From ESPN Cricinfo
+            </DropdownMenuItem>
+            <DropdownMenuItem 
+              onClick={() => handleFetchSquad('scrape', players && players.length > 0)}
+              disabled={fetchingSquad}
+            >
+              <CloudDownload className="w-4 h-4 mr-2" />
+              Scrape from Cricbuzz
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
