@@ -304,7 +304,16 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
   const leagueCode = ESPN_LEAGUES[league as keyof typeof ESPN_LEAGUES] || league;
   
   try {
-    const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/scoreboard`;
+    // Generate date range: today + next 7 days to get upcoming fixtures
+    const dates: string[] = [];
+    for (let i = 0; i < 8; i++) {
+      const date = new Date();
+      date.setDate(date.getDate() + i);
+      dates.push(date.toISOString().split('T')[0].replace(/-/g, ''));
+    }
+    const dateRange = dates.join('-');
+    
+    const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/soccer/${leagueCode}/scoreboard?dates=${dateRange}`;
     console.log(`Fetching ESPN API: ${apiUrl}`);
     
     const response = await fetch(apiUrl, {
@@ -320,7 +329,7 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
     }
     
     const data = await response.json();
-    console.log(`ESPN API returned ${data.events?.length || 0} events`);
+    console.log(`ESPN API returned ${data.events?.length || 0} events for date range ${dateRange}`);
     
     for (const event of data.events || []) {
       const competition = event.competitions?.[0];
