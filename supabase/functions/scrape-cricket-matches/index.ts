@@ -129,20 +129,13 @@ function parseMatchData(event: Record<string, unknown>, seriesName: string): Cri
   };
 }
 
-// Fetch matches for a specific series with date range (like football)
+// Fetch matches for a specific series (without date range - ESPN cricket doesn't support it)
 async function fetchESPNCricketSeries(seriesId: string, seriesName: string): Promise<CricketMatch[]> {
   const matches: CricketMatch[] = [];
   
   try {
-    // Generate date range: today to 30 days ahead
-    const today = new Date();
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + 30);
-    
-    const formatDate = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
-    const dateRange = `${formatDate(today)}-${formatDate(endDate)}`;
-    
-    const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/cricket/${seriesId}/scoreboard?dates=${dateRange}`;
+    // ESPN Cricket API doesn't support date range like football - use simple scoreboard endpoint
+    const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/cricket/${seriesId}/scoreboard`;
     console.log(`Fetching: ${apiUrl}`);
     
     const response = await fetch(apiUrl, {
