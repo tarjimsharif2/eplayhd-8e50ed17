@@ -39,7 +39,7 @@ const ESPN_CRICKET_SERIES: Record<string, { id: string; name: string }> = {
   'icc-t20wc': { id: '8601', name: 'ICC T20 World Cup' },
   'icc-wtc': { id: '19430', name: 'ICC World Test Championship' },
   'asia-cup': { id: '8532', name: 'Asia Cup' },
-  'u19-wc': { id: '1410322', name: 'ICC U19 World Cup 2026' },
+  'u19-wc': { id: '1511849', name: 'ICC U19 World Cup 2026' },
   // Bilateral Series 2025-26
   'ind-vs-eng': { id: '22802', name: 'India vs England 2025' },
   'aus-vs-ind': { id: '23265', name: 'Australia vs India 2025-26' },
@@ -47,6 +47,7 @@ const ESPN_CRICKET_SERIES: Record<string, { id: string; name: string }> = {
   'sa-vs-wi': { id: '1477604', name: 'SA vs West Indies 2025-26' },
   'eng-vs-wi': { id: '1384428', name: 'England vs West Indies 2025' },
   'pak-vs-wi': { id: '1384430', name: 'Pakistan vs West Indies 2025' },
+  'ct2025': { id: '1475248', name: 'ICC Champions Trophy 2025' },
 };
 
 // Parse match data from ESPN API response
@@ -148,9 +149,47 @@ async function fetchESPNCricketSeries(seriesId: string, seriesName: string): Pro
   const matches: CricketMatch[] = [];
   const seenEventIds = new Set<string>();
   
-  // Try Cricinfo web API first (more complete fixture data)
+  // Try ESPN Cricinfo series home page API (best for fixtures)
   try {
-    // Try the series fixtures page API
+    const seriesHomeUrl = `https://site.web.api.espn.com/apis/site/v2/sports/cricket/series/${seriesId}/events?lang=en&region=in`;
+    console.log(`Trying ESPN series events API: ${seriesHomeUrl}`);
+    
+    const seriesResponse = await fetch(seriesHomeUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+    
+    if (seriesResponse.ok) {
+      const seriesData = await seriesResponse.json();
+      const events = seriesData.events || [];
+      console.log(`ESPN series events API: ${events.length} events found`);
+      
+      for (const event of events) {
+        const eventId = event.id as string;
+        if (eventId && seenEventIds.has(eventId)) continue;
+        if (eventId) seenEventIds.add(eventId);
+        
+        const match = parseMatchData(event, seriesName);
+        if (match && match.homeTeam !== 'Unknown') {
+          matches.push(match);
+        }
+      }
+      
+      if (matches.length > 0) {
+        console.log(`${seriesName}: Got ${matches.length} matches from series events API`);
+        return matches;
+      }
+    } else {
+      console.log(`ESPN series events API: HTTP ${seriesResponse.status}`);
+    }
+  } catch (error) {
+    console.error(`ESPN series events API error:`, error);
+  }
+  
+  // Try Cricinfo web API (alternative)
+  try {
     const fixturesUrl = `https://hs-consumer-api.espncricinfo.com/v1/pages/series/schedule?seriesId=${seriesId}&lang=en`;
     console.log(`Trying Cricinfo fixtures API: ${fixturesUrl}`);
     

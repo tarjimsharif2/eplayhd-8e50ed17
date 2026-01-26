@@ -46,6 +46,13 @@ interface CricketMatchImporterProps {
 const ESPN_CRICKET_SERIES = [
   { value: 'all', label: 'All Live/Upcoming Matches' },
   { value: 'custom', label: '🔍 Custom Series ID' },
+  // ICC Events
+  { value: 'ct2025', label: '🏆 ICC Champions Trophy 2025' },
+  { value: 'u19-wc', label: '🏆 ICC U19 World Cup 2026' },
+  { value: 'icc-wc', label: 'ICC World Cup' },
+  { value: 'icc-t20wc', label: 'ICC T20 World Cup' },
+  { value: 'icc-wtc', label: 'ICC World Test Championship' },
+  { value: 'asia-cup', label: 'Asia Cup' },
   // Domestic T20 Leagues
   { value: 'ipl', label: 'IPL' },
   { value: 'bpl', label: 'BPL' },
@@ -55,12 +62,6 @@ const ESPN_CRICKET_SERIES = [
   { value: 'sa20', label: 'SA20' },
   { value: 'ilt20', label: 'ILT20' },
   { value: 'wpl', label: "WPL" },
-  // ICC Events
-  { value: 'icc-wc', label: 'ICC World Cup' },
-  { value: 'icc-t20wc', label: 'ICC T20 World Cup' },
-  { value: 'icc-wtc', label: 'ICC World Test Championship' },
-  { value: 'asia-cup', label: 'Asia Cup' },
-  { value: 'u19-wc', label: 'ICC U19 World Cup 2026' },
   // Bilateral Series 2025-26
   { value: 'ind-vs-eng', label: 'India vs England 2025' },
   { value: 'aus-vs-ind', label: 'Australia vs India 2025-26' },
