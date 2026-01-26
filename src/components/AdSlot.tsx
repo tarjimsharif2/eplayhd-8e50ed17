@@ -10,6 +10,7 @@ interface AdSlotProps {
 const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = '' }, ref) => {
   const { data: settings } = useSiteSettings();
   const containerRef = useRef<HTMLDivElement>(null);
+  const hiddenContainerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
   const [hasContent, setHasContent] = useState(false);
@@ -29,9 +30,9 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   }, [settings, position]);
 
   useEffect(() => {
-    if (!adCode || !containerRef.current || hasExecuted.current) return;
+    if (!adCode || !hiddenContainerRef.current || hasExecuted.current) return;
 
-    const container = containerRef.current;
+    const container = hiddenContainerRef.current;
     
     // Clear existing content
     container.innerHTML = '';
@@ -80,16 +81,6 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
 
     hasExecuted.current = true;
 
-    // Check if ad loaded after a delay (give ads time to render)
-    const checkContentTimer = setTimeout(() => {
-      if (containerRef.current) {
-        // Check if container has any visible content (not just scripts)
-        const hasVisibleContent = containerRef.current.querySelector('ins, iframe, img, div[data-ad], .adsbygoogle') !== null ||
-          (containerRef.current.offsetHeight > 10 && containerRef.current.innerHTML.trim().length > 0);
-        setHasContent(hasVisibleContent);
-      }
-    }, 2000);
-
     // Track ad impression
     if (!hasTrackedImpression.current) {
       trackAdImpression(position);
@@ -99,31 +90,59 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
     // Cleanup on unmount
     return () => {
       hasExecuted.current = false;
-      clearTimeout(checkContentTimer);
     };
   }, [adCode, position]);
 
   // Use MutationObserver to detect when ad content is added
   useEffect(() => {
-    if (!containerRef.current || !adCode) return;
+    if (!hiddenContainerRef.current || !adCode) return;
 
-    const observer = new MutationObserver(() => {
-      if (containerRef.current) {
-        const hasVisibleContent = containerRef.current.querySelector('ins, iframe, img, div[data-ad], .adsbygoogle') !== null ||
-          containerRef.current.offsetHeight > 10;
-        if (hasVisibleContent) {
+    const checkForAds = () => {
+      if (hiddenContainerRef.current) {
+        // Check for common ad elements
+        const hasAdElements = hiddenContainerRef.current.querySelector('ins.adsbygoogle, iframe, img[src*="ad"], div[data-ad-slot]') !== null;
+        // Also check if the container has reasonable height (ad loaded)
+        const hasHeight = hiddenContainerRef.current.offsetHeight > 20;
+        
+        if (hasAdElements || hasHeight) {
           setHasContent(true);
+          // Move content to visible container
+          if (containerRef.current && hiddenContainerRef.current) {
+            containerRef.current.innerHTML = hiddenContainerRef.current.innerHTML;
+            // Clone and execute scripts
+            hiddenContainerRef.current.querySelectorAll('script').forEach(script => {
+              const newScript = document.createElement('script');
+              Array.from(script.attributes).forEach(attr => {
+                newScript.setAttribute(attr.name, attr.value);
+              });
+              if (script.src) {
+                newScript.src = script.src;
+              } else {
+                newScript.textContent = script.textContent;
+              }
+              containerRef.current?.appendChild(newScript);
+            });
+          }
         }
       }
-    });
+    };
 
-    observer.observe(containerRef.current, { 
+    // Check periodically for 5 seconds
+    const intervals = [500, 1000, 2000, 3000, 5000];
+    const timers = intervals.map(delay => setTimeout(checkForAds, delay));
+
+    const observer = new MutationObserver(checkForAds);
+    observer.observe(hiddenContainerRef.current, { 
       childList: true, 
       subtree: true,
-      attributes: true 
+      attributes: true,
+      characterData: true
     });
 
-    return () => observer.disconnect();
+    return () => {
+      timers.forEach(clearTimeout);
+      observer.disconnect();
+    };
   }, [adCode]);
 
   // Reset execution flag when position changes
@@ -136,18 +155,31 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   if (!adCode) return null;
 
   return (
-    <div 
-      ref={(node) => {
-        containerRef.current = node;
-        if (typeof ref === 'function') ref(node);
-        else if (ref) ref.current = node;
-      }}
-      className={`ad-slot ad-slot-${position} ${className}`}
-      style={{ 
-        display: hasContent ? 'block' : 'none',
-        minHeight: hasContent ? 'auto' : '0'
-      }}
-    />
+    <>
+      {/* Hidden container where ads load initially */}
+      <div 
+        ref={hiddenContainerRef}
+        style={{ 
+          position: 'absolute',
+          left: '-9999px',
+          top: '-9999px',
+          visibility: 'hidden',
+          pointerEvents: 'none'
+        }}
+        aria-hidden="true"
+      />
+      {/* Visible container - only shows when ad has content */}
+      {hasContent && (
+        <div 
+          ref={(node) => {
+            containerRef.current = node;
+            if (typeof ref === 'function') ref(node);
+            else if (ref) ref.current = node;
+          }}
+          className={`ad-slot ad-slot-${position} ${className}`}
+        />
+      )}
+    </>
   );
 });
 
