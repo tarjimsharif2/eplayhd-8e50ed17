@@ -40,24 +40,24 @@ const normalizeTeamName = (name: string): string => {
   return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 };
 
-// Common team name aliases for international teams
+// Common team name aliases for international teams (including U19)
 const teamAliases: Record<string, string[]> = {
-  'australia': ['aus', 'australian', 'aussies', 'australia men', 'australia women'],
-  'england': ['eng', 'english', 'england men', 'england women', 'england lions'],
-  'india': ['ind', 'indian', 'india men', 'india women', 'team india'],
-  'pakistan': ['pak', 'pakistani', 'pakistan men', 'pakistan women'],
-  'south africa': ['sa', 'rsa', 'south african', 'proteas', 'south africa men'],
-  'new zealand': ['nz', 'nzl', 'kiwis', 'black caps', 'blackcaps', 'new zealand men'],
-  'west indies': ['wi', 'windies', 'caribbean', 'west indies men'],
-  'sri lanka': ['sl', 'srilanka', 'sri lankan', 'sri lanka men'],
-  'bangladesh': ['ban', 'bd', 'bangladeshi', 'tigers', 'bangladesh men'],
-  'afghanistan': ['afg', 'afghan', 'afghanistan men'],
-  'zimbabwe': ['zim', 'zimbabwean', 'zimbabwe men'],
-  'ireland': ['ire', 'irish', 'ireland men'],
-  'scotland': ['sco', 'scottish', 'scotland men'],
-  'netherlands': ['ned', 'holland', 'dutch', 'netherlands men'],
-  'uae': ['united arab emirates', 'emirates'],
-  'usa': ['united states', 'america', 'american'],
+  'australia': ['aus', 'australian', 'aussies', 'australia men', 'australia women', 'australia u19', 'aus u19'],
+  'england': ['eng', 'english', 'england men', 'england women', 'england lions', 'england u19', 'eng u19'],
+  'india': ['ind', 'indian', 'india men', 'india women', 'team india', 'india u19', 'ind u19'],
+  'pakistan': ['pak', 'pakistani', 'pakistan men', 'pakistan women', 'pakistan u19', 'pak u19'],
+  'south africa': ['sa', 'rsa', 'south african', 'proteas', 'south africa men', 'south africa u19', 'sa u19'],
+  'new zealand': ['nz', 'nzl', 'kiwis', 'black caps', 'blackcaps', 'new zealand men', 'new zealand u19', 'nz u19'],
+  'west indies': ['wi', 'windies', 'caribbean', 'west indies men', 'west indies u19', 'wi u19'],
+  'sri lanka': ['sl', 'srilanka', 'sri lankan', 'sri lanka men', 'sri lanka u19', 'sl u19'],
+  'bangladesh': ['ban', 'bd', 'bangladeshi', 'tigers', 'bangladesh men', 'bangladesh u19', 'ban u19', 'banu19'],
+  'afghanistan': ['afg', 'afghan', 'afghanistan men', 'afghanistan u19', 'afg u19'],
+  'zimbabwe': ['zim', 'zimbabwean', 'zimbabwe men', 'zimbabwe u19', 'zim u19'],
+  'ireland': ['ire', 'irish', 'ireland men', 'ireland u19', 'ire u19'],
+  'scotland': ['sco', 'scottish', 'scotland men', 'scotland u19', 'sco u19'],
+  'netherlands': ['ned', 'holland', 'dutch', 'netherlands men', 'netherlands u19', 'ned u19'],
+  'uae': ['united arab emirates', 'emirates', 'uae u19'],
+  'usa': ['united states', 'america', 'american', 'usa u19'],
 };
 
 // Get canonical team name
@@ -81,13 +81,45 @@ const getCanonicalName = (name: string): string => {
   return normalized;
 };
 
-// STRICT team name matching
+// STRICT team name matching (with U19/Under-19 support)
 const teamsMatch = (name1: string, name2: string): boolean => {
   const n1 = normalizeTeamName(name1);
   const n2 = normalizeTeamName(name2);
   
   if (!n1 || !n2) return false;
   if (n1 === n2) return true;
+  
+  // Normalize U19/Under-19 variations
+  const normalizeU19 = (s: string) => s
+    .replace(/under[\s-]?19/gi, 'u19')
+    .replace(/u[\s-]?19/gi, 'u19')
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  const n1u19 = normalizeU19(n1);
+  const n2u19 = normalizeU19(n2);
+  
+  if (n1u19 === n2u19) return true;
+  
+  // Check if both have U19 suffix - compare base team names
+  const hasU19_1 = n1u19.includes('u19');
+  const hasU19_2 = n2u19.includes('u19');
+  
+  if (hasU19_1 && hasU19_2) {
+    // Both are U19 teams - compare base names
+    const base1 = n1u19.replace(/\s*u19\s*/g, ' ').trim();
+    const base2 = n2u19.replace(/\s*u19\s*/g, ' ').trim();
+    
+    // Check direct match or alias match
+    if (base1 === base2) return true;
+    
+    const canonical1 = getCanonicalName(base1);
+    const canonical2 = getCanonicalName(base2);
+    if (canonical1 === canonical2) return true;
+    
+    // Check if one contains the other
+    if (base1.includes(base2) || base2.includes(base1)) return true;
+  }
   
   const canonical1 = getCanonicalName(n1);
   const canonical2 = getCanonicalName(n2);
@@ -343,10 +375,35 @@ function parseESPNData(data: any, eventId: string): ESPNScoreData | null {
 async function findESPNMatch(teamAName: string, teamBName: string, matchDate: string): Promise<{ eventId: string; data: ESPNScoreData } | null> {
   try {
     // Format date for ESPN API (YYYYMMDD)
-    const dateStr = matchDate.replace(/-/g, '');
-    const nextDay = new Date(matchDate);
-    nextDay.setDate(nextDay.getDate() + 1);
-    const nextDateStr = nextDay.toISOString().split('T')[0].replace(/-/g, '');
+    let dateStr = '';
+    let nextDateStr = '';
+    
+    try {
+      // Safely parse date
+      const parsedDate = new Date(matchDate);
+      if (isNaN(parsedDate.getTime())) {
+        // If invalid, use today's date
+        const today = new Date();
+        dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+        const nextDay = new Date(today);
+        nextDay.setDate(nextDay.getDate() + 1);
+        nextDateStr = nextDay.toISOString().split('T')[0].replace(/-/g, '');
+        console.log(`[ESPN Cricket] Invalid matchDate "${matchDate}", using today: ${dateStr}`);
+      } else {
+        dateStr = matchDate.replace(/-/g, '');
+        const nextDay = new Date(parsedDate);
+        nextDay.setDate(nextDay.getDate() + 1);
+        nextDateStr = nextDay.toISOString().split('T')[0].replace(/-/g, '');
+      }
+    } catch (dateError) {
+      // Fallback to today
+      const today = new Date();
+      dateStr = today.toISOString().split('T')[0].replace(/-/g, '');
+      const nextDay = new Date(today);
+      nextDay.setDate(nextDay.getDate() + 1);
+      nextDateStr = nextDay.toISOString().split('T')[0].replace(/-/g, '');
+      console.log(`[ESPN Cricket] Date parse error, using today: ${dateStr}`);
+    }
     
     // ESPN cricket scoreboard endpoint
     const url = `https://site.api.espn.com/apis/site/v2/sports/cricket/8676/scoreboard?dates=${dateStr}-${nextDateStr}`;
