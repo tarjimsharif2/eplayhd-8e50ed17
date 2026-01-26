@@ -364,7 +364,11 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
               )}
               {match.match_number && (
                 <span className="text-muted-foreground text-xs font-medium bg-muted/40 px-3 py-1.5 rounded-full">
-                  {/^\d+$/.test(match.match_number) ? `Match #${match.match_number}` : match.match_number}
+                  {/^\d+$/.test(match.match_number) 
+                    ? `Match #${match.match_number}` 
+                    : /^round\s*(\d+)$/i.test(match.match_number)
+                      ? `Round #${match.match_number.replace(/^round\s*/i, '')}`
+                      : match.match_number}
                 </span>
               )}
             </div>
@@ -372,13 +376,14 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
 
           {/* Check if it's a football match */}
           {(() => {
-            const hasFootballScore = isFootball && (match.score_a || match.score_b);
+            // Only show football scores for live/completed matches (not upcoming)
+            const hasFootballScore = isFootball && (displayStatus === 'live' || displayStatus === 'completed');
             
             // Parse goal data from match - ensure arrays
             const goalsTeamA: GoalEvent[] = Array.isArray(match.goals_team_a) ? match.goals_team_a as GoalEvent[] : [];
             const goalsTeamB: GoalEvent[] = Array.isArray(match.goals_team_b) ? match.goals_team_b as GoalEvent[] : [];
             
-            if (isFootball && hasFootballScore && (displayStatus === 'live' || displayStatus === 'completed')) {
+            if (isFootball && hasFootballScore) {
               // Football Score Display - Horizontal layout with scores
               const formatTime = (min: number, sec: number) => {
                 return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}`;
