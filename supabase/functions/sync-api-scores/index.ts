@@ -692,8 +692,90 @@ Deno.serve(async (req) => {
             .single();
           
           if (matchData) {
-            // Check if API has lineup data
-            if (detailedEvent.lineup) {
+            // First try the dedicated lineup API endpoint
+            const eventKey = detailedEvent.event_key || matchingEvent.event_key;
+            if (eventKey) {
+              console.log(`[sync-api-scores] Fetching lineup from dedicated API endpoint for event ${eventKey}...`);
+              
+              try {
+                const lineupUrl = `https://apiv2.api-cricket.com/cricket/?method=get_lineups&APIkey=${apiKey}&event_id=${eventKey}`;
+                const lineupResponse = await fetchWithRetry(lineupUrl, {
+                  method: 'GET',
+                  headers: { 'Content-Type': 'application/json' },
+                });
+                
+                if (lineupResponse.ok) {
+                  const lineupData = await lineupResponse.json();
+                  console.log(`[sync-api-scores] Lineup API response success: ${lineupData.success}`);
+                  
+                  if (lineupData.success === 1 && lineupData.result) {
+                    const result = lineupData.result;
+                    
+                    // Process home team lineup
+                    const homeLineup = result.home?.starting_lineups || result.lineup?.home?.starting_lineups || [];
+                    const awayLineup = result.away?.starting_lineups || result.lineup?.away?.starting_lineups || [];
+                    
+                    console.log(`[sync-api-scores] Lineup API: Home=${homeLineup.length}, Away=${awayLineup.length} players`);
+                    
+                    if (homeLineup.length > 0) {
+                      let battingOrder = 1;
+                      for (const player of homeLineup) {
+                        const homeTeamName = detailedEvent.event_home_team || result.home_team || '';
+                        let teamId = matchData.team_a_id;
+                        
+                        if (teamsMatch(homeTeamName, teamBName) || teamsMatch(homeTeamName, teamBShort)) {
+                          teamId = matchData.team_b_id;
+                        }
+                        
+                        playersToInsert.push({
+                          match_id: match.id,
+                          team_id: teamId,
+                          player_name: player.lineup_player || player.player_name || player.name || 'Unknown',
+                          player_role: player.lineup_position || player.player_type || player.role || null,
+                          is_captain: player.lineup_captain === '1' || player.lineup_captain === true || player.is_captain === true,
+                          is_vice_captain: player.lineup_vice_captain === '1' || player.lineup_vice_captain === true || player.is_vice_captain === true,
+                          is_wicket_keeper: (player.lineup_position || player.player_type || '').toLowerCase().includes('keeper') || 
+                                           player.is_keeper === true,
+                          batting_order: battingOrder++,
+                        });
+                      }
+                    }
+                    
+                    if (awayLineup.length > 0) {
+                      let battingOrder = 1;
+                      for (const player of awayLineup) {
+                        const awayTeamName = detailedEvent.event_away_team || result.away_team || '';
+                        let teamId = matchData.team_b_id;
+                        
+                        if (teamsMatch(awayTeamName, teamAName) || teamsMatch(awayTeamName, teamAShort)) {
+                          teamId = matchData.team_a_id;
+                        }
+                        
+                        playersToInsert.push({
+                          match_id: match.id,
+                          team_id: teamId,
+                          player_name: player.lineup_player || player.player_name || player.name || 'Unknown',
+                          player_role: player.lineup_position || player.player_type || player.role || null,
+                          is_captain: player.lineup_captain === '1' || player.lineup_captain === true || player.is_captain === true,
+                          is_vice_captain: player.lineup_vice_captain === '1' || player.lineup_vice_captain === true || player.is_vice_captain === true,
+                          is_wicket_keeper: (player.lineup_position || player.player_type || '').toLowerCase().includes('keeper') || 
+                                           player.is_keeper === true,
+                          batting_order: battingOrder++,
+                        });
+                      }
+                    }
+                    
+                    console.log(`[sync-api-scores] Found ${playersToInsert.length} players from dedicated lineup API`);
+                  }
+                }
+              } catch (lineupError) {
+                console.log(`[sync-api-scores] Lineup API fetch failed: ${lineupError}`);
+              }
+            }
+            
+            // Fallback: Check if detailedEvent has lineup data
+            if (playersToInsert.length === 0 && detailedEvent.lineup) {
+              console.log(`[sync-api-scores] Using lineup from detailedEvent...`);
               const lineup = detailedEvent.lineup;
               
               // Process home team lineup
@@ -750,7 +832,7 @@ Deno.serve(async (req) => {
                 }
               }
               
-              console.log(`[sync-api-scores] Found ${playersToInsert.length} players from lineup data`);
+              console.log(`[sync-api-scores] Found ${playersToInsert.length} players from detailedEvent lineup`);
             }
             
             // If no lineup from API, generate from scorecard (batsmen + bowlers)
