@@ -124,14 +124,14 @@ Deno.serve(async (req) => {
 
     console.log(`[sync-points-table] Syncing points table for tournament: ${tournamentId}, seriesId: ${seriesId}`);
 
-    // Get the RapidAPI key from site_settings
-    const { data: settings, error: settingsError } = await supabase
+    // Get the RapidAPI key and endpoints from site_settings
+    const { data: siteSettings, error: settingsError } = await supabase
       .from('site_settings')
-      .select('rapidapi_key, rapidapi_enabled')
+      .select('rapidapi_key, rapidapi_enabled, rapidapi_endpoints')
       .limit(1)
       .maybeSingle();
 
-    if (settingsError || !settings?.rapidapi_enabled || !settings?.rapidapi_key) {
+    if (settingsError || !siteSettings?.rapidapi_enabled || !siteSettings?.rapidapi_key) {
       console.error('[sync-points-table] RapidAPI is disabled or not configured');
       return new Response(
         JSON.stringify({ success: false, error: 'RapidAPI is disabled or not configured. Please configure RapidAPI key in Settings.' }),
@@ -139,7 +139,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const rapidApiKey = settings.rapidapi_key;
+    const rapidApiKey = siteSettings.rapidapi_key;
 
     // Get tournament details
     const { data: tournament, error: tournamentError } = await supabase
@@ -179,15 +179,21 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Get endpoint configuration from site_settings
+    const endpoints = siteSettings.rapidapi_endpoints || {};
+    const cricbuzzHost = endpoints.cricbuzz_host || 'cricbuzz-cricket.p.rapidapi.com';
+    const pointsTablePath = (endpoints.points_table_endpoint || '/stats/v1/series/{series_id}/points-table')
+      .replace('{series_id}', seriesId);
+    
     // Fetch points table from Cricbuzz RapidAPI
-    const pointsTableUrl = `https://cricbuzz-cricket.p.rapidapi.com/stats/v1/series/${seriesId}/points-table`;
+    const pointsTableUrl = `https://${cricbuzzHost}${pointsTablePath}`;
     
     console.log(`[sync-points-table] Fetching points table from: ${pointsTableUrl}`);
     
     const response = await fetchWithRetry(pointsTableUrl, {
       method: 'GET',
       headers: {
-        'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+        'x-rapidapi-host': cricbuzzHost,
         'x-rapidapi-key': rapidApiKey,
       },
     });

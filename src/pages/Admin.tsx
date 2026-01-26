@@ -54,6 +54,7 @@ import { useVisibleAdminTabs, useHasPermission, useHasAdminAccess } from "@/hook
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import FootballMatchImporter from "@/components/FootballMatchImporter";
 import CricketMatchImporter from "@/components/CricketMatchImporter";
+import RapidApiEndpointsManager from "@/components/RapidApiEndpointsManager";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -289,6 +290,7 @@ const Admin = () => {
     // RapidAPI settings (Cricbuzz)
     rapidapi_key: '',
     rapidapi_enabled: false,
+    rapidapi_endpoints: null as any,
     // Ads.txt
     ads_txt_content: '',
     // Custom code injection
@@ -337,6 +339,7 @@ const Admin = () => {
         api_sync_interval_seconds: (siteSettings as any).api_sync_interval_seconds || 120,
         rapidapi_key: (siteSettings as any).rapidapi_key || '',
         rapidapi_enabled: (siteSettings as any).rapidapi_enabled || false,
+        rapidapi_endpoints: (siteSettings as any).rapidapi_endpoints || null,
         ads_txt_content: (siteSettings as any).ads_txt_content || '',
         custom_header_code: siteSettings.custom_header_code || '',
         custom_footer_code: siteSettings.custom_footer_code || '',
@@ -4018,6 +4021,12 @@ const Admin = () => {
                       </a>
                     </p>
                   </div>
+
+                  {/* RapidAPI Endpoints Configuration */}
+                  <RapidApiEndpointsManager 
+                    value={siteSettingsForm.rapidapi_endpoints}
+                    onChange={(endpoints) => setSiteSettingsForm({ ...siteSettingsForm, rapidapi_endpoints: endpoints })}
+                  />
 
                   <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
                     <p className="text-xs text-muted-foreground">
