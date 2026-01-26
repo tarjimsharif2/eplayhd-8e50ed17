@@ -52,6 +52,7 @@ import SponsorNoticeManager from "@/components/SponsorNoticeManager";
 import UserRolesManager from "@/components/UserRolesManager";
 import { useVisibleAdminTabs, useHasPermission, useHasAdminAccess } from "@/hooks/usePermissions";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import FootballMatchImporter from "@/components/FootballMatchImporter";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -1685,19 +1686,21 @@ const Admin = () => {
 
             {/* Matches Tab */}
             <TabsContent value="matches" className="space-y-6">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <h2 className="text-xl font-semibold">All Matches</h2>
-                <Dialog open={matchDialogOpen} onOpenChange={(open) => {
-                  setMatchDialogOpen(open);
-                  if (!open) resetMatchForm();
-                }}>
-                  <DialogTrigger asChild>
-                    <Button variant="gradient" size="sm">
-                      <Plus className="w-4 h-4" />
-                      Add Match
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <FootballMatchImporter />
+                  <Dialog open={matchDialogOpen} onOpenChange={(open) => {
+                    setMatchDialogOpen(open);
+                    if (!open) resetMatchForm();
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button variant="gradient" size="sm">
+                        <Plus className="w-4 h-4" />
+                        Add Match
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                       <DialogTitle>{editingMatch ? 'Edit Match' : 'Add New Match'}</DialogTitle>
                       <DialogDescription>
@@ -2336,6 +2339,7 @@ const Admin = () => {
                     </DialogFooter>
                   </DialogContent>
                 </Dialog>
+                </div>
               </div>
 
               {/* Match Search & Filter */}
