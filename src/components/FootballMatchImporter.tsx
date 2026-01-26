@@ -408,7 +408,7 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
           Import Football
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl w-[95vw] max-h-[90vh] overflow-y-auto flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Trophy className="w-5 h-5" />
@@ -419,16 +419,16 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+        <div className="space-y-4 flex-1 flex flex-col min-h-0">
           {/* Controls */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label>League</Label>
+              <Label className="text-xs sm:text-sm">League</Label>
               <Select value={selectedLeague} onValueChange={setSelectedLeague}>
-                <SelectTrigger>
+                <SelectTrigger className="h-9">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[100] bg-popover">
                   {ESPN_LEAGUES.map(league => (
                     <SelectItem key={league.value} value={league.value}>
                       {league.label}
@@ -439,7 +439,7 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
             </div>
             
             <div className="space-y-2">
-              <Label>Default Tournament (SEO source)</Label>
+              <Label className="text-xs sm:text-sm">Tournament (SEO)</Label>
               <SearchableSelect
                 options={[
                   { value: 'none', label: 'No Tournament' },
@@ -458,8 +458,8 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
               />
             </div>
             
-            <div className="flex items-end">
-              <Button onClick={fetchMatches} disabled={loading} className="w-full gap-2">
+            <div className="col-span-2 sm:col-span-1 flex items-end">
+              <Button onClick={fetchMatches} disabled={loading} className="w-full gap-2 h-9">
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                 Fetch Matches
               </Button>
