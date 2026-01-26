@@ -492,13 +492,50 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
                         className="mt-1"
                       />
                       
-                      <div className="flex-1 space-y-3">
-                        {/* Match Info */}
+                        <div className="flex-1 space-y-3">
+                        {/* Match Info with ESPN Logos */}
                         <div className="flex items-center justify-between flex-wrap gap-2">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium">{match.homeTeam}</span>
+                          <div className="flex items-center gap-3 flex-wrap">
+                            {/* Home Team with Logo */}
+                            <div className="flex items-center gap-2">
+                              {match.homeTeamLogo ? (
+                                <img 
+                                  src={match.homeTeamLogo} 
+                                  alt={match.homeTeam}
+                                  className="w-6 h-6 object-contain rounded"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-6 h-6 rounded bg-muted flex items-center justify-center text-xs font-medium">
+                                  {match.homeTeam.charAt(0)}
+                                </div>
+                              )}
+                              <span className="font-medium">{match.homeTeam}</span>
+                            </div>
+                            
                             <span className="text-muted-foreground">vs</span>
-                            <span className="font-medium">{match.awayTeam}</span>
+                            
+                            {/* Away Team with Logo */}
+                            <div className="flex items-center gap-2">
+                              {match.awayTeamLogo ? (
+                                <img 
+                                  src={match.awayTeamLogo} 
+                                  alt={match.awayTeam}
+                                  className="w-6 h-6 object-contain rounded"
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).style.display = 'none';
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-6 h-6 rounded bg-muted flex items-center justify-center text-xs font-medium">
+                                  {match.awayTeam.charAt(0)}
+                                </div>
+                              )}
+                              <span className="font-medium">{match.awayTeam}</span>
+                            </div>
+                            
                             {(match.homeScore || match.awayScore) && (
                               <Badge variant="outline" className="ml-2">
                                 {match.homeScore || '0'} - {match.awayScore || '0'}
