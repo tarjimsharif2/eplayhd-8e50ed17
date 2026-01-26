@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, forwardRef } from 'react';
+import { useEffect, useRef, useMemo, forwardRef, useState } from 'react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { trackAdImpression } from '@/hooks/useGoogleAnalytics';
 
@@ -12,6 +12,7 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   const containerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
+  const [hasContent, setHasContent] = useState(false);
 
   const adCode = useMemo(() => {
     if (!settings?.ads_enabled) return null;
@@ -79,6 +80,16 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
 
     hasExecuted.current = true;
 
+    // Check if ad loaded after a delay (give ads time to render)
+    const checkContentTimer = setTimeout(() => {
+      if (containerRef.current) {
+        // Check if container has any visible content (not just scripts)
+        const hasVisibleContent = containerRef.current.querySelector('ins, iframe, img, div[data-ad], .adsbygoogle') !== null ||
+          (containerRef.current.offsetHeight > 10 && containerRef.current.innerHTML.trim().length > 0);
+        setHasContent(hasVisibleContent);
+      }
+    }, 2000);
+
     // Track ad impression
     if (!hasTrackedImpression.current) {
       trackAdImpression(position);
@@ -88,13 +99,38 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
     // Cleanup on unmount
     return () => {
       hasExecuted.current = false;
+      clearTimeout(checkContentTimer);
     };
   }, [adCode, position]);
+
+  // Use MutationObserver to detect when ad content is added
+  useEffect(() => {
+    if (!containerRef.current || !adCode) return;
+
+    const observer = new MutationObserver(() => {
+      if (containerRef.current) {
+        const hasVisibleContent = containerRef.current.querySelector('ins, iframe, img, div[data-ad], .adsbygoogle') !== null ||
+          containerRef.current.offsetHeight > 10;
+        if (hasVisibleContent) {
+          setHasContent(true);
+        }
+      }
+    });
+
+    observer.observe(containerRef.current, { 
+      childList: true, 
+      subtree: true,
+      attributes: true 
+    });
+
+    return () => observer.disconnect();
+  }, [adCode]);
 
   // Reset execution flag when position changes
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
+    setHasContent(false);
   }, [position]);
 
   if (!adCode) return null;
@@ -107,6 +143,10 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
         else if (ref) ref.current = node;
       }}
       className={`ad-slot ad-slot-${position} ${className}`}
+      style={{ 
+        display: hasContent ? 'block' : 'none',
+        minHeight: hasContent ? 'auto' : '0'
+      }}
     />
   );
 });
