@@ -1603,8 +1603,8 @@ const Admin = () => {
           </motion.div>
 
           <Tabs defaultValue={visibleTabs[0] || "matches"} className="space-y-4 sm:space-y-6">
-            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-              <TabsList className="bg-muted/50 p-1 flex flex-nowrap sm:flex-wrap h-auto min-w-max sm:min-w-0 gap-1">
+            <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1">
+              <TabsList className="bg-muted/50 p-1 inline-flex flex-nowrap sm:flex-wrap h-auto gap-1 w-max sm:w-auto">
                 {canManageMatches && (
                   <TabsTrigger value="matches" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                     Matches
@@ -2315,27 +2315,31 @@ const Admin = () => {
               </div>
 
               {/* Match Search & Filter */}
-              <div className="flex flex-col md:flex-row gap-4">
+              <div className="space-y-3">
                 <Input
                   placeholder="Search matches by team name, tournament, or venue..."
                   value={matchSearchQuery}
                   onChange={(e) => setMatchSearchQuery(e.target.value)}
-                  className="max-w-md"
+                  className="w-full md:max-w-md"
                 />
-                <div className="flex flex-wrap gap-2">
-                  {(['all', 'live', 'upcoming', 'completed'] as const).map((status) => (
-                    <Button
-                      key={status}
-                      variant={matchStatusFilter === status ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => setMatchStatusFilter(status)}
-                      className="capitalize"
-                    >
-                      {status}
-                    </Button>
-                  ))}
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 sm:items-center">
+                  <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0 pb-1 sm:pb-0">
+                    <div className="flex gap-1.5 w-max sm:w-auto">
+                      {(['all', 'live', 'upcoming', 'completed'] as const).map((status) => (
+                        <Button
+                          key={status}
+                          variant={matchStatusFilter === status ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => setMatchStatusFilter(status)}
+                          className="capitalize text-xs sm:text-sm px-2.5 sm:px-3"
+                        >
+                          {status}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
                   <Select value={matchSportFilter} onValueChange={setMatchSportFilter}>
-                    <SelectTrigger className="w-[140px]">
+                    <SelectTrigger className="w-full sm:w-[140px]">
                       <SelectValue placeholder="All Sports" />
                     </SelectTrigger>
                     <SelectContent>
@@ -2457,7 +2461,7 @@ const Admin = () => {
                                     </p>
                                   </div>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1 sm:gap-2 flex-wrap justify-end">
                                   {(() => {
                                     const effectiveStatus = getEffectiveMatchStatus(match);
                                     return (
