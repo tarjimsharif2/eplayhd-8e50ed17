@@ -2349,16 +2349,6 @@ const Admin = () => {
                         />
                       </div>
 
-                      {matchForm.score_source === 'espn' && (
-                        <div className="space-y-2 pl-4 border-l-2 border-blue-500/50">
-                          <Label className="text-sm">ESPN Event ID (Optional)</Label>
-                          <Input
-                            placeholder="Auto-detected, enter manually if needed"
-                            value={matchForm.espn_event_id || ''}
-                            onChange={(e) => setMatchForm({ ...matchForm, espn_event_id: e.target.value })}
-                          />
-                        </div>
-                      )}
 
                       {/* Football Auto-Sync Toggle */}
                       <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm bg-muted/20">
