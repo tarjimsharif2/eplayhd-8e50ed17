@@ -23,16 +23,16 @@ interface CricketMatch {
   awayTeamLogo?: string | null;
 }
 
-// ESPN Cricinfo API series IDs
-const ESPN_CRICKET_SERIES: Record<string, string> = {
+// Series ID mappings
+const SERIES_MAPPINGS: Record<string, string> = {
   'ipl': '8048',
-  'bpl': '13652',
+  'bpl': '13652', 
   'psl': '8661',
   'bbl': '8044',
   'cpl': '11290',
-  'icc-wc': '1428',
-  'icc-t20wc': '1456',
-  'asia-cup': '2467',
+  'icc-wc': '8604',
+  'icc-t20wc': '8601',
+  'asia-cup': '8532',
 };
 
 // Parse match data from ESPN API response
@@ -89,6 +89,12 @@ function parseMatchData(event: Record<string, unknown>, leagueName?: string): Cr
   if (!matchNumber && matchPattern) {
     matchNumber = `Match ${matchPattern[1]}`;
   }
+  // Also check for finals, semi-finals, etc.
+  if (!matchNumber) {
+    if (eventName.includes('final')) matchNumber = 'Final';
+    else if (eventName.includes('semi')) matchNumber = 'Semi-Final';
+    else if (eventName.includes('qualifier')) matchNumber = 'Qualifier';
+  }
   
   // Get team info
   const homeTeamObj = homeTeam.team as Record<string, unknown> | undefined;
@@ -113,77 +119,12 @@ function parseMatchData(event: Record<string, unknown>, leagueName?: string): Cr
   };
 }
 
-// Fetch from ESPN Cricinfo API (multiple endpoints for all matches)
-async function fetchESPNCricketScoreboard(): Promise<CricketMatch[]> {
-  const matches: CricketMatch[] = [];
-  const seenEventIds = new Set<string>();
-  
-  // Try multiple ESPN Cricket endpoints
-  const endpoints = [
-    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/international/scoreboard', name: 'International' },
-    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/domestic/scoreboard', name: 'Domestic' },
-    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8048/scoreboard', name: 'IPL' },
-    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8661/scoreboard', name: 'PSL' },
-    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/13652/scoreboard', name: 'BPL' },
-  ];
-  
-  for (const endpoint of endpoints) {
-    try {
-      console.log(`Fetching: ${endpoint.url}`);
-      
-      const response = await fetch(endpoint.url, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-      });
-      
-      if (!response.ok) {
-        console.log(`ESPN Cricket API ${endpoint.name}: ${response.status}`);
-        continue;
-      }
-      
-      const data = await response.json();
-      const events = data.events || [];
-      console.log(`${endpoint.name}: ${events.length} events`);
-      
-      for (const event of events) {
-        const eventId = event.id;
-        if (seenEventIds.has(eventId)) continue;
-        seenEventIds.add(eventId);
-        
-        const match = parseMatchData(event, endpoint.name);
-        if (match) {
-          matches.push(match);
-        }
-      }
-    } catch (error) {
-      console.error(`Error fetching ${endpoint.name}:`, error);
-    }
-  }
-  
-  return matches;
-}
-
-// Fetch from specific ESPN series
-async function fetchESPNSeriesSchedule(seriesId: string): Promise<CricketMatch[]> {
-  const matches: CricketMatch[] = [];
-  
-  // Generate date range: past 7 days to 30 days ahead
-  const startDate = new Date();
-  startDate.setDate(startDate.getDate() - 7);
-  const endDate = new Date();
-  endDate.setDate(endDate.getDate() + 30);
-  
-  const formatDate = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
-  const dateRange = `${formatDate(startDate)}-${formatDate(endDate)}`;
-  
-  const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/cricket/${seriesId}/scoreboard?dates=${dateRange}`;
-  
+// Fetch from a single ESPN endpoint
+async function fetchFromEndpoint(url: string, name: string): Promise<{events: Record<string, unknown>[], leagueName: string | null}> {
   try {
-    console.log(`Fetching ESPN Cricket Series: ${apiUrl}`);
+    console.log(`Fetching: ${url}`);
     
-    const response = await fetch(apiUrl, {
+    const response = await fetch(url, {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
@@ -191,44 +132,72 @@ async function fetchESPNSeriesSchedule(seriesId: string): Promise<CricketMatch[]
     });
     
     if (!response.ok) {
-      console.error(`ESPN Cricket Series API error: ${response.status}`);
-      // Try without date range
-      const fallbackUrl = `https://site.api.espn.com/apis/site/v2/sports/cricket/${seriesId}/scoreboard`;
-      const fallbackResponse = await fetch(fallbackUrl, {
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        },
-      });
-      
-      if (!fallbackResponse.ok) {
-        return matches;
-      }
-      
-      const fallbackData = await fallbackResponse.json();
-      const leagueName = fallbackData.leagues?.[0]?.name || null;
-      
-      for (const event of fallbackData.events || []) {
-        const match = parseMatchData(event, leagueName);
-        if (match) {
-          matches.push(match);
-        }
-      }
-      return matches;
+      console.log(`${name}: ${response.status}`);
+      return { events: [], leagueName: null };
     }
     
     const data = await response.json();
-    const leagueName = data.leagues?.[0]?.name || null;
-    console.log(`ESPN Cricket Series returned ${data.events?.length || 0} events`);
+    const events = data.events || [];
+    const leagueName = data.leagues?.[0]?.name || name;
+    console.log(`${name}: ${events.length} events`);
     
-    for (const event of data.events || []) {
-      const match = parseMatchData(event, leagueName);
-      if (match) {
+    return { events, leagueName };
+  } catch (error) {
+    console.error(`Error ${name}:`, error);
+    return { events: [], leagueName: null };
+  }
+}
+
+// Fetch all cricket matches from multiple ESPN endpoints
+async function fetchESPNCricketScoreboard(): Promise<CricketMatch[]> {
+  const matches: CricketMatch[] = [];
+  const seenEventIds = new Set<string>();
+  
+  // ESPN Cricket uses numeric series IDs - these work based on previous logs
+  const endpoints = [
+    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8048/scoreboard', name: 'IPL' },
+    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8661/scoreboard', name: 'PSL' },
+    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/13652/scoreboard', name: 'BPL' },
+    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8044/scoreboard', name: 'BBL' },
+    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/11290/scoreboard', name: 'CPL' },
+    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8604/scoreboard', name: 'ICC WC' },
+    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8601/scoreboard', name: 'ICC T20 WC' },
+    { url: 'https://site.api.espn.com/apis/site/v2/sports/cricket/8532/scoreboard', name: 'Asia Cup' },
+  ];
+  
+  for (const endpoint of endpoints) {
+    const { events, leagueName } = await fetchFromEndpoint(endpoint.url, endpoint.name);
+    
+    for (const event of events) {
+      const eventId = event.id as string;
+      if (eventId && seenEventIds.has(eventId)) continue;
+      if (eventId) seenEventIds.add(eventId);
+      
+      const match = parseMatchData(event, leagueName || endpoint.name);
+      if (match && match.homeTeam !== 'Unknown') {
         matches.push(match);
       }
     }
-  } catch (error) {
-    console.error('Error fetching ESPN Cricket Series:', error);
+  }
+  
+  return matches;
+}
+
+// Fetch from specific ESPN cricket series
+async function fetchESPNSeriesSchedule(seriesId: string): Promise<CricketMatch[]> {
+  const matches: CricketMatch[] = [];
+  
+  // Resolve series slug to numeric ID if needed
+  const numericId = SERIES_MAPPINGS[seriesId] || seriesId;
+  
+  const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/cricket/${numericId}/scoreboard`;
+  const { events, leagueName } = await fetchFromEndpoint(apiUrl, `Series ${numericId}`);
+  
+  for (const event of events) {
+    const match = parseMatchData(event, leagueName || undefined);
+    if (match && match.homeTeam !== 'Unknown') {
+      matches.push(match);
+    }
   }
   
   return matches;
@@ -249,10 +218,9 @@ serve(async (req) => {
     
     if (seriesId && seriesId !== 'all') {
       // Fetch specific series
-      const resolvedSeriesId = ESPN_CRICKET_SERIES[seriesId] || seriesId;
-      matches = await fetchESPNSeriesSchedule(resolvedSeriesId);
+      matches = await fetchESPNSeriesSchedule(seriesId);
     } else {
-      // Fetch all live/upcoming matches
+      // Fetch all live/upcoming matches from all known series
       matches = await fetchESPNCricketScoreboard();
     }
     
