@@ -36,8 +36,9 @@ function isValidPlayerName(name: string): boolean {
   // Reject URLs
   if (/^https?:\/\//i.test(cleaned)) return false;
   
-  // Reject common non-player patterns
+  // Reject common non-player patterns - EXPANDED LIST
   const invalidPatterns = [
+    // Generic terms
     /^(home|away|team|squad|playing|bench|substitute|match|live|score|cricket|batting|bowling|fielding|innings)$/i,
     /^(view|more|less|show|hide|click|tap|scroll|load|loading)$/i,
     /^(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+\d/i,
@@ -49,15 +50,56 @@ function isValidPlayerName(name: string): boolean {
     /^[^a-zA-Z]*$/,
     /^(runs?|wickets?|overs?|balls?|extras?|total|target)$/i,
     /^(yet to bat|did not bat|retired|absent)$/i,
+    
     // Navigation and menu items
     /^(live scores?|schedule|archives?|news|all stories|premium|editorials|latest|topics|series|teams|videos|photos|rankings|icc|world cup|matches|fixtures|results)$/i,
     /^(sign in|sign up|login|logout|register|subscribe|contact|about|privacy|terms|help|faq|support|settings|profile)$/i,
     /^(home|cricket|football|sports|menu|navigation|search|filter)$/i,
     /^(read more|see all|load more|show more|view all|expand|collapse|close|open)$/i,
+    
     // JSON schema types
     /^(SiteNavigationElement|ItemList|ListItem|WebPage|Organization|BreadcrumbList|SportsEvent|Person)$/i,
     /^(http|https|www\.|\.com|\.org|\.net)/i,
     /instagram|facebook|twitter|youtube|linkedin/i,
+    
+    // Fantasy/Dream11/Prediction garbage - NEW
+    /dream\s*11/i,
+    /fantasy/i,
+    /prediction/i,
+    /^cricket\s*(news|addictor|tracker|times)/i,
+    /^match\s*prediction/i,
+    /^(icc|bcci|odi|test|t20|wc|ipl|bpl|psl|cpl|bbl|wpl)?\s*(mens?|womens?)?\s*rankings?$/i,
+    /tips?$/i,
+    /^[a-z]+\s+vs\s+[a-z]+$/i, // "India vs Australia" patterns
+    /^(today|tomorrow|yesterday)/i,
+    /^(best|top|winning|perfect)\s/i,
+    /pitch\s*report/i,
+    /injury\s*(update|news)/i,
+    /weather\s*(update|report|forecast)/i,
+    /head\s*to\s*head/i,
+    /captain(cy)?/i,
+    /vice\s*captain/i,
+    /^(vc|c)\s*choice/i,
+    /^squad\s*(list|update)/i,
+    /probable\s*(xi|11)/i,
+    /expected\s*(xi|11)/i,
+    
+    // Common website noise
+    /^(author|editor|reporter|correspondent|staff|writer|admin)$/i,
+    /^(published|updated|posted|modified)\s/i,
+    /^(share|comment|like|follow|tweet|post)$/i,
+    /copyright/i,
+    /all\s*rights?\s*reserved/i,
+    /^(related|recommended|popular|trending|featured)/i,
+    /^(advertisement|sponsored|promo)/i,
+    
+    // Team name patterns (not player names)
+    /^(india|australia|england|pakistan|bangladesh|sri\s*lanka|new\s*zealand|south\s*africa|west\s*indies|afghanistan|ireland|zimbabwe|nepal|scotland|netherlands|oman|uae|usa|canada)\s*(u19|under.?19|women|womens|men|mens)?$/i,
+    /^[a-z]+\s*(royal|kings|capitals|riders|warriors|titans|giants|super|challengers|sunrisers|knights|strikers|daredevils|legends)/i,
+    
+    // Article/content patterns
+    /^(breaking|exclusive|just\s*in|update|alert|flash)/i,
+    /^(key|main|important|crucial|vital)\s*(player|match|game)/i,
   ];
   
   for (const pattern of invalidPatterns) {
@@ -76,6 +118,13 @@ function isValidPlayerName(name: string): boolean {
   
   // Reject if contains special navigation characters
   if (/[@#$%^&*()=+\[\]{}|\\<>\/]/.test(cleaned)) return false;
+  
+  // Additional validation: Check for common non-name words
+  const lowerCleaned = cleaned.toLowerCase();
+  const garbageWords = ['cricket', 'dream11', 'fantasy', 'prediction', 'tips', 'news', 'update', 'report', 'ranking', 'rankings', 'match', 'today', 'tomorrow', 'live', 'score', 'scores', 'addictor', 'tracker'];
+  for (const word of garbageWords) {
+    if (lowerCleaned.includes(word)) return false;
+  }
   
   return true;
 }
