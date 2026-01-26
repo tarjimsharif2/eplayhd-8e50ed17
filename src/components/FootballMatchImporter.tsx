@@ -105,7 +105,14 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
       if (error) throw error;
 
       if (data?.matches) {
-        const matchesWithMappings: MatchToImport[] = data.matches.map((m: ESPNMatch) => ({
+        // Filter out completed matches - only import upcoming/live
+        const filteredMatches = data.matches.filter((m: ESPNMatch) => {
+          const status = m.status?.toLowerCase() || '';
+          const isCompleted = status.includes('final') || status.includes('completed') || status.includes('ft') || status === 'full time';
+          return !isCompleted;
+        });
+
+        const matchesWithMappings: MatchToImport[] = filteredMatches.map((m: ESPNMatch) => ({
           ...m,
           selected: false,
           teamAId: findTeamMatch(m.homeTeam),
@@ -113,6 +120,13 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
           tournamentId: defaultTournamentId,
         }));
         setApiMatches(matchesWithMappings);
+        
+        if (filteredMatches.length === 0 && data.matches.length > 0) {
+          toast({
+            title: "No upcoming matches",
+            description: `All ${data.matches.length} matches are completed. Try a different league or wait for new fixtures.`,
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching matches:', error);
