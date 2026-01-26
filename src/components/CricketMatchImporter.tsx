@@ -6,8 +6,9 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
-import { Download, Loader2, RefreshCw, Clock, Trophy } from "lucide-react";
+import { Download, Loader2, RefreshCw, Clock, Trophy, Zap, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -30,6 +31,8 @@ interface ESPNCricketMatch {
   seriesName?: string | null;
   homeTeamLogo?: string | null;
   awayTeamLogo?: string | null;
+  cricbuzzMatchId?: string;
+  seriesId?: string | null;
 }
 
 interface MatchToImport extends ESPNCricketMatch {
@@ -71,6 +74,13 @@ const ESPN_CRICKET_SERIES = [
   { value: 'pak-vs-wi', label: 'Pakistan vs West Indies 2025' },
 ];
 
+const RAPIDAPI_SOURCES = [
+  { value: 'schedule', label: '📅 Full Schedule (All Matches)' },
+  { value: 'live', label: '🔴 Live Matches Only' },
+  { value: 'recent', label: '📊 Recent/Upcoming Matches' },
+  { value: 'series', label: '🔍 Specific Series ID' },
+];
+
 export default function CricketMatchImporter({ onImportComplete }: CricketMatchImporterProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -79,6 +89,7 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
   const { data: sports } = useSports();
 
   const [open, setOpen] = useState(false);
+  const [importSource, setImportSource] = useState<'espn' | 'rapidapi'>('espn');
   const [selectedSeries, setSelectedSeries] = useState('all');
   const [customSeriesId, setCustomSeriesId] = useState('');
   const [seriesSearch, setSeriesSearch] = useState('');
@@ -86,6 +97,9 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
   const [importing, setImporting] = useState(false);
   const [apiMatches, setApiMatches] = useState<MatchToImport[]>([]);
   const [defaultTournamentId, setDefaultTournamentId] = useState<string | null>(null);
+  // RapidAPI specific states
+  const [rapidApiSource, setRapidApiSource] = useState('schedule');
+  const [rapidApiSeriesId, setRapidApiSeriesId] = useState('');
 
   // Get Cricket sport ID
   const cricketSportId = sports?.find(s => 
@@ -171,6 +185,69 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
       toast({
         title: "Error",
         description: "Failed to fetch matches from ESPN Cricinfo",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch matches from RapidAPI
+  const fetchRapidApiMatches = async () => {
+    if (rapidApiSource === 'series' && !rapidApiSeriesId.trim()) {
+      toast({
+        title: "Series ID Required",
+        description: "Please enter a Cricbuzz Series ID",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('rapidapi-cricket-schedule', {
+        body: { 
+          source: rapidApiSource,
+          seriesId: rapidApiSource === 'series' ? rapidApiSeriesId.trim() : undefined
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.matches) {
+        // Filter out completed matches - only import upcoming/live
+        const filteredMatches = data.matches.filter((m: ESPNCricketMatch) => {
+          const status = m.status?.toLowerCase() || '';
+          const isCompleted = status.includes('complete') || status.includes('result') || status.includes('won') || status.includes('draw');
+          return !isCompleted;
+        });
+
+        const matchesWithMappings: MatchToImport[] = filteredMatches.map((m: ESPNCricketMatch) => ({
+          ...m,
+          selected: false,
+          teamAId: findTeamMatch(m.homeTeam),
+          teamBId: findTeamMatch(m.awayTeam),
+          tournamentId: defaultTournamentId,
+        }));
+        setApiMatches(matchesWithMappings);
+        
+        toast({
+          title: "Matches Fetched",
+          description: `Found ${filteredMatches.length} upcoming/live matches from RapidAPI`,
+        });
+        
+        if (filteredMatches.length === 0 && data.matches.length > 0) {
+          toast({
+            title: "No upcoming matches",
+            description: `All ${data.matches.length} matches are completed.`,
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching matches from RapidAPI:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch matches from RapidAPI. Make sure RapidAPI is enabled and configured.",
         variant: "destructive"
       });
     } finally {
@@ -445,60 +522,93 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
             Import Cricket Matches
           </DialogTitle>
           <DialogDescription>
-            Fetch matches from ESPN Cricinfo and import them with auto-mapped teams. SEO will be imported from tournament.
+            Fetch matches from ESPN Cricinfo or RapidAPI and import them with auto-mapped teams.
           </DialogDescription>
         </DialogHeader>
         
         <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-          {/* Controls */}
-          <div className="space-y-4">
-            {/* Series Selection with Search */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>Series/Source</Label>
+          {/* Source Tabs */}
+          <Tabs value={importSource} onValueChange={(v) => { setImportSource(v as 'espn' | 'rapidapi'); setApiMatches([]); }}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="espn" className="gap-2">
+                <Globe className="w-4 h-4" />
+                ESPN Cricinfo
+              </TabsTrigger>
+              <TabsTrigger value="rapidapi" className="gap-2">
+                <Zap className="w-4 h-4" />
+                RapidAPI (Cricbuzz)
+              </TabsTrigger>
+            </TabsList>
+
+            {/* ESPN Tab Content */}
+            <TabsContent value="espn" className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Input
-                    placeholder="Search series..."
-                    value={seriesSearch}
-                    onChange={(e) => setSeriesSearch(e.target.value)}
-                    className="h-9"
-                  />
-                  <Select value={selectedSeries} onValueChange={setSelectedSeries}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[300px]">
-                      {ESPN_CRICKET_SERIES
-                        .filter(series => 
-                          seriesSearch === '' || 
-                          series.label.toLowerCase().includes(seriesSearch.toLowerCase())
-                        )
-                        .map(series => (
-                          <SelectItem key={series.value} value={series.value}>
-                            {series.label}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>Series/Source</Label>
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Search series..."
+                      value={seriesSearch}
+                      onChange={(e) => setSeriesSearch(e.target.value)}
+                      className="h-9"
+                    />
+                    <Select value={selectedSeries} onValueChange={setSelectedSeries}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="max-h-[300px]">
+                        {ESPN_CRICKET_SERIES
+                          .filter(series => 
+                            seriesSearch === '' || 
+                            series.label.toLowerCase().includes(seriesSearch.toLowerCase())
+                          )
+                          .map(series => (
+                            <SelectItem key={series.value} value={series.value}>
+                              {series.label}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
+                
+                {selectedSeries === 'custom' ? (
+                  <div className="space-y-2">
+                    <Label>ESPN Series ID</Label>
+                    <Input
+                      placeholder="e.g., 1477604 or 23220"
+                      value={customSeriesId}
+                      onChange={(e) => setCustomSeriesId(e.target.value)}
+                      className="h-10"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Find ID from ESPN Cricinfo URL: espn.in/cricket/series/<strong>SERIES_ID</strong>/...
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Default Tournament (SEO source)</Label>
+                    <SearchableSelect
+                      options={[
+                        { value: 'none', label: 'No Tournament' },
+                        ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                          value: t.id,
+                          label: t.name,
+                          sublabel: t.season,
+                          imageUrl: t.logo_url,
+                        })) || [])
+                      ]}
+                      value={defaultTournamentId || 'none'}
+                      onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
+                      placeholder="Select tournament"
+                      searchPlaceholder="Search..."
+                      emptyText="No tournaments"
+                    />
+                  </div>
+                )}
               </div>
-              
+
               {selectedSeries === 'custom' && (
-                <div className="space-y-2">
-                  <Label>ESPN Series ID</Label>
-                  <Input
-                    placeholder="e.g., 1477604 or 23220"
-                    value={customSeriesId}
-                    onChange={(e) => setCustomSeriesId(e.target.value)}
-                    className="h-10"
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Find ID from ESPN Cricinfo URL: espn.in/cricket/series/<strong>SERIES_ID</strong>/...
-                  </p>
-                </div>
-              )}
-              
-              {selectedSeries !== 'custom' && (
                 <div className="space-y-2">
                   <Label>Default Tournament (SEO source)</Label>
                   <SearchableSelect
@@ -519,35 +629,99 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
                   />
                 </div>
               )}
-            </div>
+              
+              <Button onClick={fetchMatches} disabled={loading} className="w-full gap-2">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Fetch from ESPN
+              </Button>
+            </TabsContent>
 
-            {selectedSeries === 'custom' && (
-              <div className="space-y-2">
-                <Label>Default Tournament (SEO source)</Label>
-                <SearchableSelect
-                  options={[
-                    { value: 'none', label: 'No Tournament' },
-                    ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
-                      value: t.id,
-                      label: t.name,
-                      sublabel: t.season,
-                      imageUrl: t.logo_url,
-                    })) || [])
-                  ]}
-                  value={defaultTournamentId || 'none'}
-                  onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
-                  placeholder="Select tournament"
-                  searchPlaceholder="Search..."
-                  emptyText="No tournaments"
-                />
+            {/* RapidAPI Tab Content */}
+            <TabsContent value="rapidapi" className="space-y-4 mt-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Source Type</Label>
+                  <Select value={rapidApiSource} onValueChange={setRapidApiSource}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RAPIDAPI_SOURCES.map(source => (
+                        <SelectItem key={source.value} value={source.value}>
+                          {source.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    Uses configurable RapidAPI endpoints from Settings
+                  </p>
+                </div>
+                
+                {rapidApiSource === 'series' ? (
+                  <div className="space-y-2">
+                    <Label>Cricbuzz Series ID</Label>
+                    <Input
+                      placeholder="e.g., 7607 or 8419"
+                      value={rapidApiSeriesId}
+                      onChange={(e) => setRapidApiSeriesId(e.target.value)}
+                      className="h-10"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Find from Cricbuzz URL: cricbuzz.com/cricket-series/<strong>SERIES_ID</strong>/...
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Default Tournament (SEO source)</Label>
+                    <SearchableSelect
+                      options={[
+                        { value: 'none', label: 'No Tournament' },
+                        ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                          value: t.id,
+                          label: t.name,
+                          sublabel: t.season,
+                          imageUrl: t.logo_url,
+                        })) || [])
+                      ]}
+                      value={defaultTournamentId || 'none'}
+                      onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
+                      placeholder="Select tournament"
+                      searchPlaceholder="Search..."
+                      emptyText="No tournaments"
+                    />
+                  </div>
+                )}
               </div>
-            )}
-            
-            <Button onClick={fetchMatches} disabled={loading} className="w-full gap-2">
-              {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              Fetch Matches
-            </Button>
-          </div>
+
+              {rapidApiSource === 'series' && (
+                <div className="space-y-2">
+                  <Label>Default Tournament (SEO source)</Label>
+                  <SearchableSelect
+                    options={[
+                      { value: 'none', label: 'No Tournament' },
+                      ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                        value: t.id,
+                        label: t.name,
+                        sublabel: t.season,
+                        imageUrl: t.logo_url,
+                      })) || [])
+                    ]}
+                    value={defaultTournamentId || 'none'}
+                    onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
+                    placeholder="Select tournament"
+                    searchPlaceholder="Search..."
+                    emptyText="No tournaments"
+                  />
+                </div>
+              )}
+              
+              <Button onClick={fetchRapidApiMatches} disabled={loading} className="w-full gap-2">
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                Fetch from RapidAPI
+              </Button>
+            </TabsContent>
+          </Tabs>
 
           {/* Match List */}
           {apiMatches.length > 0 && (

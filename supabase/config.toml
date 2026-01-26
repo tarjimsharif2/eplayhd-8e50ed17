@@ -62,3 +62,12 @@ verify_jwt = false
 
 [functions.scrape-playing-xi]
 verify_jwt = false
+
+[functions.rapidapi-cricket-schedule]
+verify_jwt = false
+
+[functions.create-user]
+verify_jwt = false
+
+[functions.delete-user]
+verify_jwt = false
