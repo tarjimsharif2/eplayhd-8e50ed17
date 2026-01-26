@@ -144,10 +144,103 @@ function parseMatchData(event: Record<string, unknown>, seriesName: string): Cri
   };
 }
 
+// Fetch matches using Cricbuzz API - returns ALL fixtures for a series
+async function fetchCricbuzzSeries(seriesId: string, seriesName: string): Promise<CricketMatch[]> {
+  const matches: CricketMatch[] = [];
+  
+  try {
+    // Cricbuzz series matches API - returns full fixture list
+    const cricbuzzUrl = `https://www.cricbuzz.com/api/cricket-series/${seriesId}/matches`;
+    console.log(`Trying Cricbuzz API: ${cricbuzzUrl}`);
+    
+    const response = await fetch(cricbuzzUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      const matchList = data.matchDetails || data.matches || data.seriesMatches || [];
+      console.log(`Cricbuzz API returned ${matchList.length} items`);
+      
+      for (const item of matchList) {
+        // Handle nested matchDetailsMap structure
+        const matchDetails = item.matchDetailsMap?.match || [item];
+        
+        for (const matchData of (Array.isArray(matchDetails) ? matchDetails : [matchDetails])) {
+          const matchInfo = matchData.matchInfo || matchData;
+          if (!matchInfo?.team1 || !matchInfo?.team2) continue;
+          
+          // Determine status
+          let status = 'Scheduled';
+          const stateStr = (matchInfo.state || matchInfo.status || '').toLowerCase();
+          if (stateStr.includes('live') || stateStr.includes('progress')) {
+            status = 'Live';
+          } else if (stateStr.includes('complete') || stateStr.includes('result')) {
+            status = 'Completed';
+          }
+          
+          // Skip completed matches
+          if (status === 'Completed') continue;
+          
+          // Parse start time
+          let startTime: string | null = null;
+          if (matchInfo.startDate) {
+            startTime = new Date(parseInt(matchInfo.startDate)).toISOString();
+          }
+          
+          // Get match format
+          let matchFormat = 'T20';
+          const formatStr = (matchInfo.matchFormat || matchInfo.seriesName || '').toLowerCase();
+          if (formatStr.includes('test')) matchFormat = 'Test';
+          else if (formatStr.includes('odi')) matchFormat = 'ODI';
+          
+          matches.push({
+            homeTeam: matchInfo.team1?.teamName || matchInfo.team1?.teamSName || 'Unknown',
+            awayTeam: matchInfo.team2?.teamName || matchInfo.team2?.teamSName || 'Unknown',
+            homeScore: null,
+            awayScore: null,
+            status,
+            matchFormat,
+            competition: seriesName,
+            matchUrl: matchInfo.matchId ? `https://www.cricbuzz.com/live-cricket-scores/${matchInfo.matchId}` : null,
+            startTime,
+            venue: matchInfo.venueInfo?.ground || matchInfo.venue || null,
+            eventId: String(matchInfo.matchId || ''),
+            matchNumber: matchInfo.matchDesc || null,
+            seriesName,
+            homeTeamLogo: matchInfo.team1?.imageId ? `https://www.cricbuzz.com/a/img/v1/72x72/i1/c${matchInfo.team1.imageId}/team-logo.png` : null,
+            awayTeamLogo: matchInfo.team2?.imageId ? `https://www.cricbuzz.com/a/img/v1/72x72/i1/c${matchInfo.team2.imageId}/team-logo.png` : null,
+          });
+        }
+      }
+      
+      if (matches.length > 0) {
+        console.log(`${seriesName}: Got ${matches.length} matches from Cricbuzz`);
+        return matches;
+      }
+    } else {
+      console.log(`Cricbuzz API: HTTP ${response.status}`);
+    }
+  } catch (error) {
+    console.error(`Cricbuzz API error:`, error);
+  }
+  
+  return matches;
+}
+
 // Fetch matches for a specific series using multiple endpoints - GET ALL FIXTURES
 async function fetchESPNCricketSeries(seriesId: string, seriesName: string): Promise<CricketMatch[]> {
-  const matches: CricketMatch[] = [];
-  const seenEventIds = new Set<string>();
+  // First try Cricbuzz API for full fixture list
+  const cricbuzzMatches = await fetchCricbuzzSeries(seriesId, seriesName);
+  if (cricbuzzMatches.length > 3) {
+    return cricbuzzMatches;
+  }
+  
+  const matches: CricketMatch[] = [...cricbuzzMatches];
+  const seenEventIds = new Set<string>(cricbuzzMatches.map(m => m.eventId || ''));
   
   // Method 1: Try ESPN Cricinfo API v2 series fixtures (best for full fixture list)
   try {
