@@ -583,22 +583,6 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
             Clear All
           </Button>
         )}
-        {players && players.length > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleClearSquad}
-            disabled={clearingSquad}
-            className="gap-2"
-          >
-            {clearingSquad ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <X className="w-4 h-4" />
-            )}
-            Clear All
-          </Button>
-        )}
       </div>
 
       <Tabs defaultValue={teamA.id} className="w-full">

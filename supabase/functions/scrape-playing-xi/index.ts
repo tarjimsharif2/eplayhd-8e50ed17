@@ -93,6 +93,133 @@ function parsePlayer(text: string): Player | null {
   return { name, isCaptain, isWicketKeeper };
 }
 
+// Source 0: Get players from match_api_scores table (API Cricket data)
+async function fetchFromApiScores(supabase: any, matchId: string, teamAName: string, teamBName: string): Promise<{ teamA: Player[], teamB: Player[] } | null> {
+  console.log(`[API Scores] Checking match_api_scores for match ${matchId}`);
+  
+  try {
+    const { data: apiScore, error } = await supabase
+      .from('match_api_scores')
+      .select('batsmen, bowlers, scorecard, extras, home_team, away_team')
+      .eq('match_id', matchId)
+      .single();
+    
+    if (error || !apiScore) {
+      console.log(`[API Scores] No API score data found`);
+      return null;
+    }
+    
+    const teamAPlayers: Player[] = [];
+    const teamBPlayers: Player[] = [];
+    const seenNames = new Set<string>();
+    
+    const homeTeam = (apiScore.home_team || '').toLowerCase();
+    const awayTeam = (apiScore.away_team || '').toLowerCase();
+    const teamALower = teamAName.toLowerCase();
+    
+    // Determine which API team maps to which DB team
+    const homeIsTeamA = teamALower.includes(homeTeam.split(' ')[0]) || 
+                        homeTeam.includes(teamALower.split(' ')[0]) ||
+                        teamALower.includes(homeTeam.replace(/\s+/g, '').substring(0, 4));
+    
+    console.log(`[API Scores] homeTeam=${homeTeam}, awayTeam=${awayTeam}, homeIsTeamA=${homeIsTeamA}`);
+    
+    const addPlayer = (name: string, playerTeam: string, isCaptain = false, isWicketKeeper = false) => {
+      if (!name || typeof name !== 'string') return;
+      
+      const cleanedName = name
+        .replace(/\s*\(c\)\s*/gi, '')
+        .replace(/\s*\(wk\)\s*/gi, '')
+        .replace(/,\s*$/, '')
+        .trim();
+      
+      if (!cleanedName || cleanedName.length < 3 || seenNames.has(cleanedName.toLowerCase())) return;
+      
+      // Skip invalid names
+      if (/^(extras?|total|fall of wickets|did not bat|yet to bat)$/i.test(cleanedName)) return;
+      
+      seenNames.add(cleanedName.toLowerCase());
+      
+      const player: Player = {
+        name: cleanedName,
+        isCaptain: isCaptain || /\(c\)/i.test(name),
+        isWicketKeeper: isWicketKeeper || /\(wk\)/i.test(name),
+      };
+      
+      const playerTeamLower = (playerTeam || '').toLowerCase();
+      const isHomeTeamPlayer = playerTeamLower.includes(homeTeam.split(' ')[0]) || 
+                               homeTeam.includes(playerTeamLower.split(' ')[0]);
+      
+      if (homeIsTeamA) {
+        if (isHomeTeamPlayer && teamAPlayers.length < 11) {
+          teamAPlayers.push(player);
+        } else if (!isHomeTeamPlayer && teamBPlayers.length < 11) {
+          teamBPlayers.push(player);
+        }
+      } else {
+        if (isHomeTeamPlayer && teamBPlayers.length < 11) {
+          teamBPlayers.push(player);
+        } else if (!isHomeTeamPlayer && teamAPlayers.length < 11) {
+          teamAPlayers.push(player);
+        }
+      }
+    };
+    
+    // Process scorecard first (most complete data)
+    if (Array.isArray(apiScore.scorecard)) {
+      for (const innings of apiScore.scorecard) {
+        const inningsTeam = innings.team || innings.batting_team || '';
+        if (Array.isArray(innings.batting)) {
+          for (const b of innings.batting) {
+            addPlayer(b.player || b.batsman || b.name, inningsTeam, b.isCaptain, b.isWicketKeeper);
+          }
+        }
+        if (Array.isArray(innings.bowling)) {
+          for (const b of innings.bowling) {
+            addPlayer(b.player || b.bowler || b.name, inningsTeam === homeTeam ? awayTeam : homeTeam);
+          }
+        }
+      }
+    }
+    
+    // Process batsmen array
+    if (Array.isArray(apiScore.batsmen)) {
+      for (const b of apiScore.batsmen) {
+        addPlayer(b.player || b.name, b.team || '');
+      }
+    }
+    
+    // Process bowlers array
+    if (Array.isArray(apiScore.bowlers)) {
+      for (const b of apiScore.bowlers) {
+        addPlayer(b.player || b.name, b.team || '');
+      }
+    }
+    
+    // Process extras to get team info
+    if (Array.isArray(apiScore.extras)) {
+      for (const e of apiScore.extras) {
+        const inningsTeam = e.team || '';
+        console.log(`[API Scores] Extras for team: ${inningsTeam}`);
+      }
+    }
+    
+    console.log(`[API Scores] Found ${teamAPlayers.length} Team A + ${teamBPlayers.length} Team B players`);
+    
+    if (teamAPlayers.length >= 3 || teamBPlayers.length >= 3) {
+      return { 
+        teamA: teamAPlayers.slice(0, 11), 
+        teamB: teamBPlayers.slice(0, 11) 
+      };
+    }
+    
+    return null;
+  } catch (error) {
+    console.log(`[API Scores] Error: ${error}`);
+    return null;
+  }
+}
+
 // Source 1: Cricbuzz Mobile API
 async function fetchFromCricbuzzMobileAPI(cricbuzzId: string): Promise<{ teamA: Player[], teamB: Player[] } | null> {
   console.log(`[Cricbuzz Mobile API] Trying match ID: ${cricbuzzId}`);
@@ -617,8 +744,9 @@ serve(async (req) => {
 
     let result: { teamA: Player[], teamB: Player[] } | null = null;
 
-    // Try all sources in sequence
+    // Try all sources in sequence - API Scores first (most reliable)
     const sources = [
+      { name: 'API Scores (Database)', fn: () => fetchFromApiScores(supabase, matchId, tAName, tBName) },
       { name: 'Cricbuzz Mobile API', fn: () => cbzId ? fetchFromCricbuzzMobileAPI(cbzId) : null },
       { name: 'Cricbuzz HTML', fn: () => cbzId ? fetchFromCricbuzzHtml(cbzId) : null },
       { name: 'ESPN Web', fn: () => fetchFromESPNWeb(tAName, tBName) },
