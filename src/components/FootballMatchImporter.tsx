@@ -469,18 +469,17 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-2">
               <Label className="text-xs sm:text-sm">League</Label>
-              <Select value={selectedLeague} onValueChange={setSelectedLeague}>
-                <SelectTrigger className="h-9">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[100] bg-popover">
-                  {ESPN_LEAGUES.map(league => (
-                    <SelectItem key={league.value} value={league.value}>
-                      {league.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <SearchableSelect
+                options={ESPN_LEAGUES.map(league => ({
+                  value: league.value,
+                  label: league.label,
+                }))}
+                value={selectedLeague}
+                onValueChange={setSelectedLeague}
+                placeholder="Select league"
+                searchPlaceholder="Search leagues..."
+                emptyText="No leagues found"
+              />
             </div>
             
             <div className="space-y-2">
