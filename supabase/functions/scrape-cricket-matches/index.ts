@@ -144,12 +144,152 @@ function parseMatchData(event: Record<string, unknown>, seriesName: string): Cri
   };
 }
 
-// Fetch matches for a specific series using multiple endpoints
+// Fetch matches for a specific series using multiple endpoints - GET ALL FIXTURES
 async function fetchESPNCricketSeries(seriesId: string, seriesName: string): Promise<CricketMatch[]> {
   const matches: CricketMatch[] = [];
   const seenEventIds = new Set<string>();
   
-  // Try ESPN Cricinfo series home page API (best for fixtures)
+  // First try HTML scraping of ESPN.in schedule page (returns ALL fixtures)
+  try {
+    const schedulePageUrl = `https://www.espn.in/cricket/series/_/id/${seriesId}/view/fixtures`;
+    console.log(`Trying ESPN.in HTML schedule page: ${schedulePageUrl}`);
+    
+    const htmlResponse = await fetch(schedulePageUrl, {
+      headers: {
+        'Accept': 'text/html',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      },
+    });
+    
+    if (htmlResponse.ok) {
+      const html = await htmlResponse.text();
+      console.log(`ESPN.in HTML page: ${html.length} bytes received`);
+      
+      // Extract __NEXT_DATA__ or window.__espnfitt__ JSON which contains all fixture data
+      const nextDataMatch = html.match(/<script id="__NEXT_DATA__"[^>]*>([^<]+)<\/script>/);
+      const espnFittMatch = html.match(/window\.__espnfitt__\s*=\s*(\{[^;]+\});/);
+      
+      if (nextDataMatch) {
+        try {
+          const nextData = JSON.parse(nextDataMatch[1]);
+          const events = nextData?.props?.pageProps?.content?.events || 
+                        nextData?.props?.pageProps?.events ||
+                        nextData?.props?.pageProps?.schedule?.events || [];
+          console.log(`Parsed ${events.length} events from __NEXT_DATA__`);
+          
+          for (const event of events) {
+            const match = parseMatchData(event, seriesName);
+            if (match && match.homeTeam !== 'Unknown') {
+              if (match.eventId && seenEventIds.has(match.eventId)) continue;
+              if (match.eventId) seenEventIds.add(match.eventId);
+              matches.push(match);
+            }
+          }
+          
+          if (matches.length > 0) {
+            console.log(`${seriesName}: Got ${matches.length} matches from HTML scrape`);
+            return matches;
+          }
+        } catch (e) {
+          console.log('Failed to parse __NEXT_DATA__:', e);
+        }
+      }
+      
+      if (espnFittMatch) {
+        try {
+          const fittData = JSON.parse(espnFittMatch[1]);
+          const events = fittData?.page?.content?.scheduleEvents?.events || 
+                        fittData?.page?.content?.events ||
+                        [];
+          console.log(`Parsed ${events.length} events from __espnfitt__`);
+          
+          for (const event of events) {
+            const match = parseMatchData(event, seriesName);
+            if (match && match.homeTeam !== 'Unknown') {
+              if (match.eventId && seenEventIds.has(match.eventId)) continue;
+              if (match.eventId) seenEventIds.add(match.eventId);
+              matches.push(match);
+            }
+          }
+          
+          if (matches.length > 0) {
+            console.log(`${seriesName}: Got ${matches.length} matches from espnfitt`);
+            return matches;
+          }
+        } catch (e) {
+          console.log('Failed to parse __espnfitt__:', e);
+        }
+      }
+    } else {
+      console.log(`ESPN.in HTML page: HTTP ${htmlResponse.status}`);
+    }
+  } catch (error) {
+    console.error(`ESPN.in HTML scrape error:`, error);
+  }
+  
+  // Try ESPN.in schedule page API (returns ALL fixtures including future matches)
+  try {
+    const scheduleUrl = `https://site.web.api.espn.com/apis/site/v2/sports/cricket/${seriesId}/schedule?lang=en&region=in`;
+    console.log(`Trying ESPN schedule API: ${scheduleUrl}`);
+    
+    const scheduleResponse = await fetch(scheduleUrl, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+      },
+    });
+    
+    if (scheduleResponse.ok) {
+      const scheduleData = await scheduleResponse.json();
+      // Schedule API returns events grouped by date
+      const eventsByDate = scheduleData.events || [];
+      let totalEvents = 0;
+      
+      // Events might be grouped by date keys
+      if (Array.isArray(eventsByDate)) {
+        for (const event of eventsByDate) {
+          const eventId = event.id as string;
+          if (eventId && seenEventIds.has(eventId)) continue;
+          if (eventId) seenEventIds.add(eventId);
+          
+          const match = parseMatchData(event, seriesName);
+          if (match && match.homeTeam !== 'Unknown') {
+            matches.push(match);
+            totalEvents++;
+          }
+        }
+      } else if (typeof eventsByDate === 'object') {
+        // Events grouped by date
+        for (const dateKey of Object.keys(eventsByDate)) {
+          const dayEvents = eventsByDate[dateKey];
+          if (Array.isArray(dayEvents)) {
+            for (const event of dayEvents) {
+              const eventId = event.id as string;
+              if (eventId && seenEventIds.has(eventId)) continue;
+              if (eventId) seenEventIds.add(eventId);
+              
+              const match = parseMatchData(event, seriesName);
+              if (match && match.homeTeam !== 'Unknown') {
+                matches.push(match);
+                totalEvents++;
+              }
+            }
+          }
+        }
+      }
+      
+      if (matches.length > 0) {
+        console.log(`${seriesName}: Got ${matches.length} matches from ESPN schedule API`);
+        return matches;
+      }
+    } else {
+      console.log(`ESPN schedule API: HTTP ${scheduleResponse.status}`);
+    }
+  } catch (error) {
+    console.error(`ESPN schedule API error:`, error);
+  }
+  
+  // Try ESPN Cricinfo series events API
   try {
     const seriesHomeUrl = `https://site.web.api.espn.com/apis/site/v2/sports/cricket/series/${seriesId}/events?lang=en&region=in`;
     console.log(`Trying ESPN series events API: ${seriesHomeUrl}`);
@@ -188,49 +328,46 @@ async function fetchESPNCricketSeries(seriesId: string, seriesName: string): Pro
     console.error(`ESPN series events API error:`, error);
   }
   
-  // Try Cricinfo web API (alternative)
+  // Try ESPN.in match-schedule-fixtures endpoint (returns full fixture list)
   try {
-    const fixturesUrl = `https://hs-consumer-api.espncricinfo.com/v1/pages/series/schedule?seriesId=${seriesId}&lang=en`;
-    console.log(`Trying Cricinfo fixtures API: ${fixturesUrl}`);
+    const fixturesUrl = `https://site.web.api.espn.com/apis/common/v3/sports/cricket/series/${seriesId}/fixtures?lang=en&region=in`;
+    console.log(`Trying ESPN fixtures API: ${fixturesUrl}`);
     
     const fixturesResponse = await fetch(fixturesUrl, {
       headers: {
         'Accept': 'application/json',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-        'Origin': 'https://www.espncricinfo.com',
-        'Referer': 'https://www.espncricinfo.com/',
       },
     });
     
     if (fixturesResponse.ok) {
       const fixturesData = await fixturesResponse.json();
-      console.log(`Cricinfo fixtures API response keys: ${Object.keys(fixturesData).join(', ')}`);
+      const fixtures = fixturesData.fixtures || fixturesData.events || fixturesData.items || [];
+      console.log(`ESPN fixtures API: ${fixtures.length} fixtures found`);
       
-      // Parse Cricinfo schedule data
-      const matchSchedule = fixturesData.content?.matches || fixturesData.matches || [];
-      console.log(`Cricinfo fixtures: ${matchSchedule.length} matches found`);
-      
-      for (const matchData of matchSchedule) {
-        const match = parseCricinfoMatch(matchData, seriesName);
+      for (const fixture of fixtures) {
+        const eventId = fixture.id as string || fixture.eventId as string;
+        if (eventId && seenEventIds.has(eventId)) continue;
+        if (eventId) seenEventIds.add(eventId);
+        
+        const match = parseMatchData(fixture, seriesName);
         if (match && match.homeTeam !== 'Unknown') {
-          if (match.eventId && seenEventIds.has(match.eventId)) continue;
-          if (match.eventId) seenEventIds.add(match.eventId);
           matches.push(match);
         }
       }
       
       if (matches.length > 0) {
-        console.log(`${seriesName}: Got ${matches.length} matches from Cricinfo API`);
+        console.log(`${seriesName}: Got ${matches.length} matches from ESPN fixtures API`);
         return matches;
       }
     } else {
-      console.log(`Cricinfo fixtures API: HTTP ${fixturesResponse.status}`);
+      console.log(`ESPN fixtures API: HTTP ${fixturesResponse.status}`);
     }
   } catch (error) {
-    console.error(`Cricinfo fixtures API error:`, error);
+    console.error(`ESPN fixtures API error:`, error);
   }
   
-  // Fallback to ESPN scoreboard API
+  // Fallback to ESPN scoreboard API (only current/next matches)
   try {
     const apiUrl = `https://site.api.espn.com/apis/site/v2/sports/cricket/${seriesId}/scoreboard`;
     console.log(`Fallback to ESPN scoreboard: ${apiUrl}`);
