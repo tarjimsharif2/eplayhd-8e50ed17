@@ -1076,13 +1076,9 @@ async function fetchFromCricbuzzRapidAPI(supabase: any, cricbuzzId: string, team
     
     // Try multiple endpoints that may have Playing XI data
     const endpoints = [
-      // Match info endpoint - has team info
       `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}`,
-      // Commentary endpoint - Playing XI often announced at start
       `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}/comm`,
-      // Squad endpoint
       `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}/hsquad`,
-      // Team-specific squads
       `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}/team/1`,
       `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}/team/2`,
     ];
@@ -1110,9 +1106,7 @@ async function fetchFromCricbuzzRapidAPI(supabase: any, cricbuzzId: string, team
         
         const data = JSON.parse(text);
         
-        // Extract players from different data structures
-        
-        // 1. From hsquad endpoint - has team1 and team2 with players
+        // Extract players from hsquad endpoint
         if (data.team1?.players || data.team2?.players) {
           const t1Players = data.team1?.players || [];
           const t2Players = data.team2?.players || [];
@@ -1148,7 +1142,7 @@ async function fetchFromCricbuzzRapidAPI(supabase: any, cricbuzzId: string, team
           console.log(`[Cricbuzz RapidAPI] hsquad found ${teamA.length} + ${teamB.length} players`);
         }
         
-        // 2. From team endpoint - players.squad array
+        // From team endpoint
         if (data.players?.squad) {
           const squadPlayers = data.players.squad || [];
           const targetTeam = endpoint.includes('/team/1') ? teamA : teamB;
@@ -1166,78 +1160,6 @@ async function fetchFromCricbuzzRapidAPI(supabase: any, cricbuzzId: string, team
               });
             }
           }
-          
-          console.log(`[Cricbuzz RapidAPI] team endpoint found ${targetTeam.length} players`);
-        }
-        
-        // 3. From commentary - look for "Playing XI" or "Team lineup" in commentary text
-        if (data.commentaryList || data.commentary) {
-          const comms = data.commentaryList || data.commentary || [];
-          
-          for (const comm of comms) {
-            const commText = comm.commText || comm.text || comm.content || '';
-            
-            // Check if this commentary mentions Playing XI
-            if (/playing\s*xi|team\s*lineup|team\s*sheet|starting\s*11/i.test(commText)) {
-              console.log(`[Cricbuzz RapidAPI] Found Playing XI commentary: ${commText.substring(0, 200)}`);
-              
-              // Extract player names from comma-separated list
-              // Pattern: "Team Name: Player1, Player2, Player3..."
-              const teamSections = commText.split(/(?:playing\s*xi|lineup|team\s*sheet)[\s:]+/i);
-              
-              for (const section of teamSections) {
-                // Split by comma and extract names
-                const names = section.split(/[,\n]+/);
-                
-                for (const rawName of names) {
-                  const name = rawName.trim().replace(/^\d+\.\s*/, '');
-                  if (name && isValidPlayerName(name)) {
-                    const player = parsePlayer(name);
-                    if (player && !seenNames.has(player.name.toLowerCase())) {
-                      seenNames.add(player.name.toLowerCase());
-                      if (teamA.length < 11) {
-                        teamA.push(player);
-                      } else if (teamB.length < 11) {
-                        teamB.push(player);
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-        
-        // 4. From match info - players array
-        if (data.matchInfo?.team1?.players || data.matchInfo?.team2?.players) {
-          const t1Players = data.matchInfo.team1.players || [];
-          const t2Players = data.matchInfo.team2.players || [];
-          
-          for (const p of t1Players) {
-            if (teamA.length >= 11) break;
-            const name = p.name || p.fullName || '';
-            if (name && !seenNames.has(name.toLowerCase()) && isValidPlayerName(name)) {
-              seenNames.add(name.toLowerCase());
-              teamA.push({
-                name: cleanPlayerName(name),
-                isCaptain: p.isCaptain === true,
-                isWicketKeeper: p.isKeeper === true,
-              });
-            }
-          }
-          
-          for (const p of t2Players) {
-            if (teamB.length >= 11) break;
-            const name = p.name || p.fullName || '';
-            if (name && !seenNames.has(name.toLowerCase()) && isValidPlayerName(name)) {
-              seenNames.add(name.toLowerCase());
-              teamB.push({
-                name: cleanPlayerName(name),
-                isCaptain: p.isCaptain === true,
-                isWicketKeeper: p.isKeeper === true,
-              });
-            }
-          }
         }
         
       } catch (err) {
@@ -1248,15 +1170,198 @@ async function fetchFromCricbuzzRapidAPI(supabase: any, cricbuzzId: string, team
     console.log(`[Cricbuzz RapidAPI] Total found: ${teamA.length} + ${teamB.length} players`);
     
     if (teamA.length >= 5 || teamB.length >= 5) {
-      return { 
-        teamA: teamA.slice(0, 11), 
-        teamB: teamB.slice(0, 11) 
-      };
+      return { teamA: teamA.slice(0, 11), teamB: teamB.slice(0, 11) };
     }
     
     return null;
   } catch (error) {
     console.log(`[Cricbuzz RapidAPI] Error: ${error}`);
+    return null;
+  }
+}
+
+// Source 9: Cricketapi Live RapidAPI - Live match data with squad info
+async function fetchFromCricketapiLive(supabase: any, teamAName: string, teamBName: string): Promise<{ teamA: Player[], teamB: Player[] } | null> {
+  console.log(`[Cricketapi Live] Searching for ${teamAName} vs ${teamBName}`);
+  
+  try {
+    // Get RapidAPI key from site_settings
+    const { data: settings, error } = await supabase
+      .from('site_settings')
+      .select('rapidapi_key, rapidapi_enabled')
+      .limit(1)
+      .maybeSingle();
+    
+    if (error || !settings?.rapidapi_enabled || !settings?.rapidapi_key) {
+      console.log(`[Cricketapi Live] RapidAPI not enabled or key not configured`);
+      return null;
+    }
+    
+    const rapidApiKey = settings.rapidapi_key;
+    
+    // Fetch live matches
+    console.log(`[Cricketapi Live] Fetching live matches...`);
+    const liveResponse = await fetch('https://cricketapi-live.p.rapidapi.com/matches/live', {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': 'cricketapi-live.p.rapidapi.com',
+        'x-rapidapi-key': rapidApiKey,
+      },
+    });
+    
+    if (!liveResponse.ok) {
+      console.log(`[Cricketapi Live] Live matches returned ${liveResponse.status}`);
+      return null;
+    }
+    
+    const liveData = await liveResponse.json();
+    console.log(`[Cricketapi Live] Got ${liveData?.matches?.length || 0} live matches`);
+    
+    if (!liveData?.matches || !Array.isArray(liveData.matches)) {
+      return null;
+    }
+    
+    // Normalize team names for matching
+    const normalizeForMatch = (name: string) => {
+      return name.toLowerCase()
+        .replace(/u19|under.?19|u-19/gi, 'u19')
+        .replace(/\s+/g, '')
+        .replace(/[^a-z0-9]/g, '');
+    };
+    
+    const teamANorm = normalizeForMatch(teamAName);
+    const teamBNorm = normalizeForMatch(teamBName);
+    
+    // Find matching match
+    let targetMatch: any = null;
+    for (const match of liveData.matches) {
+      const team1Name = normalizeForMatch(match.team1?.teamName || match.team1?.name || '');
+      const team2Name = normalizeForMatch(match.team2?.teamName || match.team2?.name || '');
+      const team1Short = normalizeForMatch(match.team1?.teamSName || match.team1?.shortName || '');
+      const team2Short = normalizeForMatch(match.team2?.teamSName || match.team2?.shortName || '');
+      
+      const hasTeamA = team1Name.includes(teamANorm) || teamANorm.includes(team1Name) ||
+                       team2Name.includes(teamANorm) || teamANorm.includes(team2Name) ||
+                       team1Short.includes(teamANorm.substring(0, 4)) || 
+                       team2Short.includes(teamANorm.substring(0, 4));
+      
+      const hasTeamB = team1Name.includes(teamBNorm) || teamBNorm.includes(team1Name) ||
+                       team2Name.includes(teamBNorm) || teamBNorm.includes(team2Name) ||
+                       team1Short.includes(teamBNorm.substring(0, 4)) || 
+                       team2Short.includes(teamBNorm.substring(0, 4));
+      
+      if (hasTeamA && hasTeamB) {
+        console.log(`[Cricketapi Live] Found matching match: ${match.team1?.teamName} vs ${match.team2?.teamName}`);
+        targetMatch = match;
+        break;
+      }
+    }
+    
+    if (!targetMatch) {
+      console.log(`[Cricketapi Live] No matching match found`);
+      return null;
+    }
+    
+    // Get match ID and fetch squad data
+    const matchId = targetMatch.id || targetMatch.matchId;
+    if (!matchId) {
+      console.log(`[Cricketapi Live] No match ID found`);
+      return null;
+    }
+    
+    // Try to get squad/playing XI from various endpoints
+    const squadEndpoints = [
+      `https://cricketapi-live.p.rapidapi.com/match/${matchId}/squad`,
+      `https://cricketapi-live.p.rapidapi.com/match/${matchId}/scorecard`,
+      `https://cricketapi-live.p.rapidapi.com/match/${matchId}`,
+    ];
+    
+    const teamA: Player[] = [];
+    const teamB: Player[] = [];
+    const seenNames = new Set<string>();
+    
+    for (const endpoint of squadEndpoints) {
+      if (teamA.length === 11 && teamB.length === 11) break;
+      
+      try {
+        console.log(`[Cricketapi Live] Fetching: ${endpoint}`);
+        const response = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-host': 'cricketapi-live.p.rapidapi.com',
+            'x-rapidapi-key': rapidApiKey,
+          },
+        });
+        
+        if (!response.ok) {
+          console.log(`[Cricketapi Live] ${endpoint} returned ${response.status}`);
+          continue;
+        }
+        
+        const data = await response.json();
+        console.log(`[Cricketapi Live] Endpoint data keys: ${Object.keys(data || {}).join(', ')}`);
+        
+        // Extract from squad/players arrays
+        const extractPlayers = (playersArray: any[], targetTeamArray: Player[], maxPlayers = 11) => {
+          if (!Array.isArray(playersArray)) return;
+          
+          for (const p of playersArray) {
+            if (targetTeamArray.length >= maxPlayers) break;
+            const name = p.name || p.playerName || p.fullName || p.batsman || p.bowler || '';
+            if (name && !seenNames.has(name.toLowerCase()) && isValidPlayerName(name)) {
+              seenNames.add(name.toLowerCase());
+              targetTeamArray.push({
+                name: cleanPlayerName(name),
+                isCaptain: p.isCaptain === true || p.captain === true || /\(c\)/i.test(name),
+                isWicketKeeper: p.isKeeper === true || p.keeper === true || /\(wk\)/i.test(name),
+                role: p.role || p.playerRole,
+              });
+            }
+          }
+        };
+        
+        // Try different data structures
+        if (data.team1?.players) extractPlayers(data.team1.players, teamA);
+        if (data.team2?.players) extractPlayers(data.team2.players, teamB);
+        if (data.team1?.squad) extractPlayers(data.team1.squad, teamA);
+        if (data.team2?.squad) extractPlayers(data.team2.squad, teamB);
+        if (data.team1?.playingXI) extractPlayers(data.team1.playingXI, teamA);
+        if (data.team2?.playingXI) extractPlayers(data.team2.playingXI, teamB);
+        
+        // From scorecard batting/bowling arrays
+        if (data.scorecard) {
+          const scorecards = Array.isArray(data.scorecard) ? data.scorecard : [data.scorecard];
+          for (const sc of scorecards) {
+            if (sc.batting) extractPlayers(sc.batting, teamA.length < 11 ? teamA : teamB);
+            if (sc.bowling) extractPlayers(sc.bowling, teamB.length < 11 ? teamB : teamA);
+          }
+        }
+        
+        // From innings data
+        if (data.innings) {
+          const inningsArr = Array.isArray(data.innings) ? data.innings : [data.innings];
+          for (let i = 0; i < inningsArr.length; i++) {
+            const inn = inningsArr[i];
+            const target = i % 2 === 0 ? teamA : teamB;
+            if (inn.batsmen) extractPlayers(inn.batsmen, target);
+            if (inn.bowlers) extractPlayers(inn.bowlers, i % 2 === 0 ? teamB : teamA);
+          }
+        }
+        
+      } catch (err) {
+        console.log(`[Cricketapi Live] Error with ${endpoint}: ${err}`);
+      }
+    }
+    
+    console.log(`[Cricketapi Live] Total found: ${teamA.length} + ${teamB.length} players`);
+    
+    if (teamA.length >= 5 || teamB.length >= 5) {
+      return { teamA: teamA.slice(0, 11), teamB: teamB.slice(0, 11) };
+    }
+    
+    return null;
+  } catch (error) {
+    console.log(`[Cricketapi Live] Error: ${error}`);
     return null;
   }
 }
@@ -1314,6 +1419,7 @@ serve(async (req) => {
     // Try all sources in sequence - API Scores first (most reliable)
     const sources = [
       { name: 'API Scores (Database)', fn: () => fetchFromApiScores(supabase, matchId, tAName, tBName) },
+      { name: 'Cricketapi Live RapidAPI', fn: () => fetchFromCricketapiLive(supabase, tAName, tBName) },
       { name: 'Cricbuzz RapidAPI', fn: () => cbzId ? fetchFromCricbuzzRapidAPI(supabase, cbzId, tAName, tBName) : null },
       { name: 'Cricbuzz Mobile API', fn: () => cbzId ? fetchFromCricbuzzMobileAPI(cbzId) : null },
       { name: 'Cricbuzz HTML', fn: () => cbzId ? fetchFromCricbuzzHtml(cbzId) : null },
