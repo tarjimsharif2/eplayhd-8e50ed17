@@ -20,6 +20,11 @@ interface RapidApiEndpoints {
   match_info_endpoint?: string;
   match_commentary_endpoint?: string;
   team_squad_endpoint?: string;
+  // New endpoints for sync-playing-xi
+  recent_matches_endpoint?: string;
+  schedule_endpoint?: string;
+  series_squads_endpoint?: string;
+  series_squad_endpoint?: string;
 }
 
 interface Props {
@@ -33,11 +38,15 @@ const defaultEndpoints: RapidApiEndpoints = {
   points_table_endpoint: '/stats/v1/series/{series_id}/points-table',
   squad_endpoint: '/mcenter/v1/{match_id}/hsquad',
   scorecard_endpoint: '/mcenter/v1/{match_id}/scard',
-  live_matches_endpoint: '/matches/live',
+  live_matches_endpoint: '/matches/v1/live',
   match_squad_endpoint: '/match/{match_id}/squad',
   match_info_endpoint: '/mcenter/v1/{match_id}',
   match_commentary_endpoint: '/mcenter/v1/{match_id}/comm',
   team_squad_endpoint: '/mcenter/v1/{match_id}/team/{team_num}',
+  recent_matches_endpoint: '/matches/v1/recent',
+  schedule_endpoint: '/schedule/v1/all',
+  series_squads_endpoint: '/series/v1/{series_id}/squads',
+  series_squad_endpoint: '/series/v1/{series_id}/squads/{squad_id}',
 };
 
 export default function RapidApiEndpointsManager({ value, onChange }: Props) {
@@ -128,7 +137,7 @@ export default function RapidApiEndpointsManager({ value, onChange }: Props) {
             <div className="flex items-center gap-2">
               <Globe className="w-4 h-4 text-green-500" />
               <span>Cricbuzz Endpoints</span>
-              <Badge variant="secondary" className="ml-2">6</Badge>
+              <Badge variant="secondary" className="ml-2">10</Badge>
             </div>
           </AccordionTrigger>
           <AccordionContent className="space-y-4 pt-4">
@@ -193,6 +202,54 @@ export default function RapidApiEndpointsManager({ value, onChange }: Props) {
                 />
                 <p className="text-xs text-muted-foreground">
                   Placeholders: {'{match_id}'}, {'{team_num}'} (1 or 2)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Recent Matches Endpoint</Label>
+                <Input
+                  value={endpoints.recent_matches_endpoint || ''}
+                  onChange={(e) => handleChange('recent_matches_endpoint', e.target.value)}
+                  placeholder="/matches/v1/recent"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Returns recently completed and upcoming matches
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Schedule Endpoint</Label>
+                <Input
+                  value={endpoints.schedule_endpoint || ''}
+                  onChange={(e) => handleChange('schedule_endpoint', e.target.value)}
+                  placeholder="/schedule/v1/all"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Returns full match schedule
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Series Squads List Endpoint</Label>
+                <Input
+                  value={endpoints.series_squads_endpoint || ''}
+                  onChange={(e) => handleChange('series_squads_endpoint', e.target.value)}
+                  placeholder="/series/v1/{series_id}/squads"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Placeholder: {'{series_id}'} → Series ID
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Series Squad Detail Endpoint</Label>
+                <Input
+                  value={endpoints.series_squad_endpoint || ''}
+                  onChange={(e) => handleChange('series_squad_endpoint', e.target.value)}
+                  placeholder="/series/v1/{series_id}/squads/{squad_id}"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Placeholders: {'{series_id}'}, {'{squad_id}'}
                 </p>
               </div>
             </div>

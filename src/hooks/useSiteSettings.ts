@@ -13,6 +13,10 @@ export interface RapidApiEndpoints {
   match_info_endpoint?: string;
   match_commentary_endpoint?: string;
   team_squad_endpoint?: string;
+  recent_matches_endpoint?: string;
+  schedule_endpoint?: string;
+  series_squads_endpoint?: string;
+  series_squad_endpoint?: string;
 }
 
 // Full site settings (only accessible by admins)

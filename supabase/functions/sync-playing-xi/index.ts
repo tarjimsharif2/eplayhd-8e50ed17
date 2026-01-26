@@ -105,10 +105,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get the RapidAPI key from site_settings
+    // Get the RapidAPI key and endpoints from site_settings
     const { data: settings, error: settingsError } = await supabase
       .from('site_settings')
-      .select('rapidapi_key, rapidapi_enabled')
+      .select('rapidapi_key, rapidapi_enabled, rapidapi_endpoints')
       .limit(1)
       .maybeSingle();
 
@@ -121,42 +121,57 @@ Deno.serve(async (req) => {
     }
 
     const rapidApiKey = settings.rapidapi_key;
+    const endpoints = settings.rapidapi_endpoints || {};
+    const cricbuzzHost = endpoints.cricbuzz_host || 'cricbuzz-cricket.p.rapidapi.com';
+    
+    // Get configurable endpoint paths
+    const liveMatchesPath = endpoints.live_matches_endpoint || '/matches/v1/live';
+    const recentMatchesPath = endpoints.recent_matches_endpoint || '/matches/v1/recent';
+    const schedulePath = endpoints.schedule_endpoint || '/schedule/v1/all';
+    const matchInfoPath = endpoints.match_info_endpoint || '/mcenter/v1/{match_id}';
+    const teamSquadPath = endpoints.match_squad_endpoint || '/mcenter/v1/{match_id}/team/{team_num}';
+    const hsquadPath = endpoints.squad_endpoint || '/mcenter/v1/{match_id}/hsquad';
+    const seriesSquadsPath = endpoints.series_squads_endpoint || '/series/v1/{series_id}/squads';
+    const seriesSquadPath = endpoints.series_squad_endpoint || '/series/v1/{series_id}/squads/{squad_id}';
+    const scorecardPath = endpoints.scorecard_endpoint || '/mcenter/v1/{match_id}/scard';
+    
+    console.log(`[sync-playing-xi] Using Cricbuzz host: ${cricbuzzHost}`);
     let actualMatchId = cricbuzzMatchId;
 
     // We need a cricbuzz match ID
     if (!actualMatchId) {
       console.log(`[sync-playing-xi] No cricbuzz match ID, searching for: ${teamAName} vs ${teamBName}`);
       
-      // Try multiple endpoints to find the match
-      const endpoints = [
-        'https://cricbuzz-cricket.p.rapidapi.com/matches/v1/live',
-        'https://cricbuzz-cricket.p.rapidapi.com/matches/v1/recent',
-        'https://cricbuzz-cricket.p.rapidapi.com/schedule/v1/all'
+      // Try multiple endpoints to find the match - use configurable paths
+      const searchEndpoints = [
+        `https://${cricbuzzHost}${liveMatchesPath}`,
+        `https://${cricbuzzHost}${recentMatchesPath}`,
+        `https://${cricbuzzHost}${schedulePath}`
       ];
       
-      for (const endpoint of endpoints) {
+      for (const searchEndpoint of searchEndpoints) {
         if (actualMatchId) break;
         
         try {
-          console.log(`[sync-playing-xi] Searching in: ${endpoint}`);
+          console.log(`[sync-playing-xi] Searching in: ${searchEndpoint}`);
           
-          const response = await fetchWithRetry(endpoint, {
+          const response = await fetchWithRetry(searchEndpoint, {
             method: 'GET',
             headers: {
-              'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+              'x-rapidapi-host': cricbuzzHost,
               'x-rapidapi-key': rapidApiKey,
             },
           });
 
           if (!response.ok) {
-            console.log(`[sync-playing-xi] Endpoint ${endpoint} error: ${response.status}`);
+            console.log(`[sync-playing-xi] Endpoint ${searchEndpoint} error: ${response.status}`);
             continue;
           }
 
           const data = await response.json();
           
           // Handle schedule endpoint format
-          if (endpoint.includes('/schedule/')) {
+          if (searchEndpoint.includes('/schedule/')) {
             const matchScheduleMap = data.matchScheduleMap || [];
             for (const scheduleItem of matchScheduleMap) {
               if (actualMatchId) break;
@@ -213,7 +228,7 @@ Deno.serve(async (req) => {
             }
           }
         } catch (err) {
-          console.error(`[sync-playing-xi] Error fetching ${endpoint}:`, err);
+          console.error(`[sync-playing-xi] Error fetching ${searchEndpoint}:`, err);
         }
       }
 
@@ -229,14 +244,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch squad using match info endpoint which includes playing XI
-    const matchInfoUrl = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${actualMatchId}`;
+    // Fetch squad using match info endpoint which includes playing XI - use configurable path
+    const matchInfoUrlPath = matchInfoPath.replace('{match_id}', actualMatchId);
+    const matchInfoUrl = `https://${cricbuzzHost}${matchInfoUrlPath}`;
     console.log(`[sync-playing-xi] Fetching match info: ${matchInfoUrl}`);
     
     const matchInfoResponse = await fetchWithRetry(matchInfoUrl, {
       method: 'GET',
       headers: {
-        'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+        'x-rapidapi-host': cricbuzzHost,
         'x-rapidapi-key': rapidApiKey,
       },
     });
@@ -285,14 +301,15 @@ Deno.serve(async (req) => {
       const { teamNum, apiId, apiName } = teamConfig;
       
       try {
-        // First try match-specific squad
-        const squadUrl = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${actualMatchId}/team/${teamNum}`;
+        // First try match-specific squad - use configurable path
+        const squadUrlPath = teamSquadPath.replace('{match_id}', actualMatchId).replace('{team_num}', teamNum.toString());
+        const squadUrl = `https://${cricbuzzHost}${squadUrlPath}`;
         console.log(`[sync-playing-xi] Fetching team ${teamNum} squad: ${squadUrl}`);
         
         const squadResponse = await fetchWithRetry(squadUrl, {
           method: 'GET',
           headers: {
-            'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+            'x-rapidapi-host': cricbuzzHost,
             'x-rapidapi-key': rapidApiKey,
           },
         });
@@ -316,15 +333,16 @@ Deno.serve(async (req) => {
           console.log(`[sync-playing-xi] Team ${teamNum} squad response not ok: ${squadResponse.status}`);
         }
 
-        // If match-specific squad is empty, try hsquad (historic squad) endpoint
+        // If match-specific squad is empty, try hsquad (historic squad) endpoint - use configurable path
         if (!squadData || Object.keys(squadData).length === 0) {
           console.log(`[sync-playing-xi] Trying hsquad endpoint for team ${teamNum}`);
           try {
-            const hsquadUrl = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${actualMatchId}/hsquad`;
+            const hsquadUrlPath = hsquadPath.replace('{match_id}', actualMatchId);
+            const hsquadUrl = `https://${cricbuzzHost}${hsquadUrlPath}`;
             const hsquadResponse = await fetchWithRetry(hsquadUrl, {
               method: 'GET',
               headers: {
-                'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+                'x-rapidapi-host': cricbuzzHost,
                 'x-rapidapi-key': rapidApiKey,
               },
             });
@@ -357,17 +375,19 @@ Deno.serve(async (req) => {
 
         // If still empty, try series squad endpoint using seriesId
         // First get list of squads, then find matching team
+        // If still empty, try series squad endpoint using seriesId - use configurable path
         if ((!squadData || Object.keys(squadData).length === 0) && matchInfo.seriesid) {
           console.log(`[sync-playing-xi] Trying series squads for series ${matchInfo.seriesid}`);
           try {
             // First get list of all squads in the series
-            const seriesSquadsListUrl = `https://cricbuzz-cricket.p.rapidapi.com/series/v1/${matchInfo.seriesid}/squads`;
+            const seriesSquadsListUrlPath = seriesSquadsPath.replace('{series_id}', matchInfo.seriesid);
+            const seriesSquadsListUrl = `https://${cricbuzzHost}${seriesSquadsListUrlPath}`;
             console.log(`[sync-playing-xi] Fetching series squads list: ${seriesSquadsListUrl}`);
             
             const squadListResponse = await fetchWithRetry(seriesSquadsListUrl, {
               method: 'GET',
               headers: {
-                'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+                'x-rapidapi-host': cricbuzzHost,
                 'x-rapidapi-key': rapidApiKey,
               },
             });
@@ -395,14 +415,15 @@ Deno.serve(async (req) => {
                   }
                   
                   if (matchingSquadId) {
-                    // Now fetch the actual squad players
-                    const seriesSquadUrl = `https://cricbuzz-cricket.p.rapidapi.com/series/v1/${matchInfo.seriesid}/squads/${matchingSquadId}`;
+                    // Now fetch the actual squad players - use configurable path
+                    const seriesSquadUrlPath = seriesSquadPath.replace('{series_id}', matchInfo.seriesid).replace('{squad_id}', matchingSquadId);
+                    const seriesSquadUrl = `https://${cricbuzzHost}${seriesSquadUrlPath}`;
                     console.log(`[sync-playing-xi] Fetching series squad: ${seriesSquadUrl}`);
                     
                     const seriesSquadResponse = await fetchWithRetry(seriesSquadUrl, {
                       method: 'GET',
                       headers: {
-                        'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+                        'x-rapidapi-host': cricbuzzHost,
                         'x-rapidapi-key': rapidApiKey,
                       },
                     });
@@ -533,15 +554,16 @@ Deno.serve(async (req) => {
       console.log(`[sync-playing-xi] Trying scorecard endpoint as last resort`);
       
       try {
-        // Try batting scorecard for both innings
+        // Try batting scorecard for both innings - use configurable path
         for (let inningsNum = 1; inningsNum <= 2; inningsNum++) {
-          const scorecardUrl = `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${actualMatchId}/scard`;
+          const scorecardUrlPath = scorecardPath.replace('{match_id}', actualMatchId);
+          const scorecardUrl = `https://${cricbuzzHost}${scorecardUrlPath}`;
           console.log(`[sync-playing-xi] Fetching scorecard: ${scorecardUrl}`);
           
           const scorecardResponse = await fetchWithRetry(scorecardUrl, {
             method: 'GET',
             headers: {
-              'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+              'x-rapidapi-host': cricbuzzHost,
               'x-rapidapi-key': rapidApiKey,
             },
           });
