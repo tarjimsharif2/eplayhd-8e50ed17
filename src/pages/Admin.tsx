@@ -24,7 +24,7 @@ import {
 } from "@/hooks/useSportsData";
 import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
 import { useState, useEffect, useMemo } from "react";
-import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe, CloudDownload, Radio, Map, Zap } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Trophy, Users, LogOut, Loader2, Image, Link as LinkIcon, Gamepad2, Star, ShieldAlert, Settings, Tv, Save, Play, Copy, RefreshCw, Moon, Sun, Globe, CloudDownload, Radio, Map, Zap, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import LiveScoreUpdater from "@/components/LiveScoreUpdater";
 import { motion } from "framer-motion";
@@ -2090,6 +2090,30 @@ const Admin = () => {
                               <p className="text-xs text-muted-foreground">Leave empty to auto-generate from team names. Same slug can be reused for recurring matches.</p>
                             )}
                           </div>
+                          {/* Import SEO from Tournament Button */}
+                          {matchForm.tournament_id && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="w-full gap-2"
+                              onClick={() => {
+                                const selectedTournament = tournaments?.find(t => t.id === matchForm.tournament_id);
+                                if (selectedTournament) {
+                                  setMatchForm({
+                                    ...matchForm,
+                                    seo_title: selectedTournament.seo_title || '',
+                                    seo_description: selectedTournament.seo_description || '',
+                                    seo_keywords: selectedTournament.seo_keywords || ''
+                                  });
+                                  toast({ title: "SEO Imported", description: "Tournament SEO details imported successfully" });
+                                }
+                              }}
+                            >
+                              <Download className="w-4 h-4" />
+                              Import SEO from Tournament
+                            </Button>
+                          )}
                           <div className="space-y-2">
                             <Label>SEO Title (optional)</Label>
                             <Input 
