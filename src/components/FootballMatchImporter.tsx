@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { Download, Loader2, RefreshCw, Clock, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -170,6 +171,12 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
   const updateMatchTournament = (index: number, value: string | null) => {
     setApiMatches(prev => prev.map((m, i) => 
       i === index ? { ...m, tournamentId: value } : m
+    ));
+  };
+
+  const updateMatchRound = (index: number, value: string) => {
+    setApiMatches(prev => prev.map((m, i) => 
+      i === index ? { ...m, round: value || null } : m
     ));
   };
 
@@ -563,7 +570,7 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
                         </div>
                         
                         {/* Team Mapping */}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                           <div className="space-y-1">
                             <Label className="text-xs text-muted-foreground">Home Team</Label>
                             <SearchableSelect
@@ -605,7 +612,7 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
                           </div>
                           
                           <div className="space-y-1">
-                            <Label className="text-xs text-muted-foreground">Tournament (SEO source)</Label>
+                            <Label className="text-xs text-muted-foreground">Tournament (SEO)</Label>
                             <SearchableSelect
                               options={[
                                 { value: 'none', label: 'No Tournament' },
@@ -621,6 +628,16 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
                               placeholder="Tournament"
                               searchPlaceholder="Search..."
                               emptyText="No tournaments"
+                            />
+                          </div>
+                          
+                          <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Round/Matchday</Label>
+                            <Input
+                              value={match.round || ''}
+                              onChange={(e) => updateMatchRound(index, e.target.value)}
+                              placeholder="e.g., Round 22, MD 7"
+                              className="h-9"
                             />
                           </div>
                         </div>
