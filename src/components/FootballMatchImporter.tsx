@@ -62,9 +62,9 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
   const [apiMatches, setApiMatches] = useState<MatchToImport[]>([]);
   const [defaultTournamentId, setDefaultTournamentId] = useState<string | null>(null);
 
-  // Get Football sport ID
+  // Get Football sport ID (handles emoji prefix like "⚽ Football")
   const footballSportId = sports?.find(s => 
-    s.name.toLowerCase() === 'football' || s.name.toLowerCase() === 'soccer'
+    s.name.toLowerCase().includes('football') || s.name.toLowerCase().includes('soccer')
   )?.id;
 
   // Fuzzy match team name to database
