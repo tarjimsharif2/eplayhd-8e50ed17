@@ -1,6 +1,20 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+// RapidAPI Endpoints configuration
+export interface RapidApiEndpoints {
+  cricbuzz_host: string;
+  cricketapi_live_host: string;
+  points_table_endpoint: string;
+  squad_endpoint: string;
+  scorecard_endpoint: string;
+  live_matches_endpoint: string;
+  match_squad_endpoint: string;
+  match_info_endpoint?: string;
+  match_commentary_endpoint?: string;
+  team_squad_endpoint?: string;
+}
+
 // Full site settings (only accessible by admins)
 export interface SiteSettings {
   id: string;
@@ -37,6 +51,10 @@ export interface SiteSettings {
   // API Cricket settings (api-cricket.com)
   api_cricket_key: string | null;
   api_cricket_enabled: boolean;
+  // RapidAPI settings
+  rapidapi_key: string | null;
+  rapidapi_enabled: boolean;
+  rapidapi_endpoints: RapidApiEndpoints | null;
   // SMTP settings
   smtp_host: string | null;
   smtp_port: number | null;
@@ -71,7 +89,8 @@ export const useSiteSettings = () => {
         }
         throw error;
       }
-      return data as SiteSettings | null;
+      // Cast with unknown first to handle JSON type conversion
+      return data as unknown as SiteSettings | null;
     },
   });
 };
@@ -81,9 +100,10 @@ export const useUpdateSiteSettings = () => {
   
   return useMutation({
     mutationFn: async ({ id, ...settings }: Partial<SiteSettings> & { id: string }) => {
+      // Cast settings to unknown first to handle JSON type conversion
       const { data, error } = await supabase
         .from('site_settings')
-        .update(settings)
+        .update(settings as unknown as Record<string, unknown>)
         .eq('id', id)
         .select()
         .single();

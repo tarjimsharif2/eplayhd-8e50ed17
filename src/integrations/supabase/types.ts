@@ -778,6 +778,7 @@ export type Database = {
           og_image_url: string | null
           popup_ad_code: string | null
           rapidapi_enabled: boolean | null
+          rapidapi_endpoints: Json | null
           rapidapi_key: string | null
           robots_txt: string | null
           schema_org_enabled: boolean | null
@@ -827,6 +828,7 @@ export type Database = {
           og_image_url?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
+          rapidapi_endpoints?: Json | null
           rapidapi_key?: string | null
           robots_txt?: string | null
           schema_org_enabled?: boolean | null
@@ -876,6 +878,7 @@ export type Database = {
           og_image_url?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
+          rapidapi_endpoints?: Json | null
           rapidapi_key?: string | null
           robots_txt?: string | null
           schema_org_enabled?: boolean | null
@@ -926,6 +929,7 @@ export type Database = {
           og_image_url: string | null
           popup_ad_code: string | null
           rapidapi_enabled: boolean | null
+          rapidapi_endpoints: Json | null
           robots_txt: string | null
           schema_org_enabled: boolean | null
           sidebar_ad_code: string | null
@@ -965,6 +969,7 @@ export type Database = {
           og_image_url?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
+          rapidapi_endpoints?: Json | null
           robots_txt?: string | null
           schema_org_enabled?: boolean | null
           sidebar_ad_code?: string | null
@@ -1004,6 +1009,7 @@ export type Database = {
           og_image_url?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
+          rapidapi_endpoints?: Json | null
           robots_txt?: string | null
           schema_org_enabled?: boolean | null
           sidebar_ad_code?: string | null

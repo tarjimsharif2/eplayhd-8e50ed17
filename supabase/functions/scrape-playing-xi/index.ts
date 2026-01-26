@@ -1057,10 +1057,10 @@ async function fetchFromCricbuzzRapidAPI(supabase: any, cricbuzzId: string, team
   console.log(`[Cricbuzz RapidAPI] Trying match ID: ${cricbuzzId}`);
   
   try {
-    // Get RapidAPI key from site_settings
+    // Get RapidAPI key and endpoints from site_settings
     const { data: settings, error } = await supabase
       .from('site_settings')
-      .select('rapidapi_key, rapidapi_enabled')
+      .select('rapidapi_key, rapidapi_enabled, rapidapi_endpoints')
       .limit(1)
       .maybeSingle();
     
@@ -1070,17 +1070,27 @@ async function fetchFromCricbuzzRapidAPI(supabase: any, cricbuzzId: string, team
     }
     
     const rapidApiKey = settings.rapidapi_key;
+    const endpointConfig = settings.rapidapi_endpoints || {};
+    const cricbuzzHost = endpointConfig.cricbuzz_host || 'cricbuzz-cricket.p.rapidapi.com';
+    
     const teamA: Player[] = [];
     const teamB: Player[] = [];
     const seenNames = new Set<string>();
     
+    // Build endpoints from configuration
+    const matchInfoPath = (endpointConfig.match_info_endpoint || '/mcenter/v1/{match_id}').replace('{match_id}', cricbuzzId);
+    const commPath = (endpointConfig.match_commentary_endpoint || '/mcenter/v1/{match_id}/comm').replace('{match_id}', cricbuzzId);
+    const squadPath = (endpointConfig.squad_endpoint || '/mcenter/v1/{match_id}/hsquad').replace('{match_id}', cricbuzzId);
+    const team1Path = (endpointConfig.team_squad_endpoint || '/mcenter/v1/{match_id}/team/{team_num}').replace('{match_id}', cricbuzzId).replace('{team_num}', '1');
+    const team2Path = (endpointConfig.team_squad_endpoint || '/mcenter/v1/{match_id}/team/{team_num}').replace('{match_id}', cricbuzzId).replace('{team_num}', '2');
+    
     // Try multiple endpoints that may have Playing XI data
     const endpoints = [
-      `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}`,
-      `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}/comm`,
-      `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}/hsquad`,
-      `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}/team/1`,
-      `https://cricbuzz-cricket.p.rapidapi.com/mcenter/v1/${cricbuzzId}/team/2`,
+      `https://${cricbuzzHost}${matchInfoPath}`,
+      `https://${cricbuzzHost}${commPath}`,
+      `https://${cricbuzzHost}${squadPath}`,
+      `https://${cricbuzzHost}${team1Path}`,
+      `https://${cricbuzzHost}${team2Path}`,
     ];
     
     for (const endpoint of endpoints) {
@@ -1091,7 +1101,7 @@ async function fetchFromCricbuzzRapidAPI(supabase: any, cricbuzzId: string, team
         const response = await fetch(endpoint, {
           method: 'GET',
           headers: {
-            'x-rapidapi-host': 'cricbuzz-cricket.p.rapidapi.com',
+            'x-rapidapi-host': cricbuzzHost,
             'x-rapidapi-key': rapidApiKey,
           },
         });
@@ -1185,10 +1195,10 @@ async function fetchFromCricketapiLive(supabase: any, teamAName: string, teamBNa
   console.log(`[Cricketapi Live] Searching for ${teamAName} vs ${teamBName}`);
   
   try {
-    // Get RapidAPI key from site_settings
+    // Get RapidAPI key and endpoints from site_settings
     const { data: settings, error } = await supabase
       .from('site_settings')
-      .select('rapidapi_key, rapidapi_enabled')
+      .select('rapidapi_key, rapidapi_enabled, rapidapi_endpoints')
       .limit(1)
       .maybeSingle();
     
@@ -1198,13 +1208,17 @@ async function fetchFromCricketapiLive(supabase: any, teamAName: string, teamBNa
     }
     
     const rapidApiKey = settings.rapidapi_key;
+    const endpointConfig = settings.rapidapi_endpoints || {};
+    const cricketapiHost = endpointConfig.cricketapi_live_host || 'cricketapi-live.p.rapidapi.com';
+    const liveMatchesPath = endpointConfig.live_matches_endpoint || '/matches/live';
+    const matchSquadPath = endpointConfig.match_squad_endpoint || '/match/{match_id}/squad';
     
     // Fetch live matches
     console.log(`[Cricketapi Live] Fetching live matches...`);
-    const liveResponse = await fetch('https://cricketapi-live.p.rapidapi.com/matches/live', {
+    const liveResponse = await fetch(`https://${cricketapiHost}${liveMatchesPath}`, {
       method: 'GET',
       headers: {
-        'x-rapidapi-host': 'cricketapi-live.p.rapidapi.com',
+        'x-rapidapi-host': cricketapiHost,
         'x-rapidapi-key': rapidApiKey,
       },
     });
@@ -1269,11 +1283,16 @@ async function fetchFromCricketapiLive(supabase: any, teamAName: string, teamBNa
       return null;
     }
     
+    // Build squad endpoints from configuration
+    const squadPath = matchSquadPath.replace('{match_id}', matchId);
+    const scorecardPath = `/match/${matchId}/scorecard`;
+    const matchDetailPath = `/match/${matchId}`;
+    
     // Try to get squad/playing XI from various endpoints
     const squadEndpoints = [
-      `https://cricketapi-live.p.rapidapi.com/match/${matchId}/squad`,
-      `https://cricketapi-live.p.rapidapi.com/match/${matchId}/scorecard`,
-      `https://cricketapi-live.p.rapidapi.com/match/${matchId}`,
+      `https://${cricketapiHost}${squadPath}`,
+      `https://${cricketapiHost}${scorecardPath}`,
+      `https://${cricketapiHost}${matchDetailPath}`,
     ];
     
     const teamA: Player[] = [];
@@ -1288,7 +1307,7 @@ async function fetchFromCricketapiLive(supabase: any, teamAName: string, teamBNa
         const response = await fetch(endpoint, {
           method: 'GET',
           headers: {
-            'x-rapidapi-host': 'cricketapi-live.p.rapidapi.com',
+            'x-rapidapi-host': cricketapiHost,
             'x-rapidapi-key': rapidApiKey,
           },
         });
