@@ -443,18 +443,18 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
               <SearchableSelect
                 options={[
                   { value: 'none', label: 'No Tournament' },
-                  ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                  ...(tournaments?.filter(t => !t.is_completed && t.is_active).map((t) => ({
                     value: t.id,
                     label: t.name,
-                    sublabel: t.season,
+                    sublabel: `${t.sport} • ${t.season}${t.total_matches ? ` • ${t.total_matches} matches` : ''}`,
                     imageUrl: t.logo_url,
                   })) || [])
                 ]}
                 value={defaultTournamentId || 'none'}
                 onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
                 placeholder="Select tournament"
-                searchPlaceholder="Search..."
-                emptyText="No tournaments"
+                searchPlaceholder="Search tournaments..."
+                emptyText="No active tournaments found"
               />
             </div>
             
