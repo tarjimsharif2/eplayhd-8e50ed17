@@ -443,10 +443,14 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
               <SearchableSelect
                 options={[
                   { value: 'none', label: 'No Tournament' },
-                  ...(tournaments?.filter(t => !t.is_completed && t.is_active).map((t) => ({
+                  ...(tournaments?.filter(t => {
+                    // Show all Football tournaments (active or completed)
+                    const isFootball = t.sport.toLowerCase().includes('football') || t.sport.toLowerCase().includes('soccer');
+                    return isFootball;
+                  }).map((t) => ({
                     value: t.id,
                     label: t.name,
-                    sublabel: `${t.sport} • ${t.season}${t.total_matches ? ` • ${t.total_matches} matches` : ''}`,
+                    sublabel: `${t.season}${t.is_completed ? ' • Completed' : t.is_active ? ' • Active' : ''}${t.total_matches ? ` • ${t.total_matches} matches` : ''}`,
                     imageUrl: t.logo_url,
                   })) || [])
                 ]}
@@ -454,7 +458,7 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
                 onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
                 placeholder="Select tournament"
                 searchPlaceholder="Search tournaments..."
-                emptyText="No active tournaments found"
+                emptyText="No football tournaments found"
               />
             </div>
             
