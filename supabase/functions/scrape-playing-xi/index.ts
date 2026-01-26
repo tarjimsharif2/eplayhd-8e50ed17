@@ -500,6 +500,105 @@ async function fetchFromSquadPages(teamAName: string, teamBName: string): Promis
   return null;
 }
 
+// Source 7: Cricket News Sites (CricketAddictor, CricTracker, NDTV, India Today, etc.)
+async function fetchFromCricketNewsSites(teamAName: string, teamBName: string): Promise<{ teamA: Player[], teamB: Player[] } | null> {
+  console.log(`[Cricket News Sites] Searching for ${teamAName} vs ${teamBName}`);
+  
+  const teamASlug = teamAName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const teamBSlug = teamBName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  const searchQuery = encodeURIComponent(`${teamAName} vs ${teamBName} playing xi squad`);
+  
+  const newsUrls = [
+    // CricketAddictor
+    `https://cricketaddictor.com/?s=${searchQuery}`,
+    // CricTracker
+    `https://www.crictracker.com/?s=${searchQuery}`,
+    // NDTV Sports
+    `https://sports.ndtv.com/search?searchtext=${searchQuery}`,
+    // India Today
+    `https://www.indiatoday.in/search/${searchQuery}`,
+    // ICC Official
+    `https://www.icc-cricket.com/search?q=${searchQuery}`,
+    // Cricket.com.au
+    `https://www.cricket.com.au/search?query=${searchQuery}`,
+    // Hindustan Times Cricket
+    `https://www.hindustantimes.com/search?q=${searchQuery}`,
+    // Times of India
+    `https://timesofindia.indiatimes.com/topic/${teamASlug}-vs-${teamBSlug}`,
+    // Sportskeeda
+    `https://www.sportskeeda.com/go?q=${searchQuery}`,
+  ];
+  
+  for (const url of newsUrls) {
+    try {
+      console.log(`[Cricket News Sites] Trying: ${url}`);
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        },
+      });
+      
+      if (!response.ok) continue;
+      
+      const html = await response.text();
+      
+      // Look for links to playing XI articles
+      const playingXiLinks: string[] = [];
+      const linkRegex = /href=["'](https?:\/\/[^"']+(?:playing.?xi|squad|line.?up|team.?sheet)[^"']*)["']/gi;
+      let match;
+      while ((match = linkRegex.exec(html)) !== null && playingXiLinks.length < 5) {
+        if (!playingXiLinks.includes(match[1])) {
+          playingXiLinks.push(match[1]);
+        }
+      }
+      
+      // Also check direct article links containing team names
+      const articleRegex = /href=["'](https?:\/\/[^"']*(?:${teamASlug}|${teamBSlug})[^"']*(?:playing|squad|xi|lineup)[^"']*)["']/gi;
+      while ((match = articleRegex.exec(html)) !== null && playingXiLinks.length < 8) {
+        if (!playingXiLinks.includes(match[1])) {
+          playingXiLinks.push(match[1]);
+        }
+      }
+      
+      // Visit found links
+      for (const articleUrl of playingXiLinks) {
+        try {
+          const articleResponse = await fetch(articleUrl, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            },
+          });
+          
+          if (!articleResponse.ok) continue;
+          
+          const articleHtml = await articleResponse.text();
+          const players = extractPlayersFromHtml(articleHtml);
+          
+          if (players.teamA.length >= 5 || players.teamB.length >= 5) {
+            console.log(`[Cricket News Sites] Found ${players.teamA.length} + ${players.teamB.length} from ${articleUrl}`);
+            return players;
+          }
+        } catch {
+          // Continue to next link
+        }
+      }
+      
+      // Also try direct extraction from search page
+      const players = extractPlayersFromHtml(html);
+      if (players.teamA.length >= 5 || players.teamB.length >= 5) {
+        console.log(`[Cricket News Sites] Found ${players.teamA.length} + ${players.teamB.length} from search page`);
+        return players;
+      }
+      
+    } catch (error) {
+      console.log(`[Cricket News Sites] Error with ${url}: ${error}`);
+    }
+  }
+  
+  return null;
+}
+
 function matchContainsTeams(match: any, teamA: string, teamB: string): boolean {
   const matchStr = JSON.stringify(match).toLowerCase();
   const teamAWords = teamA.toLowerCase().split(' ');
@@ -750,6 +849,7 @@ serve(async (req) => {
       { name: 'Cricbuzz Mobile API', fn: () => cbzId ? fetchFromCricbuzzMobileAPI(cbzId) : null },
       { name: 'Cricbuzz HTML', fn: () => cbzId ? fetchFromCricbuzzHtml(cbzId) : null },
       { name: 'ESPN Web', fn: () => fetchFromESPNWeb(tAName, tBName) },
+      { name: 'Cricket News Sites', fn: () => fetchFromCricketNewsSites(tAName, tBName) },
       { name: 'Free Cricket APIs', fn: () => fetchFromFreeCricketAPIs(tAName, tBName) },
       { name: 'Squad Pages', fn: () => fetchFromSquadPages(tAName, tBName) },
       { name: 'Google Search', fn: () => fetchViaGoogleSearch(tAName, tBName) },
