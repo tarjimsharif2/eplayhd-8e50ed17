@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.delete-user]
 verify_jwt = false
+
+[functions.fetch-football-leagues]
+verify_jwt = false

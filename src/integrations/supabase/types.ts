@@ -187,6 +187,36 @@ export type Database = {
         }
         Relationships: []
       }
+      football_leagues: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          last_synced_at: string | null
+          league_code: string
+          league_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_synced_at?: string | null
+          league_code: string
+          league_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_synced_at?: string | null
+          league_code?: string
+          league_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       match_api_scores: {
         Row: {
           api_event_key: string | null
