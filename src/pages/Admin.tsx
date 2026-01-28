@@ -55,6 +55,7 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import FootballMatchImporter from "@/components/FootballMatchImporter";
 import CricketMatchImporter from "@/components/CricketMatchImporter";
 import RapidApiEndpointsManager from "@/components/RapidApiEndpointsManager";
+import MaintenanceModeManager from "@/components/MaintenanceModeManager";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -1693,6 +1694,11 @@ const Admin = () => {
                 {canManageUsers && (
                   <TabsTrigger value="users" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                     Users
+                  </TabsTrigger>
+                )}
+                {canManageSettings && (
+                  <TabsTrigger value="maintenance" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                    Maintenance
                   </TabsTrigger>
                 )}
               </TabsList>
@@ -4565,6 +4571,11 @@ const Admin = () => {
                 }}
                 isSaving={updateSiteSettings.isPending}
               />
+            </TabsContent>
+
+            {/* Maintenance Mode Tab */}
+            <TabsContent value="maintenance" className="space-y-6">
+              <MaintenanceModeManager />
             </TabsContent>
           </Tabs>
         </div>

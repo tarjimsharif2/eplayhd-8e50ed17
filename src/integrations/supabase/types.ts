@@ -804,6 +804,15 @@ export type Database = {
           id: string
           in_article_ad_code: string | null
           logo_url: string | null
+          maintenance_contact_email: string | null
+          maintenance_description: string | null
+          maintenance_end_time: string | null
+          maintenance_estimated_time: string | null
+          maintenance_mode: boolean | null
+          maintenance_show_countdown: boolean | null
+          maintenance_social_message: string | null
+          maintenance_subtitle: string | null
+          maintenance_title: string | null
           match_page_ad_positions: Json | null
           og_image_url: string | null
           popup_ad_code: string | null
@@ -854,6 +863,15 @@ export type Database = {
           id?: string
           in_article_ad_code?: string | null
           logo_url?: string | null
+          maintenance_contact_email?: string | null
+          maintenance_description?: string | null
+          maintenance_end_time?: string | null
+          maintenance_estimated_time?: string | null
+          maintenance_mode?: boolean | null
+          maintenance_show_countdown?: boolean | null
+          maintenance_social_message?: string | null
+          maintenance_subtitle?: string | null
+          maintenance_title?: string | null
           match_page_ad_positions?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null
@@ -904,6 +922,15 @@ export type Database = {
           id?: string
           in_article_ad_code?: string | null
           logo_url?: string | null
+          maintenance_contact_email?: string | null
+          maintenance_description?: string | null
+          maintenance_end_time?: string | null
+          maintenance_estimated_time?: string | null
+          maintenance_mode?: boolean | null
+          maintenance_show_countdown?: boolean | null
+          maintenance_social_message?: string | null
+          maintenance_subtitle?: string | null
+          maintenance_title?: string | null
           match_page_ad_positions?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null
@@ -955,6 +982,15 @@ export type Database = {
           id: string
           in_article_ad_code: string | null
           logo_url: string | null
+          maintenance_contact_email: string | null
+          maintenance_description: string | null
+          maintenance_end_time: string | null
+          maintenance_estimated_time: string | null
+          maintenance_mode: boolean | null
+          maintenance_show_countdown: boolean | null
+          maintenance_social_message: string | null
+          maintenance_subtitle: string | null
+          maintenance_title: string | null
           match_page_ad_positions: Json | null
           og_image_url: string | null
           popup_ad_code: string | null
@@ -995,6 +1031,15 @@ export type Database = {
           id: string
           in_article_ad_code?: string | null
           logo_url?: string | null
+          maintenance_contact_email?: string | null
+          maintenance_description?: string | null
+          maintenance_end_time?: string | null
+          maintenance_estimated_time?: string | null
+          maintenance_mode?: boolean | null
+          maintenance_show_countdown?: boolean | null
+          maintenance_social_message?: string | null
+          maintenance_subtitle?: string | null
+          maintenance_title?: string | null
           match_page_ad_positions?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null
@@ -1035,6 +1080,15 @@ export type Database = {
           id?: string
           in_article_ad_code?: string | null
           logo_url?: string | null
+          maintenance_contact_email?: string | null
+          maintenance_description?: string | null
+          maintenance_end_time?: string | null
+          maintenance_estimated_time?: string | null
+          maintenance_mode?: boolean | null
+          maintenance_show_countdown?: boolean | null
+          maintenance_social_message?: string | null
+          maintenance_subtitle?: string | null
+          maintenance_title?: string | null
           match_page_ad_positions?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null

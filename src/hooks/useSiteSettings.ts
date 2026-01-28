@@ -72,6 +72,16 @@ export interface SiteSettings {
   // Custom code injection
   custom_header_code: string | null;
   custom_footer_code: string | null;
+  // Maintenance mode settings
+  maintenance_mode: boolean;
+  maintenance_title: string | null;
+  maintenance_subtitle: string | null;
+  maintenance_description: string | null;
+  maintenance_estimated_time: string | null;
+  maintenance_show_countdown: boolean;
+  maintenance_end_time: string | null;
+  maintenance_contact_email: string | null;
+  maintenance_social_message: string | null;
 }
 
 // Admin-only hook for full site settings (requires admin role)

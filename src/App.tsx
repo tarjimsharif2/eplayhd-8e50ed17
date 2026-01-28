@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useParams, Navigate } from "react-router-dom";
-import { AuthProvider } from "@/hooks/useAuth";
+import { BrowserRouter, Routes, Route, useParams, Navigate, useLocation } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
@@ -18,6 +20,74 @@ import DynamicPage from "./pages/DynamicPage";
 import AdsTxt from "./pages/AdsTxt";
 import Sitemap from "./pages/Sitemap";
 import NotFound from "./pages/NotFound";
+import MaintenancePage from "./pages/MaintenancePage";
+
+// Maintenance mode wrapper - shows maintenance page for non-admin users
+const MaintenanceWrapper = ({ children }: { children: React.ReactNode }) => {
+  const { data: settings, isLoading: settingsLoading } = usePublicSiteSettings();
+  const { session, loading: authLoading } = useAuth();
+  const location = useLocation();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingAdmin, setCheckingAdmin] = useState(true);
+  
+  // Check admin status
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (!session?.user?.id) {
+        setIsAdmin(false);
+        setCheckingAdmin(false);
+        return;
+      }
+      
+      try {
+        const { data } = await supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', session.user.id)
+          .eq('role', 'admin')
+          .maybeSingle();
+        
+        setIsAdmin(!!data);
+      } catch (error) {
+        setIsAdmin(false);
+      } finally {
+        setCheckingAdmin(false);
+      }
+    };
+    
+    checkAdmin();
+  }, [session?.user?.id]);
+  
+  // Don't block while loading
+  if (settingsLoading || authLoading || checkingAdmin) return <>{children}</>;
+  
+  // Check if maintenance mode is enabled
+  const isMaintenanceMode = settings?.maintenance_mode === true;
+  
+  if (!isMaintenanceMode) return <>{children}</>;
+  
+  // Get admin slug for checking admin routes
+  const adminSlug = settings?.admin_slug || 'admin';
+  const currentPath = location.pathname;
+  
+  // Allow access to auth page
+  if (currentPath === '/auth') return <>{children}</>;
+  
+  // Allow access to admin routes for authenticated admin users
+  const isAdminRoute = 
+    currentPath === '/admin' || 
+    currentPath.startsWith('/admin/') || 
+    currentPath === `/${adminSlug}` ||
+    currentPath.startsWith(`/${adminSlug}/`);
+  
+  // If user is admin, allow access (they can see maintenance page but also navigate)
+  if (session && isAdmin) {
+    return <>{children}</>;
+  }
+  
+  // Show maintenance page for everyone else
+  return <MaintenancePage />;
+};
 
 // Protected admin route - blocks /admin if custom slug is set
 const ProtectedAdminRoute = () => {
@@ -85,6 +155,7 @@ const App = () => (
             <CustomCodeInjector />
             <BrowserRouter>
               <GoogleAnalyticsProvider>
+                <MaintenanceWrapper>
                 <Routes>
                   <Route path="/" element={<Index />} />
                   <Route path="/admin" element={<ProtectedAdminRoute />} />
@@ -101,6 +172,7 @@ const App = () => (
                   <Route path="/:dynamicAdmin" element={<DynamicAdminRoute />} />
                   <Route path="*" element={<NotFound />} />
                 </Routes>
+                </MaintenanceWrapper>
               </GoogleAnalyticsProvider>
             </BrowserRouter>
           </TooltipProvider>
