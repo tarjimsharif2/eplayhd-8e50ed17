@@ -42,59 +42,16 @@ interface FootballMatchImporterProps {
   onImportComplete?: () => void;
 }
 
-const ESPN_LEAGUES = [
-  // Top 5 European Leagues
-  { value: 'epl', label: 'Premier League' },
-  { value: 'laliga', label: 'La Liga' },
-  { value: 'bundesliga', label: 'Bundesliga' },
-  { value: 'seriea', label: 'Serie A' },
-  { value: 'ligue1', label: 'Ligue 1' },
-  // UEFA Competitions
-  { value: 'ucl', label: 'UEFA Champions League' },
-  { value: 'uel', label: 'UEFA Europa League' },
-  { value: 'uecl', label: 'UEFA Conference League' },
-  { value: 'euros', label: 'UEFA Euro Championship' },
-  { value: 'nations', label: 'UEFA Nations League' },
-  // World Competitions
-  { value: 'fifa.world', label: 'FIFA World Cup' },
-  { value: 'fifa.world.u20', label: 'FIFA U-20 World Cup' },
-  { value: 'fifa.world.u17', label: 'FIFA U-17 World Cup' },
-  { value: 'fifa.cwc', label: 'FIFA Club World Cup' },
+// Static fallback leagues in case database is empty
+const FALLBACK_LEAGUES = [
+  { value: 'eng.1', label: 'Premier League' },
+  { value: 'esp.1', label: 'La Liga' },
+  { value: 'ger.1', label: 'Bundesliga' },
+  { value: 'ita.1', label: 'Serie A' },
+  { value: 'fra.1', label: 'Ligue 1' },
+  { value: 'uefa.champions', label: 'UEFA Champions League' },
+  { value: 'uefa.europa', label: 'UEFA Europa League' },
   { value: 'fifa.friendly', label: 'International Friendly' },
-  { value: 'conmebol.america', label: 'Copa America' },
-  { value: 'concacaf.gold', label: 'CONCACAF Gold Cup' },
-  { value: 'afc.asian.cup', label: 'AFC Asian Cup' },
-  { value: 'caf.nations', label: 'Africa Cup of Nations' },
-  // Other European Leagues
-  { value: 'ned.1', label: 'Eredivisie (Netherlands)' },
-  { value: 'por.1', label: 'Primeira Liga (Portugal)' },
-  { value: 'tur.1', label: 'Süper Lig (Turkey)' },
-  { value: 'bel.1', label: 'Pro League (Belgium)' },
-  { value: 'sco.1', label: 'Scottish Premiership' },
-  { value: 'rus.1', label: 'Russian Premier League' },
-  { value: 'ukr.1', label: 'Ukrainian Premier League' },
-  // Americas
-  { value: 'bra.1', label: 'Brasileirão (Brazil)' },
-  { value: 'arg.1', label: 'Liga Profesional (Argentina)' },
-  { value: 'mex.1', label: 'Liga MX (Mexico)' },
-  { value: 'usa.1', label: 'MLS (USA)' },
-  // Asia & Others
-  { value: 'aus.1', label: 'A-League (Australia)' },
-  { value: 'jpn.1', label: 'J1 League (Japan)' },
-  { value: 'chn.1', label: 'Chinese Super League' },
-  { value: 'ind.1', label: 'Indian Super League' },
-  { value: 'sau.1', label: 'Saudi Pro League' },
-  // English Lower Divisions & Cups
-  { value: 'eng.2', label: 'EFL Championship' },
-  { value: 'eng.3', label: 'EFL League One' },
-  { value: 'eng.4', label: 'EFL League Two' },
-  { value: 'eng.fa', label: 'FA Cup' },
-  { value: 'eng.league_cup', label: 'EFL Cup (Carabao)' },
-  // Spanish & Italian Cups
-  { value: 'esp.copa_del_rey', label: 'Copa del Rey' },
-  { value: 'ita.coppa_italia', label: 'Coppa Italia' },
-  { value: 'ger.dfb_pokal', label: 'DFB-Pokal' },
-  { value: 'fra.coupe_de_france', label: 'Coupe de France' },
 ];
 
 export default function FootballMatchImporter({ onImportComplete }: FootballMatchImporterProps) {
@@ -105,11 +62,86 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
   const { data: sports } = useSports();
 
   const [open, setOpen] = useState(false);
-  const [selectedLeague, setSelectedLeague] = useState('epl');
+  const [selectedLeague, setSelectedLeague] = useState('eng.1');
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [apiMatches, setApiMatches] = useState<MatchToImport[]>([]);
   const [defaultTournamentId, setDefaultTournamentId] = useState<string | null>(null);
+  
+  // Dynamic leagues from database
+  const [leagues, setLeagues] = useState<{value: string, label: string}[]>([]);
+  const [loadingLeagues, setLoadingLeagues] = useState(true);
+  const [refreshingLeagues, setRefreshingLeagues] = useState(false);
+  
+  // Fetch leagues from database on mount
+  useEffect(() => {
+    const fetchLeagues = async () => {
+      setLoadingLeagues(true);
+      try {
+        const { data, error } = await supabase
+          .from('football_leagues')
+          .select('league_code, league_name')
+          .eq('is_active', true)
+          .order('league_name');
+        
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          setLeagues(data.map(l => ({
+            value: l.league_code,
+            label: l.league_name
+          })));
+        } else {
+          // Fallback to static list if database is empty
+          setLeagues(FALLBACK_LEAGUES);
+        }
+      } catch (err) {
+        console.error('Error fetching leagues:', err);
+        setLeagues(FALLBACK_LEAGUES);
+      } finally {
+        setLoadingLeagues(false);
+      }
+    };
+    fetchLeagues();
+  }, []);
+  
+  // Refresh leagues from ESPN API
+  const refreshLeagues = async () => {
+    setRefreshingLeagues(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('fetch-football-leagues');
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Leagues refreshed",
+        description: `${data.inserted} new, ${data.updated} updated leagues`,
+      });
+      
+      // Refetch from database
+      const { data: newLeagues } = await supabase
+        .from('football_leagues')
+        .select('league_code, league_name')
+        .eq('is_active', true)
+        .order('league_name');
+      
+      if (newLeagues && newLeagues.length > 0) {
+        setLeagues(newLeagues.map(l => ({
+          value: l.league_code,
+          label: l.league_name
+        })));
+      }
+    } catch (err) {
+      console.error('Error refreshing leagues:', err);
+      toast({
+        title: "Failed to refresh leagues",
+        description: "Please try again later",
+        variant: "destructive",
+      });
+    } finally {
+      setRefreshingLeagues(false);
+    }
+  };
 
   // Get Football sport ID (handles emoji prefix like "⚽ Football")
   const footballSportId = sports?.find(s => 
@@ -468,15 +500,24 @@ export default function FootballMatchImporter({ onImportComplete }: FootballMatc
           {/* Controls */}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <div className="space-y-2">
-              <Label className="text-xs sm:text-sm">League</Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs sm:text-sm">League</Label>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-5 w-5"
+                  onClick={refreshLeagues}
+                  disabled={refreshingLeagues}
+                  title="Refresh leagues from ESPN"
+                >
+                  <RefreshCw className={`h-3 w-3 ${refreshingLeagues ? 'animate-spin' : ''}`} />
+                </Button>
+              </div>
               <SearchableSelect
-                options={ESPN_LEAGUES.map(league => ({
-                  value: league.value,
-                  label: league.label,
-                }))}
+                options={leagues}
                 value={selectedLeague}
                 onValueChange={setSelectedLeague}
-                placeholder="Select league"
+                placeholder={loadingLeagues ? "Loading leagues..." : "Select league"}
                 searchPlaceholder="Search leagues..."
                 emptyText="No leagues found"
               />
