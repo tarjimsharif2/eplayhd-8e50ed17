@@ -106,6 +106,7 @@ serve(async (req) => {
       });
     }
 
+    // Get matches: live, completed (48h), and upcoming within 60 minutes
     const { data: liveMatches, error: matchError } = await supabase
       .from('matches')
       .select(`
@@ -122,7 +123,7 @@ serve(async (req) => {
         team_a:teams!matches_team_a_id_fkey(name, short_name),
         team_b:teams!matches_team_b_id_fkey(name, short_name)
       `)
-      .in('status', ['live', 'completed'])
+      .in('status', ['upcoming', 'live', 'completed'])
       .eq('is_active', true)
       .eq('auto_sync_enabled', true)
       .in('sport_id', footballSportIds);
@@ -132,12 +133,18 @@ serve(async (req) => {
       throw matchError;
     }
 
-    // Filter: only sync completed matches within last 48 hours
+    // Filter: completed within 48h, live always, upcoming within 60 minutes
     const footballMatches = (liveMatches || []).filter(m => {
       if (m.status === 'completed' && m.match_start_time) {
         const matchTime = new Date(m.match_start_time);
         const hoursSinceMatch = (now.getTime() - matchTime.getTime()) / (1000 * 60 * 60);
         return hoursSinceMatch <= 48;
+      }
+      if (m.status === 'upcoming' && m.match_start_time) {
+        const matchTime = new Date(m.match_start_time);
+        const minutesUntilMatch = (matchTime.getTime() - now.getTime()) / (1000 * 60);
+        // Sync upcoming matches within 60 minutes to get early lineup data
+        return minutesUntilMatch <= 60 && minutesUntilMatch >= -10;
       }
       return true; // Live matches always sync
     });
