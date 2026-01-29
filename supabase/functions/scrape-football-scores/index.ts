@@ -94,12 +94,14 @@ async function getActiveLeagueCodes(): Promise<string[]> {
 }
 
 // Fetch from ESPN public API
-// Fetch match detail (lineup & substitutions) from ESPN
+// Fetch match detail (lineup, substitutions & goals) from ESPN summary API
 async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
   homeLineup?: PlayerInfo[];
   awayLineup?: PlayerInfo[];
   homeSubs?: SubstitutionEvent[];
   awaySubs?: SubstitutionEvent[];
+  homeGoals?: GoalEvent[];
+  awayGoals?: GoalEvent[];
   round?: string;
 } | null> {
   try {
@@ -337,11 +339,227 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
     
     console.log(`[Match ${eventId}] Found ${homeSubs.length} home subs, ${awaySubs.length} away subs`);
     
+    // Parse goals from multiple sources in summary API
+    const homeGoals: GoalEvent[] = [];
+    const awayGoals: GoalEvent[] = [];
+    
+    // Helper to add goal if not duplicate
+    const addGoal = (goals: GoalEvent[], goal: GoalEvent) => {
+      const exists = goals.some(g => 
+        g.player === goal.player && g.minute === goal.minute && g.type === goal.type
+      );
+      if (!exists && goal.player && goal.player !== 'Unknown') {
+        goals.push(goal);
+      }
+    };
+    
+    // Source 1: keyEvents array (for goals)
+    const goalKeyEvents = data.keyEvents || [];
+    for (const event of goalKeyEvents) {
+      const typeText = event.type?.text?.toLowerCase() || '';
+      const typeId = event.type?.id;
+      
+      if (typeText.includes('goal') || typeId === '8' || typeId === '58' || typeId === '25') {
+        const teamId = event.team?.id;
+        // Try multiple ways to determine if home or away
+        let isHome = teamId === homeTeamId;
+        let isAway = teamId === awayTeamId;
+        
+        // Fallback: check team name if ID doesn't match
+        if (!isHome && !isAway && event.team?.displayName) {
+          const teamName = event.team.displayName.toLowerCase();
+          const homeTeamName = (homeTeamData?.team?.displayName || '').toLowerCase();
+          const awayTeamName = (awayTeamData?.team?.displayName || '').toLowerCase();
+          isHome = teamName.includes(homeTeamName) || homeTeamName.includes(teamName);
+          isAway = teamName.includes(awayTeamName) || awayTeamName.includes(teamName);
+        }
+        
+        // Fallback: use homeAway property if available
+        if (!isHome && !isAway && event.team?.homeAway) {
+          isHome = event.team.homeAway === 'home';
+          isAway = event.team.homeAway === 'away';
+        }
+        
+        const goalList = isHome ? homeGoals : (isAway ? awayGoals : homeGoals);
+        
+        const playerName = event.athletesInvolved?.[0]?.displayName || 
+                          event.athletesInvolved?.[0]?.fullName ||
+                          event.scoringPlay?.scoringPlayer?.displayName ||
+                          event.scoringPlay?.scoringPlayer?.fullName ||
+                          getPlayerName(event.participants?.[0]) || '';
+        
+        const goal: GoalEvent = {
+          player: playerName,
+          minute: event.clock?.displayValue || event.time?.displayValue || '',
+          type: typeText.includes('penalty') ? 'penalty' : 
+                typeText.includes('own') ? 'own_goal' : 'goal',
+        };
+        
+        // Check for assist
+        if (event.athletesInvolved?.length > 1) {
+          goal.assist = event.athletesInvolved[1]?.displayName || event.athletesInvolved[1]?.fullName;
+        }
+        
+        addGoal(goalList, goal);
+      }
+    }
+    
+    // Source 2: scoringPlays array
+    const scoringPlays = data.scoringPlays || data.scoring || [];
+    for (const play of scoringPlays) {
+      const teamId = play.team?.id;
+      // Try multiple ways to determine if home or away
+      let isHome = teamId === homeTeamId;
+      let isAway = teamId === awayTeamId;
+      
+      // Fallback: check team name if ID doesn't match
+      if (!isHome && !isAway && play.team?.displayName) {
+        const teamName = play.team.displayName.toLowerCase();
+        const homeTeamName = (homeTeamData?.team?.displayName || '').toLowerCase();
+        const awayTeamName = (awayTeamData?.team?.displayName || '').toLowerCase();
+        isHome = teamName.includes(homeTeamName) || homeTeamName.includes(teamName);
+        isAway = teamName.includes(awayTeamName) || awayTeamName.includes(teamName);
+      }
+      
+      // Fallback: use homeAway property if available
+      if (!isHome && !isAway && play.team?.homeAway) {
+        isHome = play.team.homeAway === 'home';
+        isAway = play.team.homeAway === 'away';
+      }
+      
+      const goalList = isHome ? homeGoals : (isAway ? awayGoals : homeGoals);
+      
+      const typeText = play.type?.text?.toLowerCase() || '';
+      
+      const playerName = play.scoringPlayer?.displayName || 
+                        play.scoringPlayer?.fullName ||
+                        play.athletesInvolved?.[0]?.displayName ||
+                        play.athletesInvolved?.[0]?.fullName ||
+                        play.scorerName || '';
+      
+      const goal: GoalEvent = {
+        player: playerName,
+        minute: play.clock?.displayValue || play.time?.displayValue || play.period?.displayValue || '',
+        type: typeText.includes('penalty') ? 'penalty' : 
+              typeText.includes('own') ? 'own_goal' : 'goal',
+      };
+      
+      // Check for assist
+      const assistName = play.assistPlayer?.displayName || 
+                        play.assistPlayer?.fullName ||
+                        (play.athletesInvolved?.length > 1 ? play.athletesInvolved[1]?.displayName : null);
+      if (assistName) {
+        goal.assist = assistName;
+      }
+      
+      addGoal(goalList, goal);
+    }
+    
+    // Source 3: details array (for goals)
+    const goalDetails = data.details || competition?.details || [];
+    for (const detail of goalDetails) {
+      const typeText = detail.type?.text?.toLowerCase() || '';
+      const typeId = detail.type?.id;
+      
+      if (typeText.includes('goal') || typeId === '8' || typeId === '58' || typeId === '25') {
+        const teamId = detail.team?.id;
+        // Try multiple ways to determine if home or away
+        let isHome = teamId === homeTeamId;
+        let isAway = teamId === awayTeamId;
+        
+        // Fallback: check team name if ID doesn't match
+        if (!isHome && !isAway && detail.team?.displayName) {
+          const teamName = detail.team.displayName.toLowerCase();
+          const homeTeamName = (homeTeamData?.team?.displayName || '').toLowerCase();
+          const awayTeamName = (awayTeamData?.team?.displayName || '').toLowerCase();
+          isHome = teamName.includes(homeTeamName) || homeTeamName.includes(teamName);
+          isAway = teamName.includes(awayTeamName) || awayTeamName.includes(teamName);
+        }
+        
+        // Fallback: use homeAway property if available
+        if (!isHome && !isAway && detail.team?.homeAway) {
+          isHome = detail.team.homeAway === 'home';
+          isAway = detail.team.homeAway === 'away';
+        }
+        
+        const goalList = isHome ? homeGoals : (isAway ? awayGoals : homeGoals);
+        
+        const playerName = detail.athletesInvolved?.[0]?.displayName || 
+                          detail.athletesInvolved?.[0]?.fullName || '';
+        
+        const goal: GoalEvent = {
+          player: playerName,
+          minute: detail.clock?.displayValue || detail.time?.displayValue || '',
+          type: typeText.includes('penalty') ? 'penalty' : 
+                typeText.includes('own') ? 'own_goal' : 'goal',
+        };
+        
+        // Check for assist
+        if (detail.athletesInvolved?.length > 1) {
+          goal.assist = detail.athletesInvolved[1]?.displayName || detail.athletesInvolved[1]?.fullName;
+        }
+        
+        addGoal(goalList, goal);
+      }
+    }
+    
+    // Source 4: plays array (timeline of all events)
+    const plays = data.plays || [];
+    for (const play of plays) {
+      const typeText = play.type?.text?.toLowerCase() || '';
+      const typeId = play.type?.id;
+      
+      if (typeText.includes('goal') || typeId === '8' || typeId === '58' || typeId === '25') {
+        const teamId = play.team?.id;
+        // Try multiple ways to determine if home or away
+        let isHome = teamId === homeTeamId;
+        let isAway = teamId === awayTeamId;
+        
+        // Fallback: check team name if ID doesn't match
+        if (!isHome && !isAway && play.team?.displayName) {
+          const teamName = play.team.displayName.toLowerCase();
+          const homeTeamName = (homeTeamData?.team?.displayName || '').toLowerCase();
+          const awayTeamName = (awayTeamData?.team?.displayName || '').toLowerCase();
+          isHome = teamName.includes(homeTeamName) || homeTeamName.includes(teamName);
+          isAway = teamName.includes(awayTeamName) || awayTeamName.includes(teamName);
+        }
+        
+        // Fallback: use homeAway property if available
+        if (!isHome && !isAway && play.team?.homeAway) {
+          isHome = play.team.homeAway === 'home';
+          isAway = play.team.homeAway === 'away';
+        }
+        
+        const goalList = isHome ? homeGoals : (isAway ? awayGoals : homeGoals);
+        
+        const playerName = play.athletesInvolved?.[0]?.displayName || 
+                          play.athletesInvolved?.[0]?.fullName || '';
+        
+        const goal: GoalEvent = {
+          player: playerName,
+          minute: play.clock?.displayValue || play.time?.displayValue || '',
+          type: typeText.includes('penalty') ? 'penalty' : 
+                typeText.includes('own') ? 'own_goal' : 'goal',
+        };
+        
+        // Check for assist
+        if (play.athletesInvolved?.length > 1) {
+          goal.assist = play.athletesInvolved[1]?.displayName || play.athletesInvolved[1]?.fullName;
+        }
+        
+        addGoal(goalList, goal);
+      }
+    }
+    
+    console.log(`[Match ${eventId}] Found ${homeGoals.length} home goals, ${awayGoals.length} away goals from summary API`);
+    
     return {
       homeLineup: homeLineup.length > 0 ? homeLineup : undefined,
       awayLineup: awayLineup.length > 0 ? awayLineup : undefined,
       homeSubs: homeSubs.length > 0 ? homeSubs : undefined,
       awaySubs: awaySubs.length > 0 ? awaySubs : undefined,
+      homeGoals: homeGoals.length > 0 ? homeGoals : undefined,
+      awayGoals: awayGoals.length > 0 ? awayGoals : undefined,
       round,
     };
     
@@ -592,7 +810,7 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
         awayGoals: awayGoals.length > 0 ? awayGoals : undefined,
       };
       
-      // Fetch detailed lineup & subs if requested and match is live or completed
+      // Fetch detailed lineup, subs & goals if requested
       // Also fetch round info from summary API if not found from scoreboard
       if (includeDetails) {
         const matchDetails = await fetchMatchDetails(event.id, leagueCode);
@@ -609,6 +827,40 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
           if (status === 'Live' || status === 'Half Time' || status === 'Completed') {
             matchObj.homeSubs = matchDetails.homeSubs;
             matchObj.awaySubs = matchDetails.awaySubs;
+          }
+          
+          // CRITICAL: Merge goals from summary API with scoreboard goals
+          // Summary API often has more complete goal data than scoreboard
+          if (matchDetails.homeGoals || matchDetails.awayGoals) {
+            // Merge home goals
+            const mergedHomeGoals = [...(matchObj.homeGoals || [])];
+            for (const goal of matchDetails.homeGoals || []) {
+              const exists = mergedHomeGoals.some(g => 
+                g.player === goal.player && g.minute === goal.minute && g.type === goal.type
+              );
+              if (!exists && goal.player && goal.player !== 'Unknown') {
+                mergedHomeGoals.push(goal);
+              }
+            }
+            if (mergedHomeGoals.length > 0) {
+              matchObj.homeGoals = mergedHomeGoals;
+            }
+            
+            // Merge away goals
+            const mergedAwayGoals = [...(matchObj.awayGoals || [])];
+            for (const goal of matchDetails.awayGoals || []) {
+              const exists = mergedAwayGoals.some(g => 
+                g.player === goal.player && g.minute === goal.minute && g.type === goal.type
+              );
+              if (!exists && goal.player && goal.player !== 'Unknown') {
+                mergedAwayGoals.push(goal);
+              }
+            }
+            if (mergedAwayGoals.length > 0) {
+              matchObj.awayGoals = mergedAwayGoals;
+            }
+            
+            console.log(`[${matchObj.homeTeam} vs ${matchObj.awayTeam}] Merged goals: ${matchObj.homeGoals?.length || 0} home, ${matchObj.awayGoals?.length || 0} away`);
           }
         }
       }
