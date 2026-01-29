@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -48,8 +49,8 @@ interface FootballMatch {
   awaySubs?: SubstitutionEvent[];
 }
 
-// ESPN API endpoints for different leagues
-const ESPN_LEAGUES = {
+// ESPN API endpoints for different leagues (fallback if DB is empty)
+const ESPN_LEAGUES_FALLBACK: Record<string, string> = {
   'epl': 'eng.1',          // English Premier League
   'laliga': 'esp.1',       // La Liga
   'bundesliga': 'ger.1',   // Bundesliga
@@ -60,6 +61,37 @@ const ESPN_LEAGUES = {
   'mls': 'usa.1',          // MLS
   'worldcup': 'fifa.world',
 };
+
+// Helper to get all active league codes from database
+async function getActiveLeagueCodes(): Promise<string[]> {
+  try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!supabaseUrl || !supabaseKey) {
+      console.log('No Supabase credentials, using fallback leagues');
+      return Object.values(ESPN_LEAGUES_FALLBACK);
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const { data: leagues, error } = await supabase
+      .from('football_leagues')
+      .select('league_code')
+      .eq('is_active', true);
+    
+    if (error || !leagues || leagues.length === 0) {
+      console.log('No leagues in DB or error, using fallback leagues:', error?.message);
+      return Object.values(ESPN_LEAGUES_FALLBACK);
+    }
+    
+    console.log(`Found ${leagues.length} active leagues in database`);
+    return leagues.map(l => l.league_code);
+  } catch (err) {
+    console.error('Error fetching leagues from DB:', err);
+    return Object.values(ESPN_LEAGUES_FALLBACK);
+  }
+}
 
 // Fetch from ESPN public API
 // Fetch match detail (lineup & substitutions) from ESPN
@@ -321,7 +353,8 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
 
 async function fetchESPNScores(league: string = 'epl', includeDetails: boolean = false): Promise<FootballMatch[]> {
   const matches: FootballMatch[] = [];
-  const leagueCode = ESPN_LEAGUES[league as keyof typeof ESPN_LEAGUES] || league;
+  // league can be a short alias (epl, ucl) or a full ESPN code (eng.1, uefa.champions)
+  const leagueCode = ESPN_LEAGUES_FALLBACK[league as keyof typeof ESPN_LEAGUES_FALLBACK] || league;
   
   try {
     const formatDate = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
@@ -590,19 +623,37 @@ async function fetchESPNScores(league: string = 'epl', includeDetails: boolean =
   return matches;
 }
 
-// Fetch all major leagues at once
+// Fetch ALL active leagues from database (not just hardcoded ones)
 async function fetchAllLeagues(includeDetails: boolean = false): Promise<FootballMatch[]> {
   const allMatches: FootballMatch[] = [];
-  const leaguesToFetch = ['epl', 'laliga', 'bundesliga', 'seriea', 'ligue1', 'ucl', 'uel'];
   
-  const promises = leaguesToFetch.map(league => fetchESPNScores(league, includeDetails));
-  const results = await Promise.all(promises);
+  // Get all active leagues from database
+  const leagueCodes = await getActiveLeagueCodes();
+  console.log(`Fetching ${leagueCodes.length} leagues: ${leagueCodes.join(', ')}`);
   
-  for (const matches of results) {
-    allMatches.push(...matches);
+  // Fetch in batches of 10 to avoid overwhelming the API
+  const batchSize = 10;
+  for (let i = 0; i < leagueCodes.length; i += batchSize) {
+    const batch = leagueCodes.slice(i, i + batchSize);
+    const promises = batch.map(leagueCode => fetchESPNScores(leagueCode, includeDetails));
+    const results = await Promise.all(promises);
+    
+    for (const matches of results) {
+      allMatches.push(...matches);
+    }
   }
   
-  return allMatches;
+  // Remove duplicates by eventId
+  const seen = new Set<string>();
+  const uniqueMatches = allMatches.filter(m => {
+    if (!m.eventId) return true; // Keep matches without eventId
+    if (seen.has(m.eventId)) return false;
+    seen.add(m.eventId);
+    return true;
+  });
+  
+  console.log(`Total unique matches from all leagues: ${uniqueMatches.length}`);
+  return uniqueMatches;
 }
 
 // Extract text content from HTML
@@ -804,7 +855,7 @@ serve(async (req) => {
         matchId: matchId || null,
         totalMatches: matches.length,
         source: league || (allLeagues ? 'all-leagues' : (url ? 'custom-url' : 'epl')),
-        availableLeagues: Object.keys(ESPN_LEAGUES),
+        availableLeagues: Object.keys(ESPN_LEAGUES_FALLBACK),
       }),
       { 
         status: 200, 
