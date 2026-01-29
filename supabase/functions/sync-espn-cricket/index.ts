@@ -550,7 +550,7 @@ Deno.serve(async (req) => {
 
     // Get matches that need ESPN sync
     const now = new Date();
-    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+    const sixtyMinutesFromNow = new Date(now.getTime() + 60 * 60 * 1000);
     const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
 
     let matchQuery = supabase
@@ -614,6 +614,7 @@ Deno.serve(async (req) => {
         return updatedAt >= thirtyMinutesAgo;
       }
       
+      // Sync upcoming matches within 60 minutes to get early lineup/toss data
       if (match.status === 'upcoming') {
         let matchDateTime: Date | null = null;
         if (match.match_start_time) {
@@ -621,8 +622,13 @@ Deno.serve(async (req) => {
         } else if (match.match_date && match.match_time) {
           matchDateTime = new Date(`${match.match_date}T${match.match_time}`);
         }
-        if (matchDateTime && matchDateTime <= fiveMinutesFromNow) {
-          return true;
+        if (matchDateTime) {
+          const minutesUntilMatch = (matchDateTime.getTime() - now.getTime()) / (1000 * 60);
+          // Sync upcoming matches within 60 minutes (and up to 10 mins after expected start)
+          if (minutesUntilMatch <= 60 && minutesUntilMatch >= -10) {
+            console.log(`[ESPN Cricket] Including upcoming match - ${minutesUntilMatch.toFixed(0)} mins until start`);
+            return true;
+          }
         }
       }
       

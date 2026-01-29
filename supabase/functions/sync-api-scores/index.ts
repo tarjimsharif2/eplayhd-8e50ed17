@@ -244,7 +244,7 @@ Deno.serve(async (req) => {
 
     // Get matches that need syncing
     const now = new Date();
-    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+    const sixtyMinutesFromNow = new Date(now.getTime() + 60 * 60 * 1000);
     
     // Include recently completed matches (within last 30 minutes) to ensure final scores are synced
     // This prevents the issue where second innings data stops syncing when match completes
@@ -350,6 +350,7 @@ Deno.serve(async (req) => {
         return updatedAt >= thirtyMinutesAgo;
       }
       
+      // Sync upcoming matches within 60 minutes to get early lineup/toss data
       if (match.status === 'upcoming') {
         let matchDateTime: Date | null = null;
         
@@ -359,8 +360,13 @@ Deno.serve(async (req) => {
           matchDateTime = new Date(`${match.match_date}T${match.match_time}`);
         }
         
-        if (matchDateTime && matchDateTime <= fiveMinutesFromNow) {
-          return true;
+        if (matchDateTime) {
+          const minutesUntilMatch = (matchDateTime.getTime() - now.getTime()) / (1000 * 60);
+          // Sync upcoming matches within 60 minutes (and up to 10 mins after expected start)
+          if (minutesUntilMatch <= 60 && minutesUntilMatch >= -10) {
+            console.log(`[sync-api-scores] Including upcoming match - ${minutesUntilMatch.toFixed(0)} mins until start`);
+            return true;
+          }
         }
       }
       
