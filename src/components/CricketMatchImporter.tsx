@@ -75,9 +75,9 @@ const ESPN_CRICKET_SERIES = [
 ];
 
 const RAPIDAPI_SOURCES = [
-  { value: 'schedule', label: '📅 Full Schedule (All Matches)' },
+  { value: 'upcoming', label: '📅 Upcoming Matches (7 Days)' },
   { value: 'live', label: '🔴 Live Matches Only' },
-  { value: 'recent', label: '📊 Recent/Upcoming Matches' },
+  { value: 'schedule', label: '📊 Full Schedule' },
   { value: 'series', label: '🔍 Specific Series ID' },
 ];
 
@@ -98,7 +98,7 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
   const [apiMatches, setApiMatches] = useState<MatchToImport[]>([]);
   const [defaultTournamentId, setDefaultTournamentId] = useState<string | null>(null);
   // RapidAPI specific states
-  const [rapidApiSource, setRapidApiSource] = useState('schedule');
+  const [rapidApiSource, setRapidApiSource] = useState('upcoming');
   const [rapidApiSeriesId, setRapidApiSeriesId] = useState('');
 
   // Get Cricket sport ID
@@ -215,12 +215,48 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
       if (error) throw error;
 
       if (data?.matches) {
-        // Filter out completed matches - only import upcoming/live
-        const filteredMatches = data.matches.filter((m: ESPNCricketMatch) => {
-          const status = m.status?.toLowerCase() || '';
-          const isCompleted = status.includes('complete') || status.includes('result') || status.includes('won') || status.includes('draw');
-          return !isCompleted;
-        });
+        // For RapidAPI, filter based on source type
+        let filteredMatches = data.matches;
+        
+        if (rapidApiSource === 'upcoming' || rapidApiSource === 'schedule') {
+          // Keep only upcoming and live matches - exclude completed
+          filteredMatches = data.matches.filter((m: ESPNCricketMatch) => {
+            const status = m.status?.toLowerCase() || '';
+            // Check for completed match indicators
+            const isCompleted = status.includes('complete') || 
+              status.includes(' won ') || 
+              status.includes(' beat ') ||
+              status.includes(' defeated ') ||
+              status.includes('match drawn') ||
+              status.includes('match tied') ||
+              status.includes('no result') ||
+              (status.includes('result') && !status.includes('no result'));
+            
+            // Also check if it's explicitly upcoming/scheduled
+            const isUpcoming = status.includes('upcoming') || 
+              status.includes('scheduled') || 
+              status.includes('starts') || 
+              status.includes('match starts') ||
+              status === '' ||
+              !status;
+              
+            const isLive = status.includes('live') || 
+              status.includes('in progress') || 
+              status.includes('innings') ||
+              status.includes('batting');
+            
+            return !isCompleted || isUpcoming || isLive;
+          });
+        } else if (rapidApiSource === 'live') {
+          // Keep only live matches
+          filteredMatches = data.matches.filter((m: ESPNCricketMatch) => {
+            const status = m.status?.toLowerCase() || '';
+            return status.includes('live') || 
+              status.includes('in progress') || 
+              status.includes('innings') ||
+              status.includes('batting');
+          });
+        }
 
         const matchesWithMappings: MatchToImport[] = filteredMatches.map((m: ESPNCricketMatch) => ({
           ...m,
@@ -233,13 +269,16 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
         
         toast({
           title: "Matches Fetched",
-          description: `Found ${filteredMatches.length} upcoming/live matches from RapidAPI`,
+          description: `Found ${filteredMatches.length} match(es) from RapidAPI (Total: ${data.matches.length})`,
         });
         
-        if (filteredMatches.length === 0 && data.matches.length > 0) {
+        if (filteredMatches.length === 0) {
           toast({
-            title: "No upcoming matches",
-            description: `All ${data.matches.length} matches are completed.`,
+            title: "No matches found",
+            description: data.matches.length > 0 
+              ? `All ${data.matches.length} matches are completed or don't match filter.`
+              : "No matches returned from API. Check RapidAPI settings.",
+            variant: "destructive"
           });
         }
       }

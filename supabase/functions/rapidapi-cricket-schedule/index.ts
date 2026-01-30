@@ -130,6 +130,11 @@ Deno.serve(async (req) => {
       console.log(`[rapidapi-cricket-schedule] Fetching series: ${seriesId}`);
     } else if (source === 'live') {
       endpointsToFetch.push(`https://${cricbuzzHost}${liveMatchesPath}`);
+    } else if (source === 'upcoming') {
+      // Focus on upcoming matches - fetch schedule and live
+      endpointsToFetch.push(`https://${cricbuzzHost}${schedulePath}`);
+      endpointsToFetch.push(`https://${cricbuzzHost}${liveMatchesPath}`);
+      console.log(`[rapidapi-cricket-schedule] Fetching upcoming matches (schedule + live)`);
     } else if (source === 'recent') {
       // Fetch both recent and schedule to get more upcoming matches
       endpointsToFetch.push(`https://${cricbuzzHost}${recentMatchesPath}`);
