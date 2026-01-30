@@ -44,6 +44,8 @@ export interface Tournament {
   show_participating_teams: boolean | null;
   participating_teams_position: string | null;
   custom_participating_teams: unknown; // JSON type from database
+  series_id: string | null; // Cricbuzz/API series ID for syncing
+  logo_background_color: string | null;
   created_at: string;
   updated_at: string;
 }
