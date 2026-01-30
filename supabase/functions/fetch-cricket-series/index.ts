@@ -5,14 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface CricbuzzSeries {
-  id: string;
-  name: string;
-  startDate?: string;
-  endDate?: string;
-  matchCount?: number;
-}
-
 interface SeriesInfo {
   seriesId: string;
   seriesName: string;
@@ -40,6 +32,7 @@ Deno.serve(async (req) => {
       .single();
 
     if (!settings?.rapidapi_enabled || !settings?.rapidapi_key) {
+      console.error('[fetch-cricket-series] RapidAPI not enabled or no key');
       return new Response(
         JSON.stringify({ success: false, error: 'RapidAPI is not enabled or configured' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -48,6 +41,8 @@ Deno.serve(async (req) => {
 
     const endpoints = settings.rapidapi_endpoints as Record<string, string> || {};
     const cricbuzzHost = endpoints.cricbuzz_host || 'cricbuzz-cricket.p.rapidapi.com';
+    
+    console.log(`[fetch-cricket-series] Using host: ${cricbuzzHost}`);
     
     const allSeries: SeriesInfo[] = [];
     
@@ -60,7 +55,7 @@ Deno.serve(async (req) => {
 
     for (const endpoint of fetchEndpoints) {
       try {
-        console.log(`[fetch-cricket-series] Fetching from: ${endpoint}`);
+        console.log(`[fetch-cricket-series] Fetching from: https://${cricbuzzHost}${endpoint}`);
         
         const response = await fetch(`https://${cricbuzzHost}${endpoint}`, {
           headers: {
@@ -69,37 +64,78 @@ Deno.serve(async (req) => {
           },
         });
 
+        console.log(`[fetch-cricket-series] Response status: ${response.status}`);
+
         if (!response.ok) {
-          console.error(`[fetch-cricket-series] Error fetching ${endpoint}: ${response.status}`);
+          const errorText = await response.text();
+          console.error(`[fetch-cricket-series] Error fetching ${endpoint}: ${response.status} - ${errorText}`);
           continue;
         }
 
         const data = await response.json();
+        console.log(`[fetch-cricket-series] Response keys: ${Object.keys(data || {}).join(', ')}`);
         
         // Parse series from response - Cricbuzz returns nested structure
-        if (data.seriesMapProto) {
-          for (const category of data.seriesMapProto) {
-            if (category.series && Array.isArray(category.series)) {
-              for (const series of category.series) {
-                if (series.seriesId && series.seriesName) {
+        // Try different possible structures
+        const seriesMapProto = data.seriesMapProto || data.seriesMap || data.series || [];
+        
+        if (Array.isArray(seriesMapProto)) {
+          console.log(`[fetch-cricket-series] Found ${seriesMapProto.length} categories`);
+          
+          for (const category of seriesMapProto) {
+            const seriesArray = category.series || category.seriesList || [];
+            
+            if (Array.isArray(seriesArray)) {
+              console.log(`[fetch-cricket-series] Category has ${seriesArray.length} series`);
+              
+              for (const series of seriesArray) {
+                const seriesId = series.seriesId || series.id;
+                const seriesName = series.seriesName || series.name;
+                
+                if (seriesId && seriesName) {
                   // Skip if already added
-                  if (allSeries.some(s => s.seriesId === String(series.seriesId))) {
+                  if (allSeries.some(s => s.seriesId === String(seriesId))) {
                     continue;
                   }
                   
+                  // Parse dates - Cricbuzz uses timestamps in milliseconds
+                  let startDate: string | null = null;
+                  let endDate: string | null = null;
+                  
+                  if (series.startDt) {
+                    try {
+                      const ts = parseInt(series.startDt);
+                      startDate = new Date(ts).toISOString().split('T')[0];
+                    } catch (e) {
+                      console.log(`[fetch-cricket-series] Could not parse startDt: ${series.startDt}`);
+                    }
+                  }
+                  
+                  if (series.endDt) {
+                    try {
+                      const ts = parseInt(series.endDt);
+                      endDate = new Date(ts).toISOString().split('T')[0];
+                    } catch (e) {
+                      console.log(`[fetch-cricket-series] Could not parse endDt: ${series.endDt}`);
+                    }
+                  }
+                  
                   allSeries.push({
-                    seriesId: String(series.seriesId),
-                    seriesName: series.seriesName,
-                    startDate: series.startDt ? new Date(parseInt(series.startDt)).toISOString().split('T')[0] : null,
-                    endDate: series.endDt ? new Date(parseInt(series.endDt)).toISOString().split('T')[0] : null,
-                    matchCount: series.matches || 0,
+                    seriesId: String(seriesId),
+                    seriesName: seriesName,
+                    startDate,
+                    endDate,
+                    matchCount: series.matches || series.matchCount || 0,
                   });
                   
-                  console.log(`[fetch-cricket-series] Found: ${series.seriesName} (ID: ${series.seriesId})`);
+                  console.log(`[fetch-cricket-series] Found: ${seriesName} (ID: ${seriesId})`);
                 }
               }
             }
           }
+        } else {
+          console.log(`[fetch-cricket-series] seriesMapProto is not an array, type: ${typeof seriesMapProto}`);
+          console.log(`[fetch-cricket-series] Raw data sample: ${JSON.stringify(data).substring(0, 500)}`);
         }
       } catch (error) {
         console.error(`[fetch-cricket-series] Error processing ${endpoint}:`, error);
