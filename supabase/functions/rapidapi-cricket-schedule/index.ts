@@ -108,11 +108,14 @@ Deno.serve(async (req) => {
     const endpoints = settings.rapidapi_endpoints || {};
     const cricbuzzHost = endpoints.cricbuzz_host || 'cricbuzz-cricket.p.rapidapi.com';
 
-    // Get endpoint paths
+    // Get endpoint paths with proper defaults
     const liveMatchesPath = endpoints.live_matches_endpoint || '/matches/v1/live';
     const recentMatchesPath = endpoints.recent_matches_endpoint || '/matches/v1/recent';
     const schedulePath = endpoints.schedule_endpoint || '/schedule/v1/all';
     const seriesMatchesPath = endpoints.series_matches_endpoint || '/series/v1/{series_id}/matches';
+
+    console.log(`[rapidapi-cricket-schedule] Using host: ${cricbuzzHost}`);
+    console.log(`[rapidapi-cricket-schedule] Endpoints - live: ${liveMatchesPath}, recent: ${recentMatchesPath}, schedule: ${schedulePath}`);
 
     let allMatches: CricbuzzMatch[] = [];
     const fetchedMatchIds = new Set<string>();
@@ -124,12 +127,15 @@ Deno.serve(async (req) => {
       // Fetch specific series matches
       const seriesPath = (seriesMatchesPath || '/series/v1/{series_id}/matches').replace('{series_id}', seriesId);
       endpointsToFetch.push(`https://${cricbuzzHost}${seriesPath}`);
+      console.log(`[rapidapi-cricket-schedule] Fetching series: ${seriesId}`);
     } else if (source === 'live') {
       endpointsToFetch.push(`https://${cricbuzzHost}${liveMatchesPath}`);
     } else if (source === 'recent') {
+      // Fetch both recent and schedule to get more upcoming matches
       endpointsToFetch.push(`https://${cricbuzzHost}${recentMatchesPath}`);
+      endpointsToFetch.push(`https://${cricbuzzHost}${schedulePath}`);
     } else {
-      // Schedule - fetch all sources
+      // Schedule - fetch all sources for maximum coverage
       endpointsToFetch.push(`https://${cricbuzzHost}${schedulePath}`);
       endpointsToFetch.push(`https://${cricbuzzHost}${liveMatchesPath}`);
       endpointsToFetch.push(`https://${cricbuzzHost}${recentMatchesPath}`);
@@ -311,21 +317,39 @@ Deno.serve(async (req) => {
       }
     }
 
+    // Filter for upcoming 7 days if needed
+    const now = new Date();
+    const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    // Filter matches for next 7 days (include matches without startTime as potentially upcoming)
+    const upcomingMatches = allMatches.filter(match => {
+      if (!match.startTime) return true; // Keep matches without time
+      
+      try {
+        const matchDate = new Date(match.startTime);
+        // Include matches from now to 7 days ahead
+        return matchDate >= new Date(now.getTime() - 24 * 60 * 60 * 1000) && matchDate <= sevenDaysLater;
+      } catch {
+        return true;
+      }
+    });
+
     // Sort by start time
-    allMatches.sort((a, b) => {
+    upcomingMatches.sort((a, b) => {
       if (!a.startTime && !b.startTime) return 0;
       if (!a.startTime) return 1;
       if (!b.startTime) return -1;
       return new Date(a.startTime).getTime() - new Date(b.startTime).getTime();
     });
 
-    console.log(`[rapidapi-cricket-schedule] Found ${allMatches.length} matches`);
+    console.log(`[rapidapi-cricket-schedule] Found ${allMatches.length} total, ${upcomingMatches.length} in next 7 days`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        matches: allMatches,
-        count: allMatches.length,
+        matches: upcomingMatches,
+        count: upcomingMatches.length,
+        totalFetched: allMatches.length,
         source: source
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
