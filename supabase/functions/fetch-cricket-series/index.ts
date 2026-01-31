@@ -76,7 +76,6 @@ Deno.serve(async (req) => {
         console.log(`[fetch-cricket-series] Response keys: ${Object.keys(data || {}).join(', ')}`);
         
         // Parse series from response - Cricbuzz returns nested structure
-        // Try different possible structures
         const seriesMapProto = data.seriesMapProto || data.seriesMap || data.series || [];
         
         if (Array.isArray(seriesMapProto)) {
@@ -135,7 +134,6 @@ Deno.serve(async (req) => {
           }
         } else {
           console.log(`[fetch-cricket-series] seriesMapProto is not an array, type: ${typeof seriesMapProto}`);
-          console.log(`[fetch-cricket-series] Raw data sample: ${JSON.stringify(data).substring(0, 500)}`);
         }
       } catch (error) {
         console.error(`[fetch-cricket-series] Error processing ${endpoint}:`, error);
@@ -144,60 +142,44 @@ Deno.serve(async (req) => {
 
     console.log(`[fetch-cricket-series] Total series found: ${allSeries.length}`);
 
-    // Upsert series to tournaments table
+    // Upsert series to cricket_series table (NOT tournaments)
     let insertedCount = 0;
     let updatedCount = 0;
 
     for (const series of allSeries) {
-      // Check if tournament with this series_id already exists
+      // Check if series with this series_id already exists
       const { data: existing } = await supabase
-        .from('tournaments')
-        .select('id, name')
+        .from('cricket_series')
+        .select('id, series_name')
         .eq('series_id', series.seriesId)
         .maybeSingle();
 
       if (existing) {
-        // Update existing tournament's dates if changed
+        // Update existing series
         const { error } = await supabase
-          .from('tournaments')
+          .from('cricket_series')
           .update({
+            series_name: series.seriesName,
             start_date: series.startDate,
             end_date: series.endDate,
-            total_matches: series.matchCount || null,
+            match_count: series.matchCount || null,
+            last_synced_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
           })
           .eq('series_id', series.seriesId);
 
         if (!error) updatedCount++;
       } else {
-        // Generate slug from series name
-        const slug = series.seriesName
-          .toLowerCase()
-          .replace(/[^a-z0-9]+/g, '-')
-          .replace(/^-|-$/g, '');
-
-        // Determine season from dates or current year
-        const season = series.startDate 
-          ? new Date(series.startDate).getFullYear().toString()
-          : new Date().getFullYear().toString();
-
-        // Insert new tournament
+        // Insert new series
         const { error } = await supabase
-          .from('tournaments')
+          .from('cricket_series')
           .insert({
-            name: series.seriesName,
             series_id: series.seriesId,
-            sport: 'Cricket',
-            season: season,
-            slug: slug,
+            series_name: series.seriesName,
             start_date: series.startDate,
             end_date: series.endDate,
-            total_matches: series.matchCount || null,
+            match_count: series.matchCount || null,
             is_active: true,
-            show_in_menu: false,
-            show_in_homepage: false,
-            seo_title: `${series.seriesName} - Live Scores & Updates`,
-            seo_description: `Watch ${series.seriesName} live scores, schedules, and streaming links.`,
           });
 
         if (!error) {

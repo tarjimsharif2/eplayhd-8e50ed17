@@ -74,7 +74,17 @@ const ESPN_CRICKET_SERIES = [
   { value: 'pak-vs-wi', label: 'Pakistan vs West Indies 2025' },
 ];
 
-// RapidAPI sources removed - now we use tournament-based fetching
+// RapidAPI sources removed - now we use series-based fetching (like football_leagues)
+
+interface CricketSeriesItem {
+  id: string;
+  series_id: string;
+  series_name: string;
+  start_date: string | null;
+  end_date: string | null;
+  match_count: number | null;
+  is_active: boolean;
+}
 
 export default function CricketMatchImporter({ onImportComplete }: CricketMatchImporterProps) {
   const { toast } = useToast();
@@ -92,14 +102,42 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
   const [importing, setImporting] = useState(false);
   const [apiMatches, setApiMatches] = useState<MatchToImport[]>([]);
   const [defaultTournamentId, setDefaultTournamentId] = useState<string | null>(null);
-  // RapidAPI specific states - tournament-first approach
-  const [rapidApiTournamentId, setRapidApiTournamentId] = useState<string | null>(null);
-  const [tournamentSearch, setTournamentSearch] = useState('');
+  
+  // RapidAPI specific states - series-first approach (like football)
+  const [rapidApiSeriesId, setRapidApiSeriesId] = useState<string | null>(null);
+  const [seriesListSearch, setSeriesListSearch] = useState('');
   const [rapidApiCustomSeriesId, setRapidApiCustomSeriesId] = useState('');
   const [useCustomSeriesId, setUseCustomSeriesId] = useState(false);
   const [syncingSeries, setSyncingSeries] = useState(false);
+  
+  // Cricket series from database (like football_leagues)
+  const [cricketSeries, setCricketSeries] = useState<CricketSeriesItem[]>([]);
+  const [loadingSeries, setLoadingSeries] = useState(true);
+  
+  // Fetch cricket series from database on mount
+  useEffect(() => {
+    const fetchSeries = async () => {
+      setLoadingSeries(true);
+      try {
+        const { data, error } = await supabase
+          .from('cricket_series')
+          .select('*')
+          .eq('is_active', true)
+          .order('series_name');
+        
+        if (error) throw error;
+        
+        setCricketSeries(data || []);
+      } catch (err) {
+        console.error('Error fetching cricket series:', err);
+      } finally {
+        setLoadingSeries(false);
+      }
+    };
+    fetchSeries();
+  }, []);
 
-  // Sync cricket series from RapidAPI (Cricbuzz)
+  // Sync cricket series from RapidAPI (Cricbuzz) - saves to cricket_series table
   const syncCricketSeries = async () => {
     setSyncingSeries(true);
     try {
@@ -109,11 +147,19 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
       
       toast({
         title: "Series Synced",
-        description: `${data.inserted} new, ${data.updated} updated tournaments from Cricbuzz`,
+        description: `${data.inserted} new, ${data.updated} updated series from Cricbuzz`,
       });
       
-      // Refetch tournaments
-      queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+      // Refetch series from database
+      const { data: newSeries } = await supabase
+        .from('cricket_series')
+        .select('*')
+        .eq('is_active', true)
+        .order('series_name');
+      
+      if (newSeries) {
+        setCricketSeries(newSeries);
+      }
     } catch (err) {
       console.error('Error syncing series:', err);
       toast({
@@ -217,15 +263,15 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
     }
   };
 
-  // Fetch matches from RapidAPI using tournament's series_id
+  // Fetch matches from RapidAPI using selected series from cricket_series table
   const fetchRapidApiMatches = async () => {
-    // Get series ID from selected tournament or custom input
+    // Get series ID from selected series or custom input
     let seriesId = rapidApiCustomSeriesId.trim();
     
-    if (!useCustomSeriesId && rapidApiTournamentId) {
-      const tournament = tournaments?.find(t => t.id === rapidApiTournamentId);
-      if (tournament?.series_id) {
-        seriesId = tournament.series_id;
+    if (!useCustomSeriesId && rapidApiSeriesId) {
+      const series = cricketSeries.find(s => s.id === rapidApiSeriesId);
+      if (series?.series_id) {
+        seriesId = series.series_id;
       }
     }
     
@@ -234,7 +280,7 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
         title: "Series ID Required",
         description: useCustomSeriesId 
           ? "Please enter a Cricbuzz Series ID" 
-          : "Selected tournament has no Series ID. Please add one in tournament settings or use custom ID.",
+          : "Please select a series from the list",
         variant: "destructive"
       });
       return;
@@ -280,8 +326,8 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
           return !isCompleted || isUpcoming || isLive;
         });
 
-        // Use selected tournament as default
-        const targetTournamentId = rapidApiTournamentId || null;
+        // Use default tournament if selected
+        const targetTournamentId = defaultTournamentId || null;
         
         const matchesWithMappings: MatchToImport[] = filteredMatches.map((m: ESPNCricketMatch) => ({
           ...m,
@@ -722,10 +768,10 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
 
             {/* RapidAPI Tab Content */}
             <TabsContent value="rapidapi" className="space-y-4 mt-4">
-              {/* Tournament Selection - Football style */}
+              {/* Series Selection - Like football_leagues */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <Label className="text-base font-medium">Step 1: Select Tournament</Label>
+                  <Label className="text-base font-medium">Step 1: Select Series</Label>
                   <div className="flex items-center gap-3">
                     <Button 
                       variant="outline" 
@@ -770,59 +816,60 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
                   <div className="space-y-2">
                     <div className="flex gap-2">
                       <Input
-                        placeholder="Search tournament..."
-                        value={tournamentSearch}
-                        onChange={(e) => setTournamentSearch(e.target.value)}
+                        placeholder="Search series..."
+                        value={seriesListSearch}
+                        onChange={(e) => setSeriesListSearch(e.target.value)}
                         className="h-9 flex-1"
                       />
                     </div>
                     <div className="border rounded-lg max-h-[200px] overflow-y-auto">
-                      {(() => {
-                        const syncedTournaments = tournaments
-                          ?.filter(t => 
-                            t.sport?.toLowerCase().includes('cricket') &&
-                            t.series_id && // Only show synced tournaments with series_id
-                            (tournamentSearch === '' || 
-                             t.name.toLowerCase().includes(tournamentSearch.toLowerCase()) ||
-                             t.season.toLowerCase().includes(tournamentSearch.toLowerCase()))
+                      {loadingSeries ? (
+                        <div className="p-4 text-center text-muted-foreground text-sm">
+                          <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
+                          Loading series...
+                        </div>
+                      ) : (() => {
+                        const filteredSeries = cricketSeries
+                          .filter(s => 
+                            seriesListSearch === '' || 
+                            s.series_name.toLowerCase().includes(seriesListSearch.toLowerCase())
                           )
-                          .sort((a, b) => {
-                            // Sort: active first, then by name
-                            if (a.is_active && !b.is_active) return -1;
-                            if (!a.is_active && b.is_active) return 1;
-                            return a.name.localeCompare(b.name);
-                          }) || [];
+                          .sort((a, b) => a.series_name.localeCompare(b.series_name));
                         
-                        if (syncedTournaments.length === 0) {
+                        if (filteredSeries.length === 0) {
                           return (
                             <div className="p-4 text-center text-muted-foreground text-sm space-y-2">
-                              <p>No synced series found</p>
-                              <p className="text-xs">Click "Sync Series" to fetch tournaments from RapidAPI</p>
+                              <p>No series found</p>
+                              <p className="text-xs">Click "Sync Series" to fetch from RapidAPI</p>
                             </div>
                           );
                         }
                         
-                        return syncedTournaments.map(tournament => (
+                        return filteredSeries.map(series => (
                           <div 
-                            key={tournament.id}
+                            key={series.id}
                             className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 transition-colors ${
-                              rapidApiTournamentId === tournament.id ? 'bg-primary/10 border-primary/30' : ''
+                              rapidApiSeriesId === series.id ? 'bg-primary/10 border-primary/30' : ''
                             }`}
-                            onClick={() => setRapidApiTournamentId(tournament.id)}
+                            onClick={() => setRapidApiSeriesId(series.id)}
                           >
-                            {tournament.logo_url && (
-                              <img src={tournament.logo_url} alt="" className="w-8 h-8 object-contain rounded" />
-                            )}
                             <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm truncate">{tournament.name}</div>
+                              <div className="font-medium text-sm truncate">{series.series_name}</div>
                               <div className="text-xs text-muted-foreground flex items-center gap-2">
-                                <span>{tournament.season}</span>
+                                {series.start_date && (
+                                  <span>{format(new Date(series.start_date), 'MMM yyyy')}</span>
+                                )}
                                 <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                  ID: {tournament.series_id}
+                                  ID: {series.series_id}
                                 </Badge>
+                                {series.match_count && series.match_count > 0 && (
+                                  <span className="text-muted-foreground">
+                                    {series.match_count} matches
+                                  </span>
+                                )}
                               </div>
                             </div>
-                            {rapidApiTournamentId === tournament.id && (
+                            {rapidApiSeriesId === series.id && (
                               <Badge className="bg-primary text-primary-foreground">Selected</Badge>
                             )}
                           </div>
@@ -833,23 +880,17 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
                 )}
               </div>
 
-              {/* Selected Tournament Info */}
-              {rapidApiTournamentId && !useCustomSeriesId && (
+              {/* Selected Series Info */}
+              {rapidApiSeriesId && !useCustomSeriesId && (
                 <div className="p-3 bg-muted/50 rounded-lg">
                   {(() => {
-                    const selected = tournaments?.find(t => t.id === rapidApiTournamentId);
+                    const selected = cricketSeries.find(s => s.id === rapidApiSeriesId);
                     return selected ? (
-                      <div className="flex items-center gap-3">
-                        {selected.logo_url && (
-                          <img src={selected.logo_url} alt="" className="w-10 h-10 object-contain rounded" />
-                        )}
-                        <div>
-                          <div className="font-medium">{selected.name}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {selected.series_id 
-                              ? `Series ID: ${selected.series_id}` 
-                              : '⚠️ No Series ID - Please add in tournament settings'}
-                          </div>
+                      <div>
+                        <div className="font-medium">{selected.series_name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Series ID: {selected.series_id}
+                          {selected.match_count && ` • ${selected.match_count} matches`}
                         </div>
                       </div>
                     ) : null;
@@ -857,9 +898,30 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
                 </div>
               )}
               
+              {/* Default Tournament for imported matches */}
+              <div className="space-y-2">
+                <Label className="text-sm">Default Tournament (for imported matches)</Label>
+                <SearchableSelect
+                  options={[
+                    { value: 'none', label: 'No Tournament' },
+                    ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                      value: t.id,
+                      label: t.name,
+                      sublabel: t.season,
+                      imageUrl: t.logo_url,
+                    })) || [])
+                  ]}
+                  value={defaultTournamentId || 'none'}
+                  onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
+                  placeholder="Select tournament"
+                  searchPlaceholder="Search..."
+                  emptyText="No tournaments"
+                />
+              </div>
+              
               <Button 
                 onClick={fetchRapidApiMatches} 
-                disabled={loading || (!useCustomSeriesId && !rapidApiTournamentId)} 
+                disabled={loading || (!useCustomSeriesId && !rapidApiSeriesId)} 
                 className="w-full gap-2"
               >
                 {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}

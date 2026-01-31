@@ -104,6 +104,45 @@ export type Database = {
           },
         ]
       }
+      cricket_series: {
+        Row: {
+          created_at: string | null
+          end_date: string | null
+          id: string
+          is_active: boolean | null
+          last_synced_at: string | null
+          match_count: number | null
+          series_id: string
+          series_name: string
+          start_date: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_synced_at?: string | null
+          match_count?: number | null
+          series_id: string
+          series_name: string
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string | null
+          id?: string
+          is_active?: boolean | null
+          last_synced_at?: string | null
+          match_count?: number | null
+          series_id?: string
+          series_name?: string
+          start_date?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       custom_role_permissions: {
         Row: {
           created_at: string | null
