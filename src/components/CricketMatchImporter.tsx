@@ -531,11 +531,20 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
         };
 
         const { error } = await supabase.from('matches').insert(matchData);
-        if (error) throw error;
+        if (error) {
+          console.error('DB insert error:', error.message, error.details, error.code);
+          throw error;
+        }
         
         successCount++;
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error importing match:', error);
+        const errMsg = error?.message || error?.details || 'Unknown error';
+        toast({
+          title: "Match Import Error",
+          description: `${match.homeTeam} vs ${match.awayTeam}: ${errMsg}`,
+          variant: "destructive"
+        });
         errorCount++;
       }
     }
@@ -553,10 +562,16 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
       });
       onImportComplete?.();
       setOpen(false);
-    } else {
+    } else if (errorCount > 0) {
       toast({
         title: "Import Failed",
-        description: "Failed to import matches. Please try again.",
+        description: `All ${errorCount} match(es) failed. Check console for details.`,
+        variant: "destructive"
+      });
+    } else {
+      toast({
+        title: "No Matches",
+        description: "No matches were imported.",
         variant: "destructive"
       });
     }
