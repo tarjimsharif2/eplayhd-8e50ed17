@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -10,12 +11,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { supabase } from "@/integrations/supabase/client";
-import { Download, Loader2, RefreshCw, Clock, Trophy, Zap, Globe, ChevronDown } from "lucide-react";
+import { Download, Loader2, RefreshCw, Clock, Trophy, Zap, Globe, ChevronDown, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import SearchableSelect from "@/components/SearchableSelect";
 import { useTeams, useTournaments, useSports } from "@/hooks/useSportsData";
 import { useQueryClient } from '@tanstack/react-query';
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ESPNCricketMatch {
   homeTeam: string;
@@ -94,6 +96,7 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
   const { data: teams } = useTeams();
   const { data: tournaments } = useTournaments();
   const { data: sports } = useSports();
+  const isMobile = useIsMobile();
 
   const [open, setOpen] = useState(false);
   const [importSource, setImportSource] = useState<'espn' | 'rapidapi'>('espn');
@@ -642,6 +645,453 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
     }
   };
 
+  // Importer Content Component
+  const ImporterContent = () => (
+    <div className="space-y-3 sm:space-y-4 flex-1 overflow-hidden flex flex-col h-full">
+      {/* Source Tabs */}
+      <Tabs value={importSource} onValueChange={(v) => { setImportSource(v as 'espn' | 'rapidapi'); setApiMatches([]); }}>
+        <TabsList className="grid w-full grid-cols-2 h-9">
+          <TabsTrigger value="espn" className="gap-1.5 text-xs sm:text-sm">
+            <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            ESPN
+          </TabsTrigger>
+          <TabsTrigger value="rapidapi" className="gap-1.5 text-xs sm:text-sm">
+            <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+            RapidAPI
+          </TabsTrigger>
+        </TabsList>
+
+        {/* ESPN Tab Content */}
+        <TabsContent value="espn" className="space-y-3 mt-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm">Series/Source</Label>
+              <Input
+                placeholder="Search series..."
+                value={seriesSearch}
+                onChange={(e) => setSeriesSearch(e.target.value)}
+                className="h-8 sm:h-9 text-sm"
+              />
+              <Select value={selectedSeries} onValueChange={setSelectedSeries}>
+                <SelectTrigger className="h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-[200px]">
+                  {ESPN_CRICKET_SERIES
+                    .filter(series => 
+                      seriesSearch === '' || 
+                      series.label.toLowerCase().includes(seriesSearch.toLowerCase())
+                    )
+                    .map(series => (
+                      <SelectItem key={series.value} value={series.value}>
+                        {series.label}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {selectedSeries === 'custom' ? (
+              <div className="space-y-1.5">
+                <Label className="text-xs sm:text-sm">ESPN Series ID</Label>
+                <Input
+                  placeholder="e.g., 1477604"
+                  value={customSeriesId}
+                  onChange={(e) => setCustomSeriesId(e.target.value)}
+                  className="h-9"
+                />
+              </div>
+            ) : (
+              <div className="space-y-1.5">
+                <Label className="text-xs sm:text-sm">Default Tournament</Label>
+                <SearchableSelect
+                  options={[
+                    { value: 'none', label: 'No Tournament' },
+                    ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                      value: t.id,
+                      label: t.name,
+                      sublabel: t.season,
+                      imageUrl: t.logo_url,
+                    })) || [])
+                  ]}
+                  value={defaultTournamentId || 'none'}
+                  onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
+                  placeholder="Select tournament"
+                  searchPlaceholder="Search..."
+                  emptyText="No tournaments"
+                />
+              </div>
+            )}
+          </div>
+
+          {selectedSeries === 'custom' && (
+            <div className="space-y-1.5">
+              <Label className="text-xs sm:text-sm">Default Tournament</Label>
+              <SearchableSelect
+                options={[
+                  { value: 'none', label: 'No Tournament' },
+                  ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                    value: t.id,
+                    label: t.name,
+                    sublabel: t.season,
+                    imageUrl: t.logo_url,
+                  })) || [])
+                ]}
+                value={defaultTournamentId || 'none'}
+                onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
+                placeholder="Select tournament"
+                searchPlaceholder="Search..."
+                emptyText="No tournaments"
+              />
+            </div>
+          )}
+          
+          <Button onClick={fetchMatches} disabled={loading} className="w-full gap-2 h-9 sm:h-10">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+            Fetch from ESPN
+          </Button>
+        </TabsContent>
+
+        {/* RapidAPI Tab Content */}
+        <TabsContent value="rapidapi" className="space-y-3 mt-3">
+          <Collapsible defaultOpen={apiMatches.length === 0}>
+            <CollapsibleTrigger className="flex items-center justify-between w-full text-sm font-medium py-1">
+              <span className="flex items-center gap-2">
+                Step 1: Select Series
+                {rapidApiSeriesId && !useCustomSeriesId && (
+                  <Badge variant="secondary" className="text-[10px]">Selected</Badge>
+                )}
+              </span>
+              <ChevronDown className="w-4 h-4" />
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-2 pt-2">
+              <div className="flex items-center justify-between gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={syncCricketSeries}
+                  disabled={syncingSeries}
+                  className="gap-1.5 text-xs h-8"
+                >
+                  {syncingSeries ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <RefreshCw className="w-3.5 h-3.5" />
+                  )}
+                  Sync Series
+                </Button>
+                <div className="flex items-center gap-2">
+                  <Checkbox 
+                    id="useCustomSeriesId" 
+                    checked={useCustomSeriesId}
+                    onCheckedChange={(checked) => setUseCustomSeriesId(checked === true)}
+                  />
+                  <Label htmlFor="useCustomSeriesId" className="text-xs cursor-pointer">
+                    Custom ID
+                  </Label>
+                </div>
+              </div>
+
+              {useCustomSeriesId ? (
+                <Input
+                  placeholder="Enter Cricbuzz Series ID"
+                  value={rapidApiCustomSeriesId}
+                  onChange={(e) => setRapidApiCustomSeriesId(e.target.value)}
+                  className="h-9"
+                />
+              ) : (
+                <div className="space-y-1.5">
+                  <Input
+                    placeholder="Search series..."
+                    value={seriesListSearch}
+                    onChange={(e) => setSeriesListSearch(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                  <ScrollArea className="h-[120px] sm:h-[150px] border rounded-lg">
+                    {loadingSeries ? (
+                      <div className="p-3 text-center text-muted-foreground text-xs">
+                        <Loader2 className="w-4 h-4 animate-spin mx-auto mb-1" />
+                        Loading...
+                      </div>
+                    ) : (() => {
+                      const filteredSeries = cricketSeries
+                        .filter(s => 
+                          seriesListSearch === '' || 
+                          s.series_name.toLowerCase().includes(seriesListSearch.toLowerCase())
+                        )
+                        .sort((a, b) => a.series_name.localeCompare(b.series_name));
+                      
+                      if (filteredSeries.length === 0) {
+                        return (
+                          <div className="p-3 text-center text-muted-foreground text-xs">
+                            <p>No series found</p>
+                            <p className="text-[10px]">Click "Sync Series"</p>
+                          </div>
+                        );
+                      }
+                      
+                      return filteredSeries.map(series => (
+                        <div 
+                          key={series.id}
+                          className={`flex items-center gap-2 p-2 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 transition-colors ${
+                            rapidApiSeriesId === series.id ? 'bg-primary/10' : ''
+                          }`}
+                          onClick={() => setRapidApiSeriesId(series.id)}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium text-xs truncate">{series.series_name}</div>
+                            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                              {series.start_date && (
+                                <span>{format(new Date(series.start_date), 'MMM yyyy')}</span>
+                              )}
+                              <Badge variant="outline" className="text-[9px] px-1 py-0 h-4">
+                                ID: {series.series_id}
+                              </Badge>
+                            </div>
+                          </div>
+                          {rapidApiSeriesId === series.id && (
+                            <Badge className="bg-primary text-primary-foreground text-[10px] h-5">✓</Badge>
+                          )}
+                        </div>
+                      ));
+                    })()}
+                  </ScrollArea>
+                </div>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+          
+          {/* Default Tournament */}
+          <div className="space-y-1.5">
+            <Label className="text-xs sm:text-sm">Default Tournament</Label>
+            <SearchableSelect
+              options={[
+                { value: 'none', label: 'No Tournament' },
+                ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
+                  value: t.id,
+                  label: t.name,
+                  sublabel: t.season,
+                  imageUrl: t.logo_url,
+                })) || [])
+              ]}
+              value={defaultTournamentId || 'none'}
+              onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
+              placeholder="Select tournament"
+              searchPlaceholder="Search..."
+              emptyText="No tournaments"
+            />
+          </div>
+          
+          <Button 
+            onClick={fetchRapidApiMatches} 
+            disabled={loading || (!useCustomSeriesId && !rapidApiSeriesId)} 
+            className="w-full gap-2 h-9 sm:h-10"
+          >
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+            Step 2: Fetch Matches
+          </Button>
+        </TabsContent>
+      </Tabs>
+
+      {/* Match List */}
+      {apiMatches.length > 0 && (
+        <div className="flex-1 flex flex-col min-h-0">
+          <div className="flex items-center justify-between gap-2 py-2 border-t">
+            <div className="flex gap-1.5">
+              <Button variant="outline" size="sm" onClick={selectAllValid} className="h-7 text-xs px-2">
+                Select All
+              </Button>
+              <Button variant="outline" size="sm" onClick={deselectAll} className="h-7 text-xs px-2">
+                Deselect
+              </Button>
+            </div>
+            <Badge variant="secondary" className="text-xs">
+              {selectedCount} selected
+            </Badge>
+          </div>
+
+          <ScrollArea className="flex-1 min-h-[200px] max-h-[300px] sm:max-h-[350px]">
+            <div className="space-y-2 pr-2">
+              {apiMatches.map((match, index) => (
+                <div 
+                  key={index} 
+                  className={`p-2 rounded-lg border transition-colors ${
+                    match.selected 
+                      ? 'border-primary bg-primary/5' 
+                      : 'border-border'
+                  }`}
+                >
+                  <div className="flex items-start gap-2">
+                    <Checkbox
+                      checked={match.selected}
+                      onCheckedChange={() => toggleMatchSelection(index)}
+                      className="mt-0.5"
+                    />
+                    
+                    <div className="flex-1 min-w-0 space-y-1">
+                      {/* Match Header */}
+                      <div className="flex items-center justify-between gap-1 flex-wrap">
+                        <div className="text-xs sm:text-sm font-medium truncate flex-1">
+                          {match.homeTeam} vs {match.awayTeam}
+                        </div>
+                        <div className="flex gap-1">
+                          <Badge className={`${getFormatBadgeColor(match.matchFormat)} text-[9px] px-1 h-4`}>
+                            {match.matchFormat || 'T20'}
+                          </Badge>
+                        </div>
+                      </div>
+                      
+                      {/* Match Info */}
+                      <div className="flex items-center gap-2 text-[10px] text-muted-foreground flex-wrap">
+                        {match.startTime && (
+                          <span className="flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5" />
+                            {format(new Date(match.startTime), 'dd MMM, HH:mm')}
+                          </span>
+                        )}
+                        {match.venue && <span className="truncate max-w-[120px]">{match.venue}</span>}
+                      </div>
+
+                      {/* Team Mapping - Collapsible on mobile */}
+                      <Collapsible>
+                        <CollapsibleTrigger className="flex items-center gap-1 text-[10px] text-primary hover:underline w-full justify-center py-1 sm:hidden">
+                          <ChevronDown className="w-3 h-3" />
+                          Team Mapping
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="pt-1.5 sm:!block">
+                          <div className="grid grid-cols-2 gap-1.5">
+                            <SearchableSelect
+                              options={[
+                                { value: 'auto', label: `🆕 ${match.homeTeam}` },
+                                ...(teams?.map((t) => ({
+                                  value: t.id,
+                                  label: t.name,
+                                  sublabel: t.short_name,
+                                  imageUrl: t.logo_url,
+                                })) || [])
+                              ]}
+                              value={match.teamAId || 'auto'}
+                              onValueChange={(v) => updateMatchTeam(index, 'teamAId', v === 'auto' ? null : v)}
+                              placeholder="Home"
+                              searchPlaceholder="Search..."
+                              emptyText="No teams"
+                            />
+                            <SearchableSelect
+                              options={[
+                                { value: 'auto', label: `🆕 ${match.awayTeam}` },
+                                ...(teams?.map((t) => ({
+                                  value: t.id,
+                                  label: t.name,
+                                  sublabel: t.short_name,
+                                  imageUrl: t.logo_url,
+                                })) || [])
+                              ]}
+                              value={match.teamBId || 'auto'}
+                              onValueChange={(v) => updateMatchTeam(index, 'teamBId', v === 'auto' ? null : v)}
+                              placeholder="Away"
+                              searchPlaceholder="Search..."
+                              emptyText="No teams"
+                            />
+                          </div>
+                        </CollapsibleContent>
+                        {/* Always visible on desktop */}
+                        <div className="hidden sm:grid grid-cols-2 gap-1.5 pt-1.5">
+                          <SearchableSelect
+                            options={[
+                              { value: 'auto', label: `🆕 ${match.homeTeam}` },
+                              ...(teams?.map((t) => ({
+                                value: t.id,
+                                label: t.name,
+                                sublabel: t.short_name,
+                                imageUrl: t.logo_url,
+                              })) || [])
+                            ]}
+                            value={match.teamAId || 'auto'}
+                            onValueChange={(v) => updateMatchTeam(index, 'teamAId', v === 'auto' ? null : v)}
+                            placeholder="Home"
+                            searchPlaceholder="Search..."
+                            emptyText="No teams"
+                          />
+                          <SearchableSelect
+                            options={[
+                              { value: 'auto', label: `🆕 ${match.awayTeam}` },
+                              ...(teams?.map((t) => ({
+                                value: t.id,
+                                label: t.name,
+                                sublabel: t.short_name,
+                                imageUrl: t.logo_url,
+                              })) || [])
+                            ]}
+                            value={match.teamBId || 'auto'}
+                            onValueChange={(v) => updateMatchTeam(index, 'teamBId', v === 'auto' ? null : v)}
+                            placeholder="Away"
+                            searchPlaceholder="Search..."
+                            emptyText="No teams"
+                          />
+                        </div>
+                      </Collapsible>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+
+          {/* Import Button - Fixed at bottom */}
+          <div className="pt-2 border-t mt-2">
+            <Button 
+              onClick={importSelectedMatches} 
+              disabled={importing || selectedCount === 0}
+              className="w-full gap-2 h-9 sm:h-10"
+            >
+              {importing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <Download className="w-4 h-4" />
+                  Import {selectedCount} Match{selectedCount !== 1 ? 'es' : ''}
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {apiMatches.length === 0 && !loading && (
+        <div className="flex-1 flex items-center justify-center text-muted-foreground text-sm py-8">
+          Select a series and click "Fetch Matches"
+        </div>
+      )}
+    </div>
+  );
+
+  // Use Sheet on mobile for full-screen experience
+  if (isMobile) {
+    return (
+      <Sheet open={open} onOpenChange={setOpen}>
+        <SheetTrigger asChild>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Download className="w-4 h-4" />
+            Import Cricket
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="bottom" className="h-[95vh] flex flex-col p-4">
+          <SheetHeader className="text-left pb-2">
+            <SheetTitle className="flex items-center gap-2 text-base">
+              <Trophy className="w-4 h-4" />
+              Import Cricket Matches
+            </SheetTitle>
+          </SheetHeader>
+          <ImporterContent />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Use Dialog on desktop
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -660,543 +1110,7 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
             Fetch matches from ESPN Cricinfo or RapidAPI and import them with auto-mapped teams.
           </DialogDescription>
         </DialogHeader>
-        
-        <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
-          {/* Source Tabs */}
-          <Tabs value={importSource} onValueChange={(v) => { setImportSource(v as 'espn' | 'rapidapi'); setApiMatches([]); }}>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="espn" className="gap-2">
-                <Globe className="w-4 h-4" />
-                ESPN Cricinfo
-              </TabsTrigger>
-              <TabsTrigger value="rapidapi" className="gap-2">
-                <Zap className="w-4 h-4" />
-                RapidAPI (Cricbuzz)
-              </TabsTrigger>
-            </TabsList>
-
-            {/* ESPN Tab Content */}
-            <TabsContent value="espn" className="space-y-4 mt-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Series/Source</Label>
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="Search series..."
-                      value={seriesSearch}
-                      onChange={(e) => setSeriesSearch(e.target.value)}
-                      className="h-9"
-                    />
-                    <Select value={selectedSeries} onValueChange={setSelectedSeries}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px]">
-                        {ESPN_CRICKET_SERIES
-                          .filter(series => 
-                            seriesSearch === '' || 
-                            series.label.toLowerCase().includes(seriesSearch.toLowerCase())
-                          )
-                          .map(series => (
-                            <SelectItem key={series.value} value={series.value}>
-                              {series.label}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                {selectedSeries === 'custom' ? (
-                  <div className="space-y-2">
-                    <Label>ESPN Series ID</Label>
-                    <Input
-                      placeholder="e.g., 1477604 or 23220"
-                      value={customSeriesId}
-                      onChange={(e) => setCustomSeriesId(e.target.value)}
-                      className="h-10"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Find ID from ESPN Cricinfo URL: espn.in/cricket/series/<strong>SERIES_ID</strong>/...
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label>Default Tournament (SEO source)</Label>
-                    <SearchableSelect
-                      options={[
-                        { value: 'none', label: 'No Tournament' },
-                        ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
-                          value: t.id,
-                          label: t.name,
-                          sublabel: t.season,
-                          imageUrl: t.logo_url,
-                        })) || [])
-                      ]}
-                      value={defaultTournamentId || 'none'}
-                      onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
-                      placeholder="Select tournament"
-                      searchPlaceholder="Search..."
-                      emptyText="No tournaments"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {selectedSeries === 'custom' && (
-                <div className="space-y-2">
-                  <Label>Default Tournament (SEO source)</Label>
-                  <SearchableSelect
-                    options={[
-                      { value: 'none', label: 'No Tournament' },
-                      ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
-                        value: t.id,
-                        label: t.name,
-                        sublabel: t.season,
-                        imageUrl: t.logo_url,
-                      })) || [])
-                    ]}
-                    value={defaultTournamentId || 'none'}
-                    onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
-                    placeholder="Select tournament"
-                    searchPlaceholder="Search..."
-                    emptyText="No tournaments"
-                  />
-                </div>
-              )}
-              
-              <Button onClick={fetchMatches} disabled={loading} className="w-full gap-2">
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                Fetch from ESPN
-              </Button>
-            </TabsContent>
-
-            {/* RapidAPI Tab Content */}
-            <TabsContent value="rapidapi" className="space-y-4 mt-4">
-              {/* Series Selection - Like football_leagues */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-base font-medium">Step 1: Select Series</Label>
-                  <div className="flex items-center gap-3">
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={syncCricketSeries}
-                      disabled={syncingSeries}
-                      className="gap-1.5 text-xs"
-                    >
-                      {syncingSeries ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <RefreshCw className="w-3.5 h-3.5" />
-                      )}
-                      Sync Series
-                    </Button>
-                    <div className="flex items-center gap-2">
-                      <Checkbox 
-                        id="useCustomSeriesId" 
-                        checked={useCustomSeriesId}
-                        onCheckedChange={(checked) => setUseCustomSeriesId(checked === true)}
-                      />
-                      <Label htmlFor="useCustomSeriesId" className="text-xs text-muted-foreground cursor-pointer">
-                        Custom ID
-                      </Label>
-                    </div>
-                  </div>
-                </div>
-
-                {useCustomSeriesId ? (
-                  <div className="space-y-2">
-                    <Input
-                      placeholder="Enter Cricbuzz Series ID (e.g., 7607)"
-                      value={rapidApiCustomSeriesId}
-                      onChange={(e) => setRapidApiCustomSeriesId(e.target.value)}
-                      className="h-11"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Find from Cricbuzz URL: cricbuzz.com/cricket-series/<strong>SERIES_ID</strong>/...
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Search series..."
-                        value={seriesListSearch}
-                        onChange={(e) => setSeriesListSearch(e.target.value)}
-                        className="h-9 flex-1"
-                      />
-                    </div>
-                    <div className="border rounded-lg max-h-[200px] overflow-y-auto">
-                      {loadingSeries ? (
-                        <div className="p-4 text-center text-muted-foreground text-sm">
-                          <Loader2 className="w-4 h-4 animate-spin mx-auto mb-2" />
-                          Loading series...
-                        </div>
-                      ) : (() => {
-                        const filteredSeries = cricketSeries
-                          .filter(s => 
-                            seriesListSearch === '' || 
-                            s.series_name.toLowerCase().includes(seriesListSearch.toLowerCase())
-                          )
-                          .sort((a, b) => a.series_name.localeCompare(b.series_name));
-                        
-                        if (filteredSeries.length === 0) {
-                          return (
-                            <div className="p-4 text-center text-muted-foreground text-sm space-y-2">
-                              <p>No series found</p>
-                              <p className="text-xs">Click "Sync Series" to fetch from RapidAPI</p>
-                            </div>
-                          );
-                        }
-                        
-                        return filteredSeries.map(series => (
-                          <div 
-                            key={series.id}
-                            className={`flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/50 border-b last:border-b-0 transition-colors ${
-                              rapidApiSeriesId === series.id ? 'bg-primary/10 border-primary/30' : ''
-                            }`}
-                            onClick={() => setRapidApiSeriesId(series.id)}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="font-medium text-sm truncate">{series.series_name}</div>
-                              <div className="text-xs text-muted-foreground flex items-center gap-2">
-                                {series.start_date && (
-                                  <span>{format(new Date(series.start_date), 'MMM yyyy')}</span>
-                                )}
-                                <Badge variant="outline" className="text-[10px] px-1 py-0">
-                                  ID: {series.series_id}
-                                </Badge>
-                                {series.match_count && series.match_count > 0 && (
-                                  <span className="text-muted-foreground">
-                                    {series.match_count} matches
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                            {rapidApiSeriesId === series.id && (
-                              <Badge className="bg-primary text-primary-foreground">Selected</Badge>
-                            )}
-                          </div>
-                        ));
-                      })()}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Selected Series Info */}
-              {rapidApiSeriesId && !useCustomSeriesId && (
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  {(() => {
-                    const selected = cricketSeries.find(s => s.id === rapidApiSeriesId);
-                    return selected ? (
-                      <div>
-                        <div className="font-medium">{selected.series_name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          Series ID: {selected.series_id}
-                          {selected.match_count && ` • ${selected.match_count} matches`}
-                        </div>
-                      </div>
-                    ) : null;
-                  })()}
-                </div>
-              )}
-              
-              {/* Default Tournament for imported matches */}
-              <div className="space-y-2">
-                <Label className="text-sm">Default Tournament (for imported matches)</Label>
-                <SearchableSelect
-                  options={[
-                    { value: 'none', label: 'No Tournament' },
-                    ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
-                      value: t.id,
-                      label: t.name,
-                      sublabel: t.season,
-                      imageUrl: t.logo_url,
-                    })) || [])
-                  ]}
-                  value={defaultTournamentId || 'none'}
-                  onValueChange={(v) => setDefaultTournamentId(v === 'none' ? null : v)}
-                  placeholder="Select tournament"
-                  searchPlaceholder="Search..."
-                  emptyText="No tournaments"
-                />
-              </div>
-              
-              <Button 
-                onClick={fetchRapidApiMatches} 
-                disabled={loading || (!useCustomSeriesId && !rapidApiSeriesId)} 
-                className="w-full gap-2"
-              >
-                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                Step 2: Fetch Matches
-              </Button>
-            </TabsContent>
-          </Tabs>
-
-          {/* Match List */}
-          {apiMatches.length > 0 && (
-            <>
-              <div className="flex items-center justify-between gap-2 flex-wrap">
-                <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={selectAllValid}>
-                    Select All Valid
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={deselectAll}>
-                    Deselect All
-                  </Button>
-                </div>
-                <Badge variant="secondary">
-                  {selectedCount} selected{unmatchedTeamsCount > 0 ? ` (${unmatchedTeamsCount} new teams)` : ''}
-                </Badge>
-              </div>
-
-              <ScrollArea className="h-[300px] sm:h-[350px] pr-2">
-                <div className="space-y-2">
-                  {apiMatches.map((match, index) => (
-                    <div 
-                      key={index} 
-                      className={`p-2 sm:p-3 rounded-lg border transition-colors ${
-                        match.selected 
-                          ? 'border-primary bg-primary/5' 
-                          : 'border-border hover:border-muted-foreground/50'
-                      }`}
-                    >
-                      <div className="flex items-start gap-2 sm:gap-3">
-                        <Checkbox
-                          checked={match.selected}
-                          onCheckedChange={() => toggleMatchSelection(index)}
-                          className="mt-0.5"
-                        />
-                        
-                        <div className="flex-1 min-w-0 space-y-1.5 sm:space-y-2">
-                          {/* Match Header - Compact on mobile */}
-                          <div className="flex items-center justify-between gap-1 sm:gap-2 flex-wrap">
-                            <div className="flex items-center gap-1 sm:gap-2 text-sm sm:text-base min-w-0 flex-1">
-                              {match.homeTeamLogo && (
-                                <img src={match.homeTeamLogo} alt="" className="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0" />
-                              )}
-                              <span className="font-medium truncate">{match.homeTeam}</span>
-                              <span className="text-muted-foreground shrink-0">vs</span>
-                              <span className="font-medium truncate">{match.awayTeam}</span>
-                              {match.awayTeamLogo && (
-                                <img src={match.awayTeamLogo} alt="" className="w-4 h-4 sm:w-5 sm:h-5 object-contain shrink-0" />
-                              )}
-                            </div>
-                            <div className="flex items-center gap-1">
-                              <Badge className={`${getFormatBadgeColor(match.matchFormat)} text-[10px] sm:text-xs px-1.5`}>
-                                {match.matchFormat || 'T20'}
-                              </Badge>
-                              <Badge variant={match.status === 'Live' ? 'destructive' : 'secondary'} className="text-[10px] sm:text-xs px-1.5">
-                                {match.status}
-                              </Badge>
-                            </div>
-                          </div>
-                          
-                          {/* Match Info - Compact */}
-                          <div className="flex items-center gap-2 sm:gap-4 text-[10px] sm:text-xs text-muted-foreground flex-wrap">
-                            {match.startTime && (
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {format(new Date(match.startTime), 'dd MMM, HH:mm')}
-                              </span>
-                            )}
-                            {match.venue && (
-                              <span className="truncate max-w-[120px] sm:max-w-[200px]">{match.venue}</span>
-                            )}
-                          </div>
-                          
-                          {/* Team Mapping - Collapsible on mobile */}
-                          <Collapsible>
-                            <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground sm:hidden w-full justify-center py-1">
-                              <ChevronDown className="w-3 h-3" />
-                              <span>Team & Tournament Mapping</span>
-                            </CollapsibleTrigger>
-                            <CollapsibleContent className="sm:!hidden">
-                              <div className="grid grid-cols-2 gap-2 pt-2">
-                                <div className="space-y-1">
-                                  <Label className="text-[10px] text-muted-foreground">Home</Label>
-                                  <SearchableSelect
-                                    options={[
-                                      { value: 'auto', label: `🆕 ${match.homeTeam}`, sublabel: 'New' },
-                                      ...(teams?.map((t) => ({
-                                        value: t.id,
-                                        label: t.name,
-                                        sublabel: t.short_name,
-                                        imageUrl: t.logo_url,
-                                      })) || [])
-                                    ]}
-                                    value={match.teamAId || 'auto'}
-                                    onValueChange={(v) => updateMatchTeam(index, 'teamAId', v === 'auto' ? null : v)}
-                                    placeholder="Team"
-                                    searchPlaceholder="Search..."
-                                    emptyText="No teams"
-                                  />
-                                </div>
-                                
-                                <div className="space-y-1">
-                                  <Label className="text-[10px] text-muted-foreground">Away</Label>
-                                  <SearchableSelect
-                                    options={[
-                                      { value: 'auto', label: `🆕 ${match.awayTeam}`, sublabel: 'New' },
-                                      ...(teams?.map((t) => ({
-                                        value: t.id,
-                                        label: t.name,
-                                        sublabel: t.short_name,
-                                        imageUrl: t.logo_url,
-                                      })) || [])
-                                    ]}
-                                    value={match.teamBId || 'auto'}
-                                    onValueChange={(v) => updateMatchTeam(index, 'teamBId', v === 'auto' ? null : v)}
-                                    placeholder="Team"
-                                    searchPlaceholder="Search..."
-                                    emptyText="No teams"
-                                  />
-                                </div>
-                                
-                                <div className="space-y-1">
-                                  <Label className="text-[10px] text-muted-foreground">Tournament</Label>
-                                  <SearchableSelect
-                                    options={[
-                                      { value: 'none', label: 'None' },
-                                      ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
-                                        value: t.id,
-                                        label: t.name,
-                                        sublabel: t.season,
-                                        imageUrl: t.logo_url,
-                                      })) || [])
-                                    ]}
-                                    value={match.tournamentId || 'none'}
-                                    onValueChange={(v) => updateMatchTournament(index, v === 'none' ? null : v)}
-                                    placeholder="Tournament"
-                                    searchPlaceholder="Search..."
-                                    emptyText="No tournaments"
-                                  />
-                                </div>
-                                
-                                <div className="space-y-1">
-                                  <Label className="text-[10px] text-muted-foreground">Match #</Label>
-                                  <Input
-                                    value={match.matchNumber || ''}
-                                    onChange={(e) => updateMatchNumber(index, e.target.value)}
-                                    placeholder="Match 5"
-                                    className="h-8 text-xs"
-                                  />
-                                </div>
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                          
-                          {/* Desktop Team Mapping */}
-                          <div className="hidden sm:grid grid-cols-4 gap-2">
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Home Team</Label>
-                              <SearchableSelect
-                                options={[
-                                  { value: 'auto', label: `🆕 ${match.homeTeam}`, sublabel: 'Create new' },
-                                  ...(teams?.map((t) => ({
-                                    value: t.id,
-                                    label: t.name,
-                                    sublabel: t.short_name,
-                                    imageUrl: t.logo_url,
-                                  })) || [])
-                                ]}
-                                value={match.teamAId || 'auto'}
-                                onValueChange={(v) => updateMatchTeam(index, 'teamAId', v === 'auto' ? null : v)}
-                                placeholder="Map team"
-                                searchPlaceholder="Search..."
-                                emptyText="No teams"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Away Team</Label>
-                              <SearchableSelect
-                                options={[
-                                  { value: 'auto', label: `🆕 ${match.awayTeam}`, sublabel: 'Create new' },
-                                  ...(teams?.map((t) => ({
-                                    value: t.id,
-                                    label: t.name,
-                                    sublabel: t.short_name,
-                                    imageUrl: t.logo_url,
-                                  })) || [])
-                                ]}
-                                value={match.teamBId || 'auto'}
-                                onValueChange={(v) => updateMatchTeam(index, 'teamBId', v === 'auto' ? null : v)}
-                                placeholder="Map team"
-                                searchPlaceholder="Search..."
-                                emptyText="No teams"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Tournament (SEO)</Label>
-                              <SearchableSelect
-                                options={[
-                                  { value: 'none', label: 'No Tournament' },
-                                  ...(tournaments?.filter(t => !t.is_completed).map((t) => ({
-                                    value: t.id,
-                                    label: t.name,
-                                    sublabel: t.season,
-                                    imageUrl: t.logo_url,
-                                  })) || [])
-                                ]}
-                                value={match.tournamentId || 'none'}
-                                onValueChange={(v) => updateMatchTournament(index, v === 'none' ? null : v)}
-                                placeholder="Tournament"
-                                searchPlaceholder="Search..."
-                                emptyText="No tournaments"
-                              />
-                            </div>
-                            
-                            <div className="space-y-1">
-                              <Label className="text-xs text-muted-foreground">Match Number</Label>
-                              <Input
-                                value={match.matchNumber || ''}
-                                onChange={(e) => updateMatchNumber(index, e.target.value)}
-                                placeholder="e.g., Match 5, Final"
-                                className="h-9"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
-
-              {/* Import Button */}
-              <div className="pt-4 border-t">
-                <Button 
-                  onClick={importSelectedMatches} 
-                  disabled={importing || selectedCount === 0}
-                  className="w-full gap-2"
-                >
-                  {importing ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Importing...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="w-4 h-4" />
-                      Import {selectedCount} Match{selectedCount !== 1 ? 'es' : ''}
-                      {unmatchedTeamsCount > 0 && ` (will create ${unmatchedTeamsCount} team${unmatchedTeamsCount !== 1 ? 's' : ''})`}
-                    </>
-                  )}
-                </Button>
-              </div>
-            </>
-          )}
-
-          {apiMatches.length === 0 && !loading && (
-            <div className="flex-1 flex items-center justify-center text-muted-foreground">
-              Select a series and click "Fetch Matches" to load matches
-            </div>
-          )}
-        </div>
+        <ImporterContent />
       </DialogContent>
     </Dialog>
   );
