@@ -1176,6 +1176,21 @@ Deno.serve(async (req) => {
       }
 
       // Upsert to match_api_scores - STORE AS team_a/team_b (not API's home/away)
+      // IMPORTANT: Check existing record first to preserve scores when API returns NULL
+      const { data: existingApiScores } = await supabase
+        .from('match_api_scores')
+        .select('home_score, away_score')
+        .eq('match_id', match.id)
+        .maybeSingle();
+      
+      // Preserve existing scores if API returned NULL for that team
+      // This happens when API only syncs one innings (e.g., second team batted but first team's data dropped)
+      const finalScoreA = scoreA || existingApiScores?.home_score || match.score_a || null;
+      const finalScoreB = scoreB || existingApiScores?.away_score || match.score_b || null;
+      
+      console.log(`[sync-api-scores] Score preservation: API scoreA="${scoreA}", existing="${existingApiScores?.home_score}", match="${match.score_a}" -> final="${finalScoreA}"`);
+      console.log(`[sync-api-scores] Score preservation: API scoreB="${scoreB}", existing="${existingApiScores?.away_score}", match="${match.score_b}" -> final="${finalScoreB}"`);
+      
       const { error: upsertError } = await supabase
         .from('match_api_scores')
         .upsert({
@@ -1183,10 +1198,10 @@ Deno.serve(async (req) => {
           // Store team_a as home, team_b as away for consistent client-side mapping
           home_team: teamAName,
           away_team: teamBName,
-          home_score: scoreA,  // team_a's score
-          away_score: scoreB,  // team_b's score
-          home_overs: oversA,
-          away_overs: oversB,
+          home_score: finalScoreA,  // team_a's score - preserved if API returns NULL
+          away_score: finalScoreB,  // team_b's score - preserved if API returns NULL
+          home_overs: oversA || existingApiScores?.home_score?.match(/\((\d+\.?\d*)\s*ov\)/)?.[1] || null,
+          away_overs: oversB || existingApiScores?.away_score?.match(/\((\d+\.?\d*)\s*ov\)/)?.[1] || null,
           status: detailedEvent.event_status,
           status_info: detailedEvent.event_status_info,
           event_live: detailedEvent.event_live === '1',
