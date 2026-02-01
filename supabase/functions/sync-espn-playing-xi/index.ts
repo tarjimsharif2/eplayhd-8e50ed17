@@ -80,29 +80,47 @@ Deno.serve(async (req) => {
 
     console.log(`[sync-espn-playing-xi] Syncing playing XI for match: ${matchId}`);
 
-    // Check if playing XI already exists for this match
+    // Check if COMPLETE playing XI already exists for this match (11 players per team = 22 total)
     const { data: existingPlayers, error: existingError } = await supabase
       .from('match_playing_xi')
-      .select('id')
-      .eq('match_id', matchId)
-      .limit(1);
+      .select('id, team_id')
+      .eq('match_id', matchId);
 
     if (existingError) {
       console.error('[sync-espn-playing-xi] Error checking existing players:', existingError);
     }
 
-    // If players already exist, skip API call
-    if (existingPlayers && existingPlayers.length > 0) {
-      console.log(`[sync-espn-playing-xi] Players already exist for match ${matchId}, skipping API call`);
+    // Check if both teams have 11 players each
+    const teamAPlayerCount = existingPlayers?.filter(p => p.team_id === teamAId).length || 0;
+    const teamBPlayerCount = existingPlayers?.filter(p => p.team_id === teamBId).length || 0;
+    
+    console.log(`[sync-espn-playing-xi] Existing players - Team A: ${teamAPlayerCount}, Team B: ${teamBPlayerCount}`);
+
+    // Only skip if BOTH teams have complete 11 players
+    if (teamAPlayerCount >= 11 && teamBPlayerCount >= 11) {
+      console.log(`[sync-espn-playing-xi] Complete Playing XI already exists for match ${matchId}, skipping API call`);
       return new Response(
         JSON.stringify({ 
           success: true, 
-          message: 'Playing XI already exists',
+          message: 'Playing XI already complete (11+11)',
           alreadyExists: true,
           playersAdded: 0
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    // Delete incomplete data and fetch fresh
+    if (existingPlayers && existingPlayers.length > 0) {
+      console.log(`[sync-espn-playing-xi] Deleting incomplete Playing XI data (${existingPlayers.length} players)`);
+      const { error: deleteError } = await supabase
+        .from('match_playing_xi')
+        .delete()
+        .eq('match_id', matchId);
+      
+      if (deleteError) {
+        console.error('[sync-espn-playing-xi] Error deleting incomplete data:', deleteError);
+      }
     }
 
     // Get match details to find espn_event_id
@@ -174,8 +192,12 @@ Deno.serve(async (req) => {
         'cricket.t20blast',  // T20 Blast
         'big.bash',          // Big Bash
         'indian.premier',    // IPL
+        'wpl',               // Women's Premier League
+        'womens.t20',        // Women's T20
+        'womens.cricket',    // Women's cricket
         'psl',               // PSL
         'bbl',               // BBL
+        'wbbl',              // Women's BBL
         'sa20',              // SA20
         'bpl',               // BPL
         'cricket',           // Generic cricket
@@ -243,8 +265,12 @@ Deno.serve(async (req) => {
       'intl.cricket', 
       'big.bash',
       'indian.premier',
+      'wpl',
+      'womens.t20',
+      'womens.cricket',
       'psl',
       'bbl',
+      'wbbl',
       'cricket'
     ];
 
