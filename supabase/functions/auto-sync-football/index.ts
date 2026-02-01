@@ -43,6 +43,47 @@ interface FootballMatch {
   awaySubs?: SubstitutionEvent[];
 }
 
+// Common team name aliases for better matching
+const TEAM_ALIASES: Record<string, string[]> = {
+  'tottenham': ['tottenham hotspur', 'spurs', 'tottenham hotspur fc'],
+  'man city': ['manchester city', 'manchester city fc'],
+  'man utd': ['manchester united', 'manchester united fc', 'man united'],
+  'wolves': ['wolverhampton wanderers', 'wolverhampton'],
+  'brighton': ['brighton & hove albion', 'brighton hove albion', 'brighton and hove albion'],
+  'west ham': ['west ham united', 'west ham utd'],
+  'newcastle': ['newcastle united', 'newcastle utd'],
+  'leeds': ['leeds united', 'leeds utd'],
+  'leicester': ['leicester city', 'leicester city fc'],
+  'aston villa': ['aston villa fc'],
+  'nottm forest': ['nottingham forest', 'notts forest', 'nottingham forest fc'],
+  'bournemouth': ['afc bournemouth'],
+  'crystal palace': ['crystal palace fc'],
+  'everton': ['everton fc'],
+  'arsenal': ['arsenal fc'],
+  'chelsea': ['chelsea fc'],
+  'liverpool': ['liverpool fc'],
+  'fulham': ['fulham fc'],
+  'brentford': ['brentford fc'],
+  'ipswich': ['ipswich town', 'ipswich town fc'],
+  'southampton': ['southampton fc'],
+  'charlton': ['charlton athletic', 'charlton athletic fc'],
+};
+
+// Get all possible name variations for a team
+function getTeamVariations(name: string): string[] {
+  const normalized = name.toLowerCase().trim();
+  const variations = [normalized];
+  
+  // Add aliases
+  for (const [key, aliases] of Object.entries(TEAM_ALIASES)) {
+    if (normalized.includes(key) || aliases.some(a => normalized.includes(a))) {
+      variations.push(key, ...aliases);
+    }
+  }
+  
+  return [...new Set(variations)];
+}
+
 // Normalize team name for matching
 function normalizeTeamName(name: string): string {
   return name
@@ -51,10 +92,16 @@ function normalizeTeamName(name: string): string {
     .replace(/\s+united$/i, ' utd')
     .replace(/\s+city$/i, '')
     .replace(/manchester\s+/i, 'man ')
-    .replace(/tottenham\s+hotspur/i, 'spurs')
+    .replace(/tottenham\s+hotspur/i, 'tottenham')
     .replace(/wolverhampton\s+wanderers/i, 'wolves')
     .replace(/west\s+ham\s+united/i, 'west ham')
     .replace(/newcastle\s+united/i, 'newcastle')
+    .replace(/brighton\s+(&|and)\s+hove\s+albion/i, 'brighton')
+    .replace(/afc\s+bournemouth/i, 'bournemouth')
+    .replace(/nottingham\s+forest/i, 'nottm forest')
+    .replace(/leicester\s+city/i, 'leicester')
+    .replace(/leeds\s+united/i, 'leeds')
+    .replace(/charlton\s+athletic/i, 'charlton')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -64,9 +111,24 @@ function teamsMatch(dbTeam: string, apiTeam: string): boolean {
   const normalizedDb = normalizeTeamName(dbTeam);
   const normalizedApi = normalizeTeamName(apiTeam);
   
+  // Direct match
   if (normalizedDb === normalizedApi) return true;
+  
+  // Substring match
   if (normalizedDb.includes(normalizedApi) || normalizedApi.includes(normalizedDb)) return true;
   
+  // Check aliases
+  const dbVariations = getTeamVariations(dbTeam);
+  const apiVariations = getTeamVariations(apiTeam);
+  
+  for (const dbVar of dbVariations) {
+    for (const apiVar of apiVariations) {
+      if (dbVar === apiVar) return true;
+      if (dbVar.includes(apiVar) || apiVar.includes(dbVar)) return true;
+    }
+  }
+  
+  // Word matching
   const dbWords = normalizedDb.split(' ').filter(w => w.length > 2);
   const apiWords = normalizedApi.split(' ').filter(w => w.length > 2);
   
