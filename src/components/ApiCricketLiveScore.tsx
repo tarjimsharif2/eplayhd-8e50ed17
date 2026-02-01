@@ -234,47 +234,35 @@ const ApiCricketLiveScore = ({
   // Get scores for display - hook now returns correctly mapped homeScore=teamA, awayScore=teamB
   // Use innings data for detailed scorecard display, but scores are already correctly mapped
   const getDisplayScores = () => {
-    // First try to get scores from calculated innings stats (for detailed multi-innings display)
+    // Use homeScore/awayScore from hook FIRST - they are correctly mapped to teamA/teamB
+    // These come from the database and are the most reliable source
+    const hasTeamAScore = scoreData?.homeScore && scoreData.homeScore.trim() !== '';
+    const hasTeamBScore = scoreData?.awayScore && scoreData.awayScore.trim() !== '';
+    
+    const teamAOversFromScore = parseScoreOvers(scoreData?.homeScore || '') || scoreData?.homeOvers || null;
+    const teamBOversFromScore = parseScoreOvers(scoreData?.awayScore || '') || scoreData?.awayOvers || null;
+    
+    // Try to get additional innings data from scorecard (for multi-innings display)
+    let teamAFromInnings = { score: null as string | null, overs: null as string | null, allScores: [] as string[] };
+    let teamBFromInnings = { score: null as string | null, overs: null as string | null, allScores: [] as string[] };
+    
     if (inningsStats.length > 0) {
-      const teamAScore = getTeamScoreFromInnings(teamAName);
-      const teamBScore = getTeamScoreFromInnings(teamBName);
-      
-      // If we got valid scores from innings, use them
-      if (teamAScore.score || teamBScore.score) {
-        return {
-          teamA: teamAScore,
-          teamB: teamBScore,
-        };
-      }
+      teamAFromInnings = getTeamScoreFromInnings(teamAName);
+      teamBFromInnings = getTeamScoreFromInnings(teamBName);
     }
     
-    // Use homeScore/awayScore directly - they are now correctly mapped to teamA/teamB by the hook
-    if (scoreData?.homeScore || scoreData?.awayScore) {
-      // IMPORTANT: Check if score is empty string and treat as missing
-      const hasTeamAScore = scoreData?.homeScore && scoreData.homeScore.trim() !== '';
-      const hasTeamBScore = scoreData?.awayScore && scoreData.awayScore.trim() !== '';
-      
-      const teamAOvers = parseScoreOvers(scoreData?.homeScore || '') || scoreData?.homeOvers || null;
-      const teamBOvers = parseScoreOvers(scoreData?.awayScore || '') || scoreData?.awayOvers || null;
-      
-      return {
-        teamA: {
-          score: hasTeamAScore ? cleanScore(scoreData.homeScore) : '-',
-          overs: hasTeamAScore ? teamAOvers : null,
-          allScores: hasTeamAScore ? [scoreData.homeScore] : [],
-        },
-        teamB: {
-          score: hasTeamBScore ? cleanScore(scoreData.awayScore) : '-',
-          overs: hasTeamBScore ? teamBOvers : null,
-          allScores: hasTeamBScore ? [scoreData.awayScore] : [],
-        },
-      };
-    }
-    
-    // No scores available
+    // Combine: Use hook's homeScore/awayScore (from DB) with fallback to innings calculation
     return {
-      teamA: { score: null, overs: null, allScores: [] },
-      teamB: { score: null, overs: null, allScores: [] },
+      teamA: {
+        score: hasTeamAScore ? cleanScore(scoreData!.homeScore) : (teamAFromInnings.score || '-'),
+        overs: hasTeamAScore ? teamAOversFromScore : teamAFromInnings.overs,
+        allScores: hasTeamAScore ? [scoreData!.homeScore] : teamAFromInnings.allScores,
+      },
+      teamB: {
+        score: hasTeamBScore ? cleanScore(scoreData!.awayScore) : (teamBFromInnings.score || '-'),
+        overs: hasTeamBScore ? teamBOversFromScore : teamBFromInnings.overs,
+        allScores: hasTeamBScore ? [scoreData!.awayScore] : teamBFromInnings.allScores,
+      },
     };
   };
 
