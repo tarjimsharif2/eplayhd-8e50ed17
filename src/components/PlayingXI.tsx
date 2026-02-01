@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Users, Shield, Star, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 
@@ -179,47 +180,10 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
     </motion.div>
   );
 
-  const renderTeamSection = (teamName: string, teamLogo: string | null | undefined, players: Player[]) => (
-    <motion.div 
-      className="flex-1"
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-    >
-      {/* Team Header */}
-      <div className="flex items-center gap-3 mb-4 pb-3 border-b border-border/40">
-        {teamLogo ? (
-          <img src={teamLogo} alt={teamName} className="w-8 h-8 object-contain rounded-md bg-muted/50 p-1" />
-        ) : (
-          <div className="w-8 h-8 rounded-md bg-primary/20 flex items-center justify-center">
-            <Users className="w-4 h-4 text-primary" />
-          </div>
-        )}
-        <div>
-          <h4 className="font-semibold text-base">{teamName}</h4>
-          <div className="flex items-center gap-2 mt-0.5">
-            <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-              {players.length} Players
-            </Badge>
-          </div>
-        </div>
-      </div>
-      
-      {/* Players List */}
-      <div className="space-y-2">
-        {players.map((player, index) => renderPlayer(player, index))}
-      </div>
-      
-      {/* Role Legend */}
-      <div className="mt-4 pt-3 border-t border-border/30">
-        <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-          <div className="flex items-center gap-1"><BatIcon /> Batsman</div>
-          <div className="flex items-center gap-1"><BallIcon /> Bowler</div>
-          <div className="flex items-center gap-1"><AllRounderIcon /> All-Rounder</div>
-          <div className="flex items-center gap-1"><WicketKeeperIcon /> Wicket Keeper</div>
-        </div>
-      </div>
-    </motion.div>
+  const renderTeamPlayers = (players: Player[]) => (
+    <div className="space-y-2">
+      {players.map((player, index) => renderPlayer(player, index))}
+    </div>
   );
 
   return (
@@ -243,9 +207,65 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-2">
-          <div className="grid md:grid-cols-2 gap-8">
-            {teamAPlayers.length > 0 && renderTeamSection(teamAName, teamALogo, teamAPlayers)}
-            {teamBPlayers.length > 0 && renderTeamSection(teamBName, teamBLogo, teamBPlayers)}
+          <Tabs defaultValue="teamA" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="teamA" className="flex items-center gap-2 text-xs sm:text-sm">
+                {teamALogo && (
+                  <img src={teamALogo} alt={teamAName} className="w-5 h-5 object-contain rounded" />
+                )}
+                <span className="truncate">{teamAName.split(' ').slice(0, 2).join(' ')}</span>
+                <Badge variant="secondary" className="text-[9px] px-1 py-0 hidden sm:inline-flex">
+                  {teamAPlayers.length}
+                </Badge>
+              </TabsTrigger>
+              <TabsTrigger value="teamB" className="flex items-center gap-2 text-xs sm:text-sm">
+                {teamBLogo && (
+                  <img src={teamBLogo} alt={teamBName} className="w-5 h-5 object-contain rounded" />
+                )}
+                <span className="truncate">{teamBName.split(' ').slice(0, 2).join(' ')}</span>
+                <Badge variant="secondary" className="text-[9px] px-1 py-0 hidden sm:inline-flex">
+                  {teamBPlayers.length}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="teamA" className="mt-0">
+              {teamAPlayers.length > 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderTeamPlayers(teamAPlayers)}
+                </motion.div>
+              ) : (
+                <p className="text-center text-muted-foreground text-sm py-4">No players added</p>
+              )}
+            </TabsContent>
+
+            <TabsContent value="teamB" className="mt-0">
+              {teamBPlayers.length > 0 ? (
+                <motion.div
+                  initial={{ opacity: 0, x: 10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  {renderTeamPlayers(teamBPlayers)}
+                </motion.div>
+              ) : (
+                <p className="text-center text-muted-foreground text-sm py-4">No players added</p>
+              )}
+            </TabsContent>
+          </Tabs>
+
+          {/* Role Legend */}
+          <div className="mt-4 pt-3 border-t border-border/30">
+            <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+              <div className="flex items-center gap-1"><BatIcon /> Batsman</div>
+              <div className="flex items-center gap-1"><BallIcon /> Bowler</div>
+              <div className="flex items-center gap-1"><AllRounderIcon /> All-Rounder</div>
+              <div className="flex items-center gap-1"><WicketKeeperIcon /> Wicket Keeper</div>
+            </div>
           </div>
         </CardContent>
       </Card>
