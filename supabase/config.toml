@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.fetch-cricket-series]
 verify_jwt = false
+
+[functions.auto-sync-playing-xi]
+verify_jwt = false
