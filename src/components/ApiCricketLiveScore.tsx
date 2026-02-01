@@ -250,19 +250,23 @@ const ApiCricketLiveScore = ({
     
     // Use homeScore/awayScore directly - they are now correctly mapped to teamA/teamB by the hook
     if (scoreData?.homeScore || scoreData?.awayScore) {
+      // IMPORTANT: Check if score is empty string and treat as missing
+      const hasTeamAScore = scoreData?.homeScore && scoreData.homeScore.trim() !== '';
+      const hasTeamBScore = scoreData?.awayScore && scoreData.awayScore.trim() !== '';
+      
       const teamAOvers = parseScoreOvers(scoreData?.homeScore || '') || scoreData?.homeOvers || null;
       const teamBOvers = parseScoreOvers(scoreData?.awayScore || '') || scoreData?.awayOvers || null;
       
       return {
         teamA: {
-          score: cleanScore(scoreData?.homeScore || '-'),
-          overs: teamAOvers,
-          allScores: scoreData?.homeScore ? [scoreData.homeScore] : [],
+          score: hasTeamAScore ? cleanScore(scoreData.homeScore) : '-',
+          overs: hasTeamAScore ? teamAOvers : null,
+          allScores: hasTeamAScore ? [scoreData.homeScore] : [],
         },
         teamB: {
-          score: cleanScore(scoreData?.awayScore || '-'),
-          overs: teamBOvers,
-          allScores: scoreData?.awayScore ? [scoreData.awayScore] : [],
+          score: hasTeamBScore ? cleanScore(scoreData.awayScore) : '-',
+          overs: hasTeamBScore ? teamBOvers : null,
+          allScores: hasTeamBScore ? [scoreData.awayScore] : [],
         },
       };
     }

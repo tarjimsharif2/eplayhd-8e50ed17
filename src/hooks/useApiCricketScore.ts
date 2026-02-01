@@ -219,6 +219,15 @@ export const useApiCricketScore = ({
         const homeMatchesTeamA = teamsMatch(apiScores.home_team || '', teamAInfo?.name || teamAName);
         const awayMatchesTeamA = teamsMatch(apiScores.away_team || '', teamAInfo?.name || teamAName);
         
+        console.log('[useApiCricketScore] Team matching:', {
+          apiHomeTeam: apiScores.home_team,
+          apiAwayTeam: apiScores.away_team,
+          dbTeamA: teamAInfo?.name || teamAName,
+          dbTeamB: teamBInfo?.name || teamBName,
+          homeMatchesTeamA,
+          awayMatchesTeamA,
+        });
+        
         // Map scores to correct teams based on name matching
         let teamAScore: string;
         let teamAOvers: string | null;
@@ -239,6 +248,7 @@ export const useApiCricketScore = ({
           teamBOvers = apiScores.home_overs || null;
         } else {
           // Can't determine mapping, use home=A, away=B as fallback
+          console.log('[useApiCricketScore] Using fallback: home=teamA, away=teamB');
           teamAScore = apiScores.home_score || '';
           teamAOvers = apiScores.home_overs || null;
           teamBScore = apiScores.away_score || '';
