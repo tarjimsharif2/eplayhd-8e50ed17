@@ -377,7 +377,7 @@ const ApiCricketLiveScore = ({
           {/* Team Selection Tabs with Batting & Bowling */}
           {hasDetailedData && (
             (() => {
-              // Get unique innings/teams
+              // Get unique innings/teams from batsmen data
               const inningsSet = new Set<string>();
               scoreData.batsmen?.forEach(b => b.innings && inningsSet.add(b.innings));
               scoreData.bowlers?.forEach(b => b.innings && inningsSet.add(b.innings));
@@ -385,8 +385,19 @@ const ApiCricketLiveScore = ({
 
               // Build team data with scores - use innings data directly
               const getTeamData = () => {
+                const teamsWithData: Array<{
+                  name: string;
+                  label: string;
+                  score: string;
+                  overs: string | null;
+                  batsmen: any[];
+                  bowlers: any[];
+                  hasDetailedData: boolean;
+                }> = [];
+                
+                // First add teams from innings data (have detailed scorecard)
                 if (innings.length > 0) {
-                  return innings.map((inning, i) => {
+                  innings.forEach((inning) => {
                     const teamName = inning.replace(/ \d+ INN$/i, '').trim();
                     
                     // Calculate score and overs from batsmen/bowlers for this innings
@@ -428,17 +439,48 @@ const ApiCricketLiveScore = ({
                       ? (remainingBalls > 0 ? `${fullOvers}.${remainingBalls}` : `${fullOvers}`)
                       : null;
                     
-                    return {
+                    teamsWithData.push({
                       name: teamName,
                       label: inning.match(/\d+ INN/)?.[0] || 'Innings',
                       score: `${totalRuns}/${wickets}`,
                       overs: oversStr,
                       batsmen: inningsBatsmen,
                       bowlers: inningsBowlers,
-                    };
+                      hasDetailedData: true,
+                    });
                   });
                 }
-                return [];
+                
+                // Now add teams from summary data that don't have detailed data
+                // This ensures both teams are shown even if one has no batsmen/bowlers data
+                const addTeamFromSummary = (apiTeamName: string, apiScore: string, apiOvers: string | null) => {
+                  const normalizedApiName = normalizeTeamName(apiTeamName);
+                  const alreadyExists = teamsWithData.some(t => 
+                    teamsMatch(t.name, apiTeamName) || normalizeTeamName(t.name) === normalizedApiName
+                  );
+                  
+                  if (!alreadyExists && apiScore) {
+                    teamsWithData.push({
+                      name: apiTeamName,
+                      label: 'Summary',
+                      score: cleanScore(apiScore),
+                      overs: parseScoreOvers(apiScore) || apiOvers,
+                      batsmen: [],
+                      bowlers: [],
+                      hasDetailedData: false,
+                    });
+                  }
+                };
+                
+                // Add teams from homeTeam/awayTeam if they don't have scorecard data
+                if (scoreData?.homeTeam && scoreData?.homeScore) {
+                  addTeamFromSummary(scoreData.homeTeam, scoreData.homeScore, scoreData.homeOvers);
+                }
+                if (scoreData?.awayTeam && scoreData?.awayScore) {
+                  addTeamFromSummary(scoreData.awayTeam, scoreData.awayScore, scoreData.awayOvers);
+                }
+                
+                return teamsWithData;
               };
 
 
@@ -549,7 +591,19 @@ const ApiCricketLiveScore = ({
                             );
                           })()
                         ) : (
-                          <div className="text-center py-4 text-muted-foreground text-xs border rounded-lg">No batting data</div>
+                          <div className="text-center py-6 text-muted-foreground border rounded-lg bg-muted/10">
+                            {team.hasDetailedData === false ? (
+                              <div className="space-y-2">
+                                <div className="text-2xl font-bold text-primary">
+                                  {team.score}
+                                  {team.overs && <span className="text-sm font-normal text-muted-foreground ml-2">({team.overs} ov)</span>}
+                                </div>
+                                <p className="text-xs">Detailed scorecard not available</p>
+                              </div>
+                            ) : (
+                              <span className="text-xs">No batting data</span>
+                            )}
+                          </div>
                         )}
                       </div>
 
@@ -587,7 +641,9 @@ const ApiCricketLiveScore = ({
                             </Table>
                           </div>
                         ) : (
-                          <div className="text-center py-4 text-muted-foreground text-xs border rounded-lg">No bowling data</div>
+                          team.hasDetailedData === false ? null : (
+                            <div className="text-center py-4 text-muted-foreground text-xs border rounded-lg">No bowling data</div>
+                          )
                         )}
                       </div>
                     </TabsContent>
