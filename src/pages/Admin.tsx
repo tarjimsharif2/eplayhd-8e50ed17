@@ -1276,8 +1276,9 @@ const Admin = () => {
       const tournamentSlug = tournamentData.slug;
       
       if (editingTournament) {
+        const teamsCount = Array.isArray(tournamentData.custom_participating_teams) ? tournamentData.custom_participating_teams.length : 0;
         await updateTournament.mutateAsync({ id: editingTournament.id, ...tournamentData });
-        toast({ title: "Tournament updated successfully" });
+        toast({ title: "Tournament updated successfully", description: `Saved ${teamsCount} custom team(s)` });
       } else {
         await createTournament.mutateAsync(tournamentData);
         toast({ title: "Tournament created successfully" });
@@ -3369,13 +3370,16 @@ const Admin = () => {
                                           }))}
                                         selectedValues={tournamentForm.selectedTeamsToAdd}
                                         onSelectionChange={(values) => {
-                                          setTournamentForm({
-                                            ...tournamentForm,
+                                          setTournamentForm(prev => ({
+                                            ...prev,
                                             selectedTeamsToAdd: values
-                                          });
+                                          }));
                                         }}
                                         onAddTeams={(selectedTeamIds) => {
-                                          if (selectedTeamIds.length === 0) return;
+                                          if (selectedTeamIds.length === 0) {
+                                            toast({ title: "No teams selected", variant: "destructive" });
+                                            return;
+                                          }
                                           
                                           const teamsToAdd = selectedTeamIds
                                             .map(teamId => teams?.find(t => t.id === teamId))
@@ -3394,6 +3398,9 @@ const Admin = () => {
                                               ],
                                               selectedTeamsToAdd: []
                                             }));
+                                            toast({ title: `${teamsToAdd.length} team(s) added successfully` });
+                                          } else {
+                                            toast({ title: "Could not find selected teams", variant: "destructive" });
                                           }
                                         }}
                                         placeholder="Search and select teams..."
