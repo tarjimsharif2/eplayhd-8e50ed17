@@ -267,6 +267,7 @@ const Admin = () => {
     favicon_url: '',
     og_image_url: '',
     footer_text: '',
+    disclaimer_text: '',
     google_analytics_id: '',
     // Ad settings
     ads_enabled: false,
@@ -321,6 +322,7 @@ const Admin = () => {
         favicon_url: siteSettings.favicon_url || '',
         og_image_url: siteSettings.og_image_url || '',
         footer_text: siteSettings.footer_text || '',
+        disclaimer_text: (siteSettings as any).disclaimer_text || '',
         google_analytics_id: siteSettings.google_analytics_id || '',
         ads_enabled: siteSettings.ads_enabled || false,
         google_adsense_id: siteSettings.google_adsense_id || '',
@@ -1549,6 +1551,7 @@ const Admin = () => {
         favicon_url: siteSettingsForm.favicon_url || null,
         og_image_url: siteSettingsForm.og_image_url || null,
         footer_text: siteSettingsForm.footer_text || null,
+        disclaimer_text: siteSettingsForm.disclaimer_text || null,
         google_analytics_id: siteSettingsForm.google_analytics_id || null,
         // Ad settings
         ads_enabled: siteSettingsForm.ads_enabled,
@@ -4208,6 +4211,18 @@ const Admin = () => {
                             onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, telegram_link: e.target.value })} 
                           />
                         </div>
+                      </div>
+
+                      {/* Disclaimer Text */}
+                      <div className="space-y-2">
+                        <Label>Disclaimer Text</Label>
+                        <Textarea 
+                          placeholder="All content displayed here is from publicly available sources on the internet. We do not own or claim ownership of any cricket matches, streams, or highlights. This platform is for informational purposes only."
+                          value={siteSettingsForm.disclaimer_text} 
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, disclaimer_text: e.target.value })}
+                          rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground">This text will appear in the footer disclaimer section</p>
                       </div>
 
                       <div className="grid gap-4 md:grid-cols-2">

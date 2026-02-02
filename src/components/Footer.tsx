@@ -12,6 +12,7 @@ const Footer = () => {
 
   const siteName = settings?.site_name || "LIVE SPORTS";
   const footerText = settings?.footer_text || `© ${new Date().getFullYear()} ${siteName}. All rights reserved.`;
+  const disclaimerText = (settings as any)?.disclaimer_text || "All content displayed here is from publicly available sources on the internet. We do not own or claim ownership of any cricket matches, streams, or highlights. This platform is for informational purposes only.";
   const telegramLink = settings?.telegram_link || "#";
   // Only show tournaments that have show_in_menu enabled (same setting as header)
   const activeTournaments = tournaments?.filter(t => t.is_active && t.show_in_menu && !t.is_completed) || [];
@@ -150,9 +151,7 @@ const Footer = () => {
               </h3>
             </div>
             <p className="text-sm text-muted-foreground text-center leading-relaxed max-w-3xl mx-auto">
-              All content displayed here is from publicly available sources on the internet. 
-              We do not own or claim ownership of any cricket matches, streams, or highlights. 
-              This platform is for informational purposes only.
+              {disclaimerText}
             </p>
           </div>
         </div>
