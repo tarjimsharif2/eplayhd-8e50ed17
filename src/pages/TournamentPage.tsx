@@ -164,7 +164,7 @@ const TournamentPage = () => {
                       <span className="text-xs font-bold text-primary">{team.short_name.charAt(0)}</span>
                     </div>
                   )}
-                  <span className="text-[10px] font-medium text-center text-foreground leading-tight line-clamp-1">{team.short_name}</span>
+                  <span className="text-[10px] font-medium text-center text-foreground leading-tight line-clamp-2">{team.name}</span>
                 </motion.div>
               ))}
             </div>
