@@ -158,6 +158,110 @@ const teamsMatch = (name1: string, name2: string): boolean => {
   return false;
 };
 
+// Get match format from API event (league name, format field, or guess from overs)
+const getApiEventFormat = (event: any): string | null => {
+  const leagueName = (event.league_name || event.event_stadium || '').toLowerCase();
+  const format = (event.event_format || '').toLowerCase();
+  
+  // Check explicit format field
+  if (format.includes('test') || format.includes('first class') || format.includes('first-class')) {
+    return 'test';
+  }
+  if (format.includes('t20') || format.includes('twenty20')) {
+    return 't20';
+  }
+  if (format.includes('odi') || format.includes('one day') || format.includes('one-day')) {
+    return 'odi';
+  }
+  if (format.includes('t10')) {
+    return 't10';
+  }
+  
+  // Check league name for format hints
+  if (leagueName.includes('t20') || leagueName.includes('twenty20') || leagueName.includes('ipl') || 
+      leagueName.includes('bbl') || leagueName.includes('psl') || leagueName.includes('cpl') ||
+      leagueName.includes('hundred') || leagueName.includes('sa20') || leagueName.includes('ilt20')) {
+    return 't20';
+  }
+  if (leagueName.includes('test') || leagueName.includes('ranji') || leagueName.includes('sheffield') || 
+      leagueName.includes('first class') || leagueName.includes('first-class') || leagueName.includes('county championship')) {
+    return 'test';
+  }
+  if (leagueName.includes('odi') || leagueName.includes('one day') || leagueName.includes('world cup') && !leagueName.includes('t20')) {
+    return 'odi';
+  }
+  if (leagueName.includes('t10')) {
+    return 't10';
+  }
+  
+  return null; // Unknown format
+};
+
+// Check if match format is compatible with API event format
+const isFormatCompatible = (matchFormat: string | null, apiEventFormat: string | null): boolean => {
+  if (!matchFormat || !apiEventFormat) {
+    // If we can't determine format, allow match (backward compatibility)
+    return true;
+  }
+  
+  const normalizedMatch = matchFormat.toLowerCase();
+  const normalizedApi = apiEventFormat.toLowerCase();
+  
+  // Test matches should only match Test events
+  if (normalizedMatch === 'test' && normalizedApi !== 'test') {
+    return false;
+  }
+  
+  // T20 matches should only match T20 events (NOT Test/ODI)
+  if (normalizedMatch === 't20' && (normalizedApi === 'test' || normalizedApi === 'odi')) {
+    return false;
+  }
+  
+  // ODI matches should only match ODI events (NOT Test/T20)
+  if (normalizedMatch === 'odi' && (normalizedApi === 'test' || normalizedApi === 't20')) {
+    return false;
+  }
+  
+  // T10 matches should only match T10 events
+  if (normalizedMatch === 't10' && normalizedApi !== 't10') {
+    return false;
+  }
+  
+  return true;
+};
+
+// Validate overs against match format (as a secondary check)
+const validateOversForFormat = (overs: string | null, matchFormat: string | null): boolean => {
+  if (!overs || !matchFormat) return true;
+  
+  // Extract numeric overs value (handle formats like "94 ov", "94.2", etc.)
+  const oversMatch = overs.match(/(\d+(?:\.\d+)?)/);
+  if (!oversMatch) return true;
+  
+  const numOvers = parseFloat(oversMatch[1]);
+  const format = matchFormat.toLowerCase();
+  
+  // T20 max overs should be 20 (allow some buffer for rounding)
+  if (format === 't20' && numOvers > 25) {
+    console.log(`[sync-api-scores] REJECTING: T20 match has ${numOvers} overs - likely wrong match`);
+    return false;
+  }
+  
+  // T10 max overs should be 10
+  if (format === 't10' && numOvers > 15) {
+    console.log(`[sync-api-scores] REJECTING: T10 match has ${numOvers} overs - likely wrong match`);
+    return false;
+  }
+  
+  // ODI max overs should be 50
+  if (format === 'odi' && numOvers > 55) {
+    console.log(`[sync-api-scores] REJECTING: ODI match has ${numOvers} overs - likely wrong match`);
+    return false;
+  }
+  
+  return true;
+};
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -265,8 +369,10 @@ Deno.serve(async (req) => {
         updated_at,
         score_a,
         score_b,
+        match_format,
         team_a:teams!matches_team_a_id_fkey(name, short_name),
-        team_b:teams!matches_team_b_id_fkey(name, short_name)
+        team_b:teams!matches_team_b_id_fkey(name, short_name),
+        tournament:tournaments!matches_tournament_id_fkey(name)
       `);
     
     if (forceSyncMatchId) {
@@ -430,10 +536,13 @@ Deno.serve(async (req) => {
       const teamBName = teamB?.name || '';
       const teamAShort = teamA?.short_name || '';
       const teamBShort = teamB?.short_name || '';
+      const matchFormat = (match as any).match_format || null;
+      const tournament = (match as any).tournament as { name: string } | null;
+      const tournamentName = tournament?.name || '';
       
-      console.log(`[sync-api-scores] Looking for: "${teamAName}" (${teamAShort}) vs "${teamBName}" (${teamBShort})`);
+      console.log(`[sync-api-scores] Looking for: "${teamAName}" (${teamAShort}) vs "${teamBName}" (${teamBShort}) | Format: ${matchFormat || 'unknown'} | Tournament: ${tournamentName}`);
 
-      // Find matching event with debug
+      // Find matching event with FORMAT VALIDATION
       const matchingEvent = events.find((event: any) => {
         const homeTeam = event.event_home_team || '';
         const awayTeam = event.event_away_team || '';
@@ -444,15 +553,26 @@ Deno.serve(async (req) => {
         const teamBMatches = teamsMatch(teamBName, homeTeam) || teamsMatch(teamBName, awayTeam) ||
                            teamsMatch(teamBShort, homeTeam) || teamsMatch(teamBShort, awayTeam);
         
-        return teamAMatches && teamBMatches;
+        if (!teamAMatches || !teamBMatches) {
+          return false;
+        }
+        
+        // CRITICAL: Check format compatibility to prevent Test scores syncing to T20 matches
+        const apiFormat = getApiEventFormat(event);
+        if (!isFormatCompatible(matchFormat, apiFormat)) {
+          console.log(`[sync-api-scores] SKIPPING event ${event.event_key}: Format mismatch - DB has "${matchFormat}", API event is "${apiFormat}" (league: ${event.league_name || 'unknown'})`);
+          return false;
+        }
+        
+        return true;
       });
 
       if (!matchingEvent) {
-        console.log(`[sync-api-scores] No matching event found for ${teamAName} vs ${teamBName}`);
+        console.log(`[sync-api-scores] No matching event found for ${teamAName} vs ${teamBName} (format: ${matchFormat})`);
         continue;
       }
 
-      console.log(`[sync-api-scores] Found match: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team}`);
+      console.log(`[sync-api-scores] Found match: ${matchingEvent.event_home_team} vs ${matchingEvent.event_away_team} (API format: ${getApiEventFormat(matchingEvent) || 'unknown'})`);
 
       // Fetch detailed scorecard
       let detailedEvent = matchingEvent;
@@ -1166,6 +1286,27 @@ Deno.serve(async (req) => {
       // This makes the client-side logic simple: home = teamA, away = teamB
       
       console.log(`[sync-api-scores] Final mapped scores: team_a="${teamAName}" score_a="${scoreA}", team_b="${teamBName}" score_b="${scoreB}"`);
+
+      // CRITICAL VALIDATION: Verify overs are compatible with match format
+      // This is the FINAL safety check to prevent wrong match data from being saved
+      const validateAndReject = () => {
+        // Validate Team A score overs
+        if (oversA && !validateOversForFormat(oversA, matchFormat)) {
+          console.error(`[sync-api-scores] REJECTING match ${match.id}: Team A overs (${oversA}) incompatible with format (${matchFormat})`);
+          return true; // Reject
+        }
+        // Validate Team B score overs
+        if (oversB && !validateOversForFormat(oversB, matchFormat)) {
+          console.error(`[sync-api-scores] REJECTING match ${match.id}: Team B overs (${oversB}) incompatible with format (${matchFormat})`);
+          return true; // Reject
+        }
+        return false; // Don't reject
+      };
+      
+      if (validateAndReject()) {
+        console.log(`[sync-api-scores] Skipping save for match ${match.id} due to format/overs validation failure`);
+        continue;
+      }
 
       // Determine match status
       let matchStatus: 'upcoming' | 'live' | 'completed' = 'upcoming';
