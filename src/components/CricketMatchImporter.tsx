@@ -558,9 +558,34 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
         
         const teamAName = teams?.find(t => t.id === teamAId)?.name || match.homeTeam;
         const teamBName = teams?.find(t => t.id === teamBId)?.name || match.awayTeam;
-        // Generate unique slug with date to avoid duplicates
-        const slugDate = date.replace(/-/g, '');
-        const slug = `${teamAName.toLowerCase().replace(/\s+/g, '-')}-vs-${teamBName.toLowerCase().replace(/\s+/g, '-')}-${slugDate}-live`;
+        
+        // Generate clean SEO slug without date (e.g., team-a-vs-team-b-live)
+        const baseSlug = `${teamAName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-vs-${teamBName.toLowerCase().replace(/[^a-z0-9]+/g, '-')}-live`
+          .replace(/(^-|-$)/g, '');
+        
+        // Check for existing matches with same base slug
+        const { data: existingMatches } = await supabase
+          .from('matches')
+          .select('id, slug, status, match_start_time')
+          .ilike('slug', `${baseSlug}%`)
+          .order('match_start_time', { ascending: true });
+        
+        let slug = baseSlug;
+        if (existingMatches && existingMatches.length > 0) {
+          // Find next available number
+          const usedNumbers = existingMatches
+            .map(m => {
+              if (m.slug === baseSlug) return 1;
+              const match = m.slug?.match(new RegExp(`^${baseSlug.replace(/[-]/g, '\\-')}-(\\d+)$`));
+              return match ? parseInt(match[1]) : 0;
+            })
+            .filter(n => n > 0);
+          
+          if (usedNumbers.length > 0) {
+            const nextNumber = Math.max(...usedNumbers) + 1;
+            slug = `${baseSlug}-${nextNumber}`;
+          }
+        }
 
         const matchData = {
           team_a_id: teamAId,

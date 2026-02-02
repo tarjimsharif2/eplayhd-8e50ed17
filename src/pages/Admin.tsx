@@ -525,37 +525,59 @@ const Admin = () => {
   // Match handlers
   const handleSaveMatch = async () => {
     try {
-      // Generate SEO-friendly slug from team names (format: team-a-vs-team-b)
+      // Generate SEO-friendly slug from team names (format: team-a-vs-team-b-live)
       const teamAName = teams?.find(t => t.id === matchForm.team_a_id)?.name || '';
       const teamBName = teams?.find(t => t.id === matchForm.team_b_id)?.name || '';
-      const generateSlug = (teamA: string, teamB: string) => {
-        return `${teamA}-vs-${teamB}`.toLowerCase()
+      const generateBaseSlug = (teamA: string, teamB: string) => {
+        return `${teamA}-vs-${teamB}-live`.toLowerCase()
           .replace(/[^a-z0-9]+/g, '-')
           .replace(/(^-|-$)/g, '');
       };
 
-      const finalSlug = matchForm.page_type === 'page' 
-        ? (matchForm.slug || editingMatch?.slug || generateSlug(teamAName, teamBName)) 
-        : null;
-
-      // If assigning a slug, clear it from any other match that has it
-      // This allows reusing the same URL for different matches (e.g., recurring events)
-      if (finalSlug) {
-        const currentMatchId = editingMatch?.id;
-        const { data: existingMatches } = await supabase
-          .from('matches')
-          .select('id')
-          .eq('slug', finalSlug)
-          .neq('id', currentMatchId || '00000000-0000-0000-0000-000000000000');
-        
-        if (existingMatches && existingMatches.length > 0) {
-          // Clear slug from existing matches that have it
-          await supabase
-            .from('matches')
-            .update({ slug: null, page_type: 'redirect' })
-            .in('id', existingMatches.map(m => m.id));
+      let finalSlug: string | null = null;
+      
+      if (matchForm.page_type === 'page') {
+        // If user provided custom slug, use it
+        if (matchForm.slug && matchForm.slug.trim()) {
+          finalSlug = matchForm.slug.trim();
+        } else if (editingMatch?.slug) {
+          // Keep existing slug when editing
+          finalSlug = editingMatch.slug;
+        } else {
+          // Auto-generate slug with duplicate handling
+          const baseSlug = generateBaseSlug(teamAName, teamBName);
+          const currentMatchId = editingMatch?.id;
           
-          console.log(`Cleared slug "${finalSlug}" from ${existingMatches.length} existing match(es)`);
+          // Check for existing matches with same base slug pattern
+          const { data: existingMatches } = await supabase
+            .from('matches')
+            .select('id, slug, status, match_start_time')
+            .ilike('slug', `${baseSlug}%`)
+            .neq('id', currentMatchId || '00000000-0000-0000-0000-000000000000')
+            .order('match_start_time', { ascending: true });
+          
+          if (!existingMatches || existingMatches.length === 0) {
+            // No existing - use clean slug
+            finalSlug = baseSlug;
+          } else {
+            // Find next available number
+            const usedNumbers = existingMatches
+              .map(m => {
+                if (m.slug === baseSlug) return 1;
+                const match = m.slug?.match(new RegExp(`^${baseSlug.replace(/[-]/g, '\\-')}-(\\d+)$`));
+                return match ? parseInt(match[1]) : 0;
+              })
+              .filter(n => n > 0);
+            
+            if (usedNumbers.includes(1)) {
+              // Base slug (count as 1) is taken, find next number
+              const nextNumber = Math.max(...usedNumbers) + 1;
+              finalSlug = `${baseSlug}-${nextNumber}`;
+            } else {
+              // Base slug is available (other matches have numbered slugs)
+              finalSlug = baseSlug;
+            }
+          }
         }
       }
 
