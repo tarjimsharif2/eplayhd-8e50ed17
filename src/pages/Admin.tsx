@@ -1269,7 +1269,8 @@ const Admin = () => {
           if (!tournamentForm.use_custom_teams) return null;
           // Filter out teams with empty names
           const validTeams = tournamentForm.custom_participating_teams.filter(t => t.name && t.name.trim() !== '');
-          return validTeams.length > 0 ? validTeams : null;
+          // Return empty array if use_custom_teams is ON but no teams - this preserves the toggle state
+          return validTeams;
         })(),
       };
       const tournamentSlug = tournamentData.slug;
@@ -1307,6 +1308,8 @@ const Admin = () => {
     const customTeams = Array.isArray(tournament.custom_participating_teams) 
       ? tournament.custom_participating_teams as { name: string; logo_url?: string }[]
       : [];
+    // use_custom_teams is true if custom_participating_teams is an array (even if empty)
+    const hasCustomTeamsEnabled = Array.isArray(tournament.custom_participating_teams);
     setTournamentForm({
       name: tournament.name,
       sport: tournament.sport,
@@ -1331,7 +1334,7 @@ const Admin = () => {
       show_participating_teams: tournament.show_participating_teams ?? true,
       participating_teams_position: tournament.participating_teams_position || 'before_matches',
       custom_participating_teams: customTeams,
-      use_custom_teams: customTeams.length > 0,
+      use_custom_teams: hasCustomTeamsEnabled,
       selectedTeamsToAdd: [],
     });
     setTournamentDialogOpen(true);
