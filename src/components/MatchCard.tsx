@@ -78,21 +78,51 @@ const SportIcon = ({ sport, iconUrl }: { sport: string; iconUrl?: string | null 
   );
 };
 
+// Helper to format date as "1st February 2026"
+const formatDateOrdinal = (date: Date): string => {
+  const day = date.getDate();
+  const month = date.toLocaleDateString('en-US', { month: 'long' });
+  const year = date.getFullYear();
+  
+  // Get ordinal suffix (st, nd, rd, th)
+  const getOrdinalSuffix = (n: number): string => {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+  };
+  
+  return `${day}${getOrdinalSuffix(day)} ${month} ${year}`;
+};
+
 // Helper to check if date is today or tomorrow
 const getDateLabel = (matchStartTime: string | null, matchDate: string): { label: string; isTodayOrTomorrow: boolean } => {
-  if (!matchStartTime) {
-    return { label: matchDate, isTodayOrTomorrow: false };
+  let formattedDate = matchDate;
+  let matchDateTime: Date | null = null;
+  
+  // Try to parse the date for formatting
+  if (matchStartTime) {
+    matchDateTime = new Date(matchStartTime);
+    if (!isNaN(matchDateTime.getTime())) {
+      formattedDate = formatDateOrdinal(matchDateTime);
+    }
+  } else if (matchDate) {
+    // Try to parse matchDate string (format: YYYY-MM-DD or similar)
+    const parsed = new Date(matchDate);
+    if (!isNaN(parsed.getTime())) {
+      formattedDate = formatDateOrdinal(parsed);
+    }
+  }
+  
+  if (!matchDateTime) {
+    return { label: formattedDate, isTodayOrTomorrow: false };
   }
 
-  const matchDateTime = new Date(matchStartTime);
   const now = new Date();
   
   // Get start of today and tomorrow in local timezone
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const dayAfterTomorrow = new Date(today);
-  dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2);
 
   // Get match date in local timezone
   const matchDay = new Date(matchDateTime.getFullYear(), matchDateTime.getMonth(), matchDateTime.getDate());
@@ -100,10 +130,10 @@ const getDateLabel = (matchStartTime: string | null, matchDate: string): { label
   if (matchDay.getTime() === today.getTime()) {
     return { label: 'Today', isTodayOrTomorrow: true };
   } else if (matchDay.getTime() === tomorrow.getTime()) {
-    return { label: `${matchDate} (Tomorrow)`, isTodayOrTomorrow: true };
+    return { label: `Tomorrow`, isTodayOrTomorrow: true };
   }
   
-  return { label: matchDate, isTodayOrTomorrow: false };
+  return { label: formattedDate, isTodayOrTomorrow: false };
 };
 
 const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
