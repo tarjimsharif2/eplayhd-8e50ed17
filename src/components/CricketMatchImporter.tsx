@@ -587,6 +587,17 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
           }
         }
 
+        // Calculate match duration based on format
+        const matchFormat = (match.matchFormat && match.matchFormat.trim()) || null;
+        const getMatchDuration = (format: string | null): number | null => {
+          if (!format) return null;
+          const f = format.toLowerCase();
+          if (f === 't20' || f.includes('t20')) return 280;
+          if (f === 'odi' || f.includes('one day')) return 600;
+          // Test, T10, and other formats - leave blank for manual entry
+          return null;
+        };
+
         const matchData = {
           team_a_id: teamAId,
           team_b_id: teamBId,
@@ -607,8 +618,9 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
           match_start_time: match.startTime ? new Date(match.startTime).toISOString() : null,
           venue: match.venue || null,
           match_number: match.matchNumber || null,
-          match_format: (match.matchFormat && match.matchFormat.trim()) || null,
+          match_format: matchFormat,
           match_label: null,
+          match_duration_minutes: getMatchDuration(matchFormat),
         };
 
         const { error } = await supabase.from('matches').insert(matchData);
