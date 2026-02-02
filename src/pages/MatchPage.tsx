@@ -30,6 +30,7 @@ const MatchPage = () => {
   const [activeServer, setActiveServer] = useState<StreamingServer | null>(null);
   const [localTime, setLocalTime] = useState<string>('');
   const [timezone, setTimezone] = useState<string>('');
+  const [hasPointsTable, setHasPointsTable] = useState(false);
   
   const { data: siteSettings } = useSiteSettings();
   const { data: servers, isLoading: serversLoading } = useStreamingServers(match?.id || '');
@@ -94,6 +95,30 @@ const MatchPage = () => {
 
     fetchMatch();
   }, [slug]);
+
+  // Check if points table exists for this tournament
+  useEffect(() => {
+    const checkPointsTable = async () => {
+      if (!match?.tournament?.id) {
+        setHasPointsTable(false);
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('tournament_points_table')
+        .select('id')
+        .eq('tournament_id', match.tournament.id)
+        .limit(1);
+      
+      if (!error && data && data.length > 0) {
+        setHasPointsTable(true);
+      } else {
+        setHasPointsTable(false);
+      }
+    };
+    
+    checkPointsTable();
+  }, [match?.tournament?.id]);
 
   // Apply real-time updates to match state
   useEffect(() => {
@@ -310,8 +335,8 @@ const MatchPage = () => {
           )}
 
           {/* Score Card - Shows innings data (always shown for cricket) */}
-          {/* If API score is enabled (via score_source or api_score_enabled), show AFTER points table. Otherwise show here */}
-          {sport?.name?.toLowerCase().includes('cricket') && teamA && teamB && !match.api_score_enabled && (match as any)?.score_source !== 'api_cricket' && (match as any)?.score_source !== 'espn' && (
+          {/* If Points Table exists, show AFTER points table. Otherwise show here */}
+          {sport?.name?.toLowerCase().includes('cricket') && teamA && teamB && !hasPointsTable && (
             <ManualScoreCard 
               matchId={match.id}
               teamAId={teamA.id}
@@ -490,8 +515,8 @@ const MatchPage = () => {
             </div>
           )}
 
-          {/* Score Card - Shows innings data AFTER points table when API score is enabled */}
-          {sport?.name?.toLowerCase().includes('cricket') && teamA && teamB && match.api_score_enabled && (
+          {/* Score Card - Shows innings data AFTER points table when Points Table exists */}
+          {sport?.name?.toLowerCase().includes('cricket') && teamA && teamB && hasPointsTable && (
             <div className="mt-6">
               <ManualScoreCard 
                 matchId={match.id}
