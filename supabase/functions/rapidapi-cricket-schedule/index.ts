@@ -56,12 +56,17 @@ async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3)
 }
 
 // Extract match format from match description or type
-function getMatchFormat(matchDesc: string, matchType: string): string {
+function getMatchFormat(matchDesc: string, matchType: string): string | null {
   const desc = (matchDesc || matchType || '').toLowerCase();
   if (desc.includes('test')) return 'Test';
-  if (desc.includes('odi') || desc.includes('one day')) return 'ODI';
-  if (desc.includes('t20') || desc.includes('twenty20') || desc.includes('t-20')) return 'T20';
-  return 'T20'; // Default
+  if (desc.includes('odi') || desc.includes('one day') || desc.includes('one-day')) return 'ODI';
+  if (desc.includes('t10') || desc.includes('10 over')) return 'T10';
+  if (desc.includes('t20') || desc.includes('twenty20') || desc.includes('t-20') || desc.includes('20 over')) return 'T20';
+  // Check for common league names that imply T20
+  if (desc.includes('ipl') || desc.includes('bpl') || desc.includes('psl') || desc.includes('bbl') || 
+      desc.includes('cpl') || desc.includes('sa20') || desc.includes('ilt20') || desc.includes('wpl') ||
+      desc.includes('premier league') || desc.includes('franchise')) return 'T20';
+  return null; // Return null if format unknown - let importer handle
 }
 
 // Convert epoch to ISO string

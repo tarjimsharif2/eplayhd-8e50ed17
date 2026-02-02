@@ -91,13 +91,24 @@ function parseMatchData(event: Record<string, unknown>, seriesName: string): Cri
     return null;
   }
   
-  // Get match format from event name
-  let matchFormat = 'T20';
+  // Get match format from event name - detect Test, ODI, T20, T10
+  let matchFormat: string | null = null;
   const eventName = (event.name as string)?.toLowerCase() || '';
-  if (eventName.includes('test')) {
+  const competitionName = ((competition as any).name as string)?.toLowerCase() || '';
+  const combinedName = `${eventName} ${competitionName}`;
+  
+  if (combinedName.includes('test')) {
     matchFormat = 'Test';
-  } else if (eventName.includes('odi')) {
+  } else if (combinedName.includes('odi') || combinedName.includes('one day') || combinedName.includes('one-day')) {
     matchFormat = 'ODI';
+  } else if (combinedName.includes('t10') || combinedName.includes('10 over')) {
+    matchFormat = 'T10';
+  } else if (combinedName.includes('t20') || combinedName.includes('twenty20') || combinedName.includes('t-20') || combinedName.includes('20 over')) {
+    matchFormat = 'T20';
+  } else if (combinedName.includes('ipl') || combinedName.includes('bpl') || combinedName.includes('psl') || 
+             combinedName.includes('bbl') || combinedName.includes('cpl') || combinedName.includes('sa20') ||
+             combinedName.includes('ilt20') || combinedName.includes('wpl') || combinedName.includes('premier league')) {
+    matchFormat = 'T20';
   }
   
   // Get venue
@@ -404,11 +415,16 @@ function parseCricinfoMatch(matchData: Record<string, unknown>, seriesName: stri
       }
     }
     
-    // Get match format
-    let matchFormat = 'T20';
+    // Get match format - detect Test, ODI, T20, T10
+    let matchFormat: string | null = null;
     const formatStr = ((matchData.format as string) || '').toLowerCase();
-    if (formatStr.includes('test')) matchFormat = 'Test';
-    else if (formatStr.includes('odi')) matchFormat = 'ODI';
+    const titleStr = ((matchData.title as string) || '').toLowerCase();
+    const combinedStr = `${formatStr} ${titleStr}`;
+    
+    if (combinedStr.includes('test')) matchFormat = 'Test';
+    else if (combinedStr.includes('odi') || combinedStr.includes('one day')) matchFormat = 'ODI';
+    else if (combinedStr.includes('t10') || combinedStr.includes('10 over')) matchFormat = 'T10';
+    else if (combinedStr.includes('t20') || combinedStr.includes('twenty20')) matchFormat = 'T20';
     
     // Get match number/title
     let matchNumber: string | null = null;
