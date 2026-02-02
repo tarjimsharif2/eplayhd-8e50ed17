@@ -1265,9 +1265,12 @@ const Admin = () => {
         total_venues: tournamentForm.total_venues || null,
         show_participating_teams: tournamentForm.show_participating_teams,
         participating_teams_position: tournamentForm.participating_teams_position,
-        custom_participating_teams: tournamentForm.use_custom_teams && tournamentForm.custom_participating_teams.length > 0 
-          ? tournamentForm.custom_participating_teams 
-          : null,
+        custom_participating_teams: (() => {
+          if (!tournamentForm.use_custom_teams) return null;
+          // Filter out teams with empty names
+          const validTeams = tournamentForm.custom_participating_teams.filter(t => t.name && t.name.trim() !== '');
+          return validTeams.length > 0 ? validTeams : null;
+        })(),
       };
       const tournamentSlug = tournamentData.slug;
       
