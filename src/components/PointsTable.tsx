@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, TrendingUp, TrendingDown, Minus } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Trophy, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Team } from '@/hooks/useSportsData';
+import { useState } from 'react';
+import { cn } from '@/lib/utils';
 
 export interface PointsTableEntry {
   id: string;
@@ -19,6 +20,7 @@ export interface PointsTableEntry {
   no_result: number;
   net_run_rate: number;
   points: number;
+  group_name?: string | null;
   team?: Team;
 }
 
@@ -35,6 +37,7 @@ export const usePointsTable = (tournamentId: string | undefined) => {
           team:teams(*)
         `)
         .eq('tournament_id', tournamentId)
+        .order('group_name', { ascending: true, nullsFirst: true })
         .order('position', { ascending: true });
       
       if (error) throw error;
@@ -48,11 +51,15 @@ interface PointsTableProps {
   tournamentId: string;
   tournamentName?: string;
   compact?: boolean;
-  groupName?: string;
 }
 
-const PointsTable = ({ tournamentId, tournamentName, compact = false, groupName }: PointsTableProps) => {
+interface GroupedEntries {
+  [groupName: string]: PointsTableEntry[];
+}
+
+const PointsTable = ({ tournamentId, tournamentName, compact = false }: PointsTableProps) => {
   const { data: entries, isLoading } = usePointsTable(tournamentId);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   if (isLoading) {
     return null;
@@ -62,49 +69,39 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, groupName 
     return null;
   }
 
-  // Determine qualification zone (top 4 typically qualify)
-  const qualificationZone = 4;
+  // Group entries by group_name
+  const groupedEntries: GroupedEntries = entries.reduce((acc, entry) => {
+    const groupName = entry.group_name || 'All Teams';
+    if (!acc[groupName]) {
+      acc[groupName] = [];
+    }
+    acc[groupName].push(entry);
+    return acc;
+  }, {} as GroupedEntries);
 
-  const getPositionBadge = (position: number) => {
-    if (position === 1) {
-      return (
-        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center text-xs font-bold text-black shadow-lg">
-          {position}
-        </div>
-      );
-    }
-    if (position === 2) {
-      return (
-        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-gray-300 to-gray-500 flex items-center justify-center text-xs font-bold text-black shadow-md">
-          {position}
-        </div>
-      );
-    }
-    if (position === 3) {
-      return (
-        <div className="w-6 h-6 rounded-full bg-gradient-to-br from-amber-600 to-amber-800 flex items-center justify-center text-xs font-bold text-white shadow-md">
-          {position}
-        </div>
-      );
-    }
-    if (position <= qualificationZone) {
-      return (
-        <div className="w-6 h-6 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center text-xs font-semibold text-primary">
-          {position}
-        </div>
-      );
-    }
-    return (
-      <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-medium text-muted-foreground">
-        {position}
-      </div>
-    );
+  const groupNames = Object.keys(groupedEntries).sort((a, b) => {
+    if (a === 'All Teams') return -1;
+    if (b === 'All Teams') return 1;
+    return a.localeCompare(b);
+  });
+
+  const hasGroups = groupNames.length > 1 || (groupNames.length === 1 && groupNames[0] !== 'All Teams');
+
+  const toggleRow = (rowId: string) => {
+    setExpandedRows(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(rowId)) {
+        newSet.delete(rowId);
+      } else {
+        newSet.add(rowId);
+      }
+      return newSet;
+    });
   };
 
-  const getNrrIcon = (nrr: number) => {
-    if (nrr > 0) return <TrendingUp className="w-3 h-3 text-green-500" />;
-    if (nrr < 0) return <TrendingDown className="w-3 h-3 text-red-500" />;
-    return <Minus className="w-3 h-3 text-muted-foreground" />;
+  const formatNRR = (nrr: number) => {
+    const formatted = nrr.toFixed(3);
+    return nrr >= 0 ? `+${formatted}` : formatted;
   };
 
   return (
@@ -113,15 +110,15 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, groupName 
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: 0.1 }}
     >
-      <Card className="overflow-hidden border-border/50 bg-gradient-to-b from-card to-card/80 backdrop-blur shadow-xl">
-        <CardHeader className="pb-3 px-4 sm:px-6 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 border-b border-border/30">
+      <Card className="overflow-hidden border-border/50 bg-card/95 backdrop-blur shadow-xl">
+        <CardHeader className="pb-3 px-4 bg-gradient-to-r from-primary/10 via-transparent to-accent/10 border-b border-border/30">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
               <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center">
                 <Trophy className="w-4 h-4 text-primary" />
               </div>
               <span className="truncate">
-                {groupName ? groupName : (tournamentName ? `${tournamentName} - Points Table` : 'Points Table')}
+                {tournamentName ? `${tournamentName} - Points Table` : 'Points Table'}
               </span>
             </CardTitle>
             <Badge variant="outline" className="text-xs">
@@ -130,174 +127,157 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, groupName 
           </div>
         </CardHeader>
         <CardContent className="p-0">
-          {/* Mobile Card View */}
-          <div className="block sm:hidden divide-y divide-border/20">
-            {entries.map((entry, index) => {
-              const position = entry.position || index + 1;
-              const isQualified = position <= qualificationZone;
-              
-              return (
-                <motion.div 
-                  key={entry.id} 
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className={`p-4 ${isQualified ? 'bg-gradient-to-r from-primary/5 to-transparent border-l-2 border-primary/50' : ''}`}
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      {getPositionBadge(position)}
-                      <div className="flex items-center gap-2">
-                        {entry.team?.logo_url ? (
-                          <img 
-                            src={entry.team.logo_url} 
-                            alt={entry.team.name} 
-                            className="w-8 h-8 object-contain"
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                            <span className="text-sm font-bold text-primary">{entry.team?.short_name?.charAt(0)}</span>
-                          </div>
-                        )}
-                        <div>
-                          <span className="font-semibold text-sm block">{entry.team?.short_name || entry.team?.name}</span>
-                          {entry.team?.name !== entry.team?.short_name && (
-                            <span className="text-xs text-muted-foreground">{entry.team?.name}</span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-2xl font-bold text-primary">{entry.points}</div>
-                      <div className="text-[10px] text-muted-foreground uppercase tracking-wide">Points</div>
+          {groupNames.map((groupName, groupIndex) => {
+            const groupEntries = groupedEntries[groupName];
+            
+            return (
+              <div key={groupName}>
+                {/* Group Header */}
+                <div className="bg-muted/60 dark:bg-muted/40 px-4 py-2.5 border-b border-border/30 sticky top-0 z-10">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      {hasGroups ? groupName : 'Teams'}
+                    </span>
+                    <div className="flex items-center gap-3 text-[10px] sm:text-xs font-medium text-muted-foreground">
+                      <span className="w-6 text-center">P</span>
+                      <span className="w-6 text-center">W</span>
+                      <span className="w-6 text-center">L</span>
+                      <span className="w-6 text-center">NR</span>
+                      <span className="w-8 text-center">PTS</span>
+                      <span className="w-14 text-center">NRR</span>
+                      <span className="w-5"></span>
                     </div>
                   </div>
-                  <div className="grid grid-cols-5 gap-2 bg-muted/30 rounded-lg p-2">
-                    <div className="text-center">
-                      <div className="font-semibold text-foreground">{entry.played}</div>
-                      <div className="text-[10px] text-muted-foreground">Played</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-green-500">{entry.won}</div>
-                      <div className="text-[10px] text-muted-foreground">Won</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-red-500">{entry.lost}</div>
-                      <div className="text-[10px] text-muted-foreground">Lost</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="font-semibold text-foreground">{entry.tied + entry.no_result}</div>
-                      <div className="text-[10px] text-muted-foreground">T/NR</div>
-                    </div>
-                    <div className="text-center">
-                      <div className={`font-semibold flex items-center justify-center gap-1 ${entry.net_run_rate >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                        {getNrrIcon(entry.net_run_rate)}
-                        {entry.net_run_rate >= 0 ? '+' : ''}{entry.net_run_rate.toFixed(3)}
-                      </div>
-                      <div className="text-[10px] text-muted-foreground">NRR</div>
-                    </div>
-                  </div>
-                </motion.div>
-              );
-            })}
-          </div>
-          
-          {/* Desktop Table View */}
-          <div className="hidden sm:block">
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/40 hover:bg-muted/40">
-                  <TableHead className="w-12 text-center px-2 font-semibold">Pos</TableHead>
-                  <TableHead className="px-3 font-semibold">Team</TableHead>
-                  <TableHead className="text-center w-12 px-2 font-semibold">P</TableHead>
-                  <TableHead className="text-center w-12 px-2 font-semibold">W</TableHead>
-                  <TableHead className="text-center w-12 px-2 font-semibold">L</TableHead>
-                  {!compact && (
-                    <>
-                      <TableHead className="text-center w-12 px-2 font-semibold">T</TableHead>
-                      <TableHead className="text-center w-12 px-2 font-semibold">NR</TableHead>
-                    </>
-                  )}
-                  <TableHead className="text-center w-20 px-2 font-semibold">NRR</TableHead>
-                  <TableHead className="text-center w-14 px-3 font-bold text-primary">Pts</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {entries.map((entry, index) => {
+                </div>
+
+                {/* Team Rows */}
+                {groupEntries.map((entry, index) => {
                   const position = entry.position || index + 1;
-                  const isQualified = position <= qualificationZone;
+                  const isExpanded = expandedRows.has(entry.id);
                   
                   return (
-                    <TableRow 
-                      key={entry.id} 
-                      className={`transition-colors ${isQualified ? 'bg-gradient-to-r from-primary/5 to-transparent hover:from-primary/10' : 'hover:bg-muted/20'}`}
-                    >
-                      <TableCell className="text-center px-2 py-3">
-                        {getPositionBadge(position)}
-                      </TableCell>
-                      <TableCell className="px-3 py-3">
+                    <div key={entry.id} className="border-b border-border/20 last:border-b-0">
+                      {/* Main Row */}
+                      <div 
+                        className={cn(
+                          "flex items-center justify-between px-4 py-3 cursor-pointer transition-colors hover:bg-muted/30",
+                          isExpanded && "bg-muted/20"
+                        )}
+                        onClick={() => toggleRow(entry.id)}
+                      >
                         <div className="flex items-center gap-3">
+                          {/* Position */}
+                          <span className="w-5 text-sm font-medium text-muted-foreground">
+                            {position}
+                          </span>
+                          
+                          {/* Team Logo */}
                           {entry.team?.logo_url ? (
                             <img 
                               src={entry.team.logo_url} 
                               alt={entry.team.name} 
-                              className="w-7 h-7 object-contain flex-shrink-0"
+                              className="w-6 h-6 sm:w-7 sm:h-7 object-contain"
                             />
                           ) : (
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center flex-shrink-0">
-                              <span className="text-xs font-bold text-primary">{entry.team?.short_name?.charAt(0)}</span>
+                            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
+                              <span className="text-[10px] font-bold text-primary">
+                                {entry.team?.short_name?.charAt(0)}
+                              </span>
                             </div>
                           )}
-                          <div>
-                            <span className="font-semibold text-sm block">
-                              {compact ? entry.team?.short_name : entry.team?.name}
-                            </span>
+                          
+                          {/* Team Name */}
+                          <span className="font-semibold text-sm text-primary">
+                            {entry.team?.short_name || entry.team?.name}
+                          </span>
+                        </div>
+
+                        {/* Stats */}
+                        <div className="flex items-center gap-3 text-xs sm:text-sm">
+                          <span className="w-6 text-center font-medium">{entry.played}</span>
+                          <span className="w-6 text-center font-medium">{entry.won}</span>
+                          <span className="w-6 text-center font-medium">{entry.lost}</span>
+                          <span className="w-6 text-center font-medium">{entry.no_result}</span>
+                          <span className="w-8 text-center font-semibold">{entry.points}</span>
+                          <span className={cn(
+                            "w-14 text-center font-medium",
+                            entry.net_run_rate >= 0 ? "text-green-500" : "text-red-500"
+                          )}>
+                            {formatNRR(entry.net_run_rate)}
+                          </span>
+                          <div className="w-5 flex justify-center">
+                            {isExpanded ? (
+                              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                            ) : (
+                              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                            )}
                           </div>
                         </div>
-                      </TableCell>
-                      <TableCell className="text-center px-2 py-3 font-medium">{entry.played}</TableCell>
-                      <TableCell className="text-center text-green-500 font-semibold px-2 py-3">{entry.won}</TableCell>
-                      <TableCell className="text-center text-red-500 font-medium px-2 py-3">{entry.lost}</TableCell>
-                      {!compact && (
-                        <>
-                          <TableCell className="text-center px-2 py-3">{entry.tied}</TableCell>
-                          <TableCell className="text-center px-2 py-3">{entry.no_result}</TableCell>
-                        </>
-                      )}
-                      <TableCell className="text-center px-2 py-3">
-                        <div className={`flex items-center justify-center gap-1 font-medium ${entry.net_run_rate >= 0 ? 'text-green-500' : 'text-red-500'}`}>
-                          {getNrrIcon(entry.net_run_rate)}
-                          {entry.net_run_rate >= 0 ? '+' : ''}{entry.net_run_rate.toFixed(3)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center px-3 py-3">
-                        <Badge 
-                          variant={position <= 2 ? "default" : "secondary"} 
-                          className={`font-bold text-sm px-3 ${position <= 2 ? 'bg-primary text-primary-foreground' : ''}`}
-                        >
-                          {entry.points}
-                        </Badge>
-                      </TableCell>
-                    </TableRow>
+                      </div>
+
+                      {/* Expanded Details */}
+                      <AnimatePresence>
+                        {isExpanded && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="px-4 py-3 bg-muted/20 border-t border-border/20">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                                <div className="text-center">
+                                  <div className="text-lg font-bold">{entry.played}</div>
+                                  <div className="text-xs text-muted-foreground">Matches Played</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-lg font-bold text-green-500">{entry.won}</div>
+                                  <div className="text-xs text-muted-foreground">Won</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-lg font-bold text-red-500">{entry.lost}</div>
+                                  <div className="text-xs text-muted-foreground">Lost</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-lg font-bold">{entry.tied}</div>
+                                  <div className="text-xs text-muted-foreground">Tied</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-lg font-bold">{entry.no_result}</div>
+                                  <div className="text-xs text-muted-foreground">No Result</div>
+                                </div>
+                                <div className="text-center">
+                                  <div className="text-lg font-bold text-primary">{entry.points}</div>
+                                  <div className="text-xs text-muted-foreground">Points</div>
+                                </div>
+                                <div className="text-center col-span-2">
+                                  <div className={cn(
+                                    "text-lg font-bold",
+                                    entry.net_run_rate >= 0 ? "text-green-500" : "text-red-500"
+                                  )}>
+                                    {formatNRR(entry.net_run_rate)}
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">Net Run Rate</div>
+                                </div>
+                              </div>
+                              {entry.team?.name !== entry.team?.short_name && (
+                                <div className="mt-3 pt-3 border-t border-border/20 text-center">
+                                  <span className="text-sm text-muted-foreground">
+                                    {entry.team?.name}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
                   );
                 })}
-              </TableBody>
-            </Table>
-          </div>
-          
-          {/* Qualification Legend */}
-          <div className="px-4 py-3 bg-muted/20 border-t border-border/30 flex items-center gap-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-primary/50" />
-              <span>Top {qualificationZone} Qualify</span>
-            </div>
-            <div className="flex items-center gap-1">
-              <span className="font-medium">P</span>=Played
-              <span className="font-medium ml-2">W</span>=Won
-              <span className="font-medium ml-2">L</span>=Lost
-              <span className="font-medium ml-2">NRR</span>=Net Run Rate
-            </div>
-          </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
     </motion.div>

@@ -1383,6 +1383,7 @@ export type Database = {
       tournament_points_table: {
         Row: {
           created_at: string
+          group_name: string | null
           head_to_head: Json | null
           id: string
           lost: number | null
@@ -1403,6 +1404,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          group_name?: string | null
           head_to_head?: Json | null
           id?: string
           lost?: number | null
@@ -1423,6 +1425,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          group_name?: string | null
           head_to_head?: Json | null
           id?: string
           lost?: number | null

@@ -28,6 +28,7 @@ interface PointsTableEntry {
   overs_faced?: number;
   runs_conceded?: number;
   overs_bowled?: number;
+  group_name?: string | null;
   team?: Team;
 }
 
@@ -53,6 +54,7 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
     no_result: 0,
     points: 0,
     net_run_rate: 0,
+    group_name: '',
   });
 
   // Initialize series ID from tournament
@@ -228,6 +230,7 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
       no_result: 0,
       points: 0,
       net_run_rate: 0,
+      group_name: '',
     });
   };
 
@@ -243,6 +246,7 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
       no_result: entry.no_result,
       points: entry.points,
       net_run_rate: entry.net_run_rate,
+      group_name: entry.group_name || '',
     });
     setDialogOpen(true);
   };
@@ -264,6 +268,7 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
       no_result: form.no_result,
       points: form.points,
       net_run_rate: form.net_run_rate,
+      group_name: form.group_name || null,
     };
 
     if (editingEntry) {
@@ -368,6 +373,7 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
               <tr className="border-b border-border">
                 <th className="text-left py-2 px-2">#</th>
                 <th className="text-left py-2 px-2">Team</th>
+                <th className="text-left py-2 px-1">Group</th>
                 <th className="text-center py-2 px-1">P</th>
                 <th className="text-center py-2 px-1">W</th>
                 <th className="text-center py-2 px-1">L</th>
@@ -389,6 +395,9 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
                       )}
                       <span>{entry.team?.short_name || entry.team?.name}</span>
                     </div>
+                  </td>
+                  <td className="py-2 px-1 text-xs text-muted-foreground">
+                    {entry.group_name || '-'}
                   </td>
                   <td className="text-center py-2 px-1">{entry.played}</td>
                   <td className="text-center py-2 px-1">{entry.won}</td>
@@ -512,14 +521,24 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label>Net Run Rate</Label>
-              <Input 
-                type="number" 
-                step="0.001"
-                value={form.net_run_rate} 
-                onChange={(e) => setForm({ ...form, net_run_rate: parseFloat(e.target.value) || 0 })} 
-              />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label>Net Run Rate</Label>
+                <Input 
+                  type="number" 
+                  step="0.001"
+                  value={form.net_run_rate} 
+                  onChange={(e) => setForm({ ...form, net_run_rate: parseFloat(e.target.value) || 0 })} 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Group Name</Label>
+                <Input 
+                  placeholder="e.g., Group A, Group B"
+                  value={form.group_name} 
+                  onChange={(e) => setForm({ ...form, group_name: e.target.value })} 
+                />
+              </div>
             </div>
           </div>
           <DialogFooter>
