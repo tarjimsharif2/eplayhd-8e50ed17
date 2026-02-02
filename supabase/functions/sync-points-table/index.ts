@@ -41,13 +41,8 @@ const normalizeTeamName = (name: string): string => {
   return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
 };
 
-// Split name into words for word-based matching
-const getWords = (name: string): string[] => {
-  return normalizeTeamName(name).split(/\s+/).filter(w => w.length > 0);
-};
-
-// Strict team name matching - must match short_name exactly or significant word overlap
-const teamsMatch = (dbTeam: { name: string; short_name: string }, apiTeamName: string, apiTeamFullName?: string): boolean => {
+// STRICT team name matching - must match short_name EXACTLY or full name EXACTLY
+const teamsMatchStrict = (dbTeam: { name: string; short_name: string }, apiTeamName: string, apiTeamFullName?: string): boolean => {
   const dbShort = (dbTeam.short_name || '').toLowerCase().trim();
   const dbName = normalizeTeamName(dbTeam.name);
   const apiShort = (apiTeamName || '').toLowerCase().trim();
@@ -61,33 +56,13 @@ const teamsMatch = (dbTeam: { name: string; short_name: string }, apiTeamName: s
   // Priority 2: Exact full name match
   if (apiName && dbName && dbName === apiName) return true;
   
-  // Priority 3: Word-based matching - check if significant words match
-  // Must have at least 2 matching words and high similarity
-  if (apiName && dbName) {
-    const dbWords = getWords(dbTeam.name);
-    const apiWords = getWords(apiTeamFullName || '');
-    
-    // Skip common words that don't identify teams
-    const skipWords = ['women', 'men', 'team', 'cricket', 'the', 'fc', 'united'];
-    const dbSignificantWords = dbWords.filter(w => !skipWords.includes(w) && w.length > 2);
-    const apiSignificantWords = apiWords.filter(w => !skipWords.includes(w) && w.length > 2);
-    
-    if (dbSignificantWords.length === 0 || apiSignificantWords.length === 0) {
-      return false;
-    }
-    
-    // Count matching significant words
-    const matchingWords = dbSignificantWords.filter(dbWord => 
-      apiSignificantWords.some(apiWord => dbWord === apiWord)
-    );
-    
-    // Require at least 50% of significant words to match and at least 1 match
-    const matchRatio = matchingWords.length / Math.min(dbSignificantWords.length, apiSignificantWords.length);
-    if (matchingWords.length >= 1 && matchRatio >= 0.5) {
-      return true;
-    }
+  // Priority 3: Short name contained within API team name exactly (e.g., "UAE" matches "United Arab Emirates" if dbShort === "uae")
+  // But API short name must not contain extra characters (to avoid IND matching INDW)
+  if (apiName.includes(dbShort) && dbShort.length >= 2 && apiShort.length === dbShort.length) {
+    return true;
   }
   
+  // No fuzzy matching - this prevents IND from matching INDU19, INDW etc.
   return false;
 };
 
@@ -155,41 +130,10 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Get teams that are participating in this tournament (from matches)
-    const { data: tournamentMatches, error: matchesError } = await supabase
-      .from('matches')
-      .select('team_a_id, team_b_id')
-      .eq('tournament_id', tournamentId);
-
-    if (matchesError) {
-      console.error('[sync-points-table] Failed to fetch tournament matches:', matchesError);
-      return new Response(
-        JSON.stringify({ success: false, error: 'Failed to fetch tournament matches' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Extract unique team IDs from this tournament's matches
-    const participatingTeamIds = new Set<string>();
-    for (const match of tournamentMatches || []) {
-      if (match.team_a_id) participatingTeamIds.add(match.team_a_id);
-      if (match.team_b_id) participatingTeamIds.add(match.team_b_id);
-    }
-
-    console.log(`[sync-points-table] Found ${participatingTeamIds.size} participating teams in tournament`);
-
-    if (participatingTeamIds.size === 0) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'No matches found for this tournament. Please add matches first before syncing points table.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get only teams that are participating in this tournament
+    // Get ALL teams in the system - we use STRICT matching to avoid wrong teams
     const { data: teams, error: teamsError } = await supabase
       .from('teams')
-      .select('id, name, short_name')
-      .in('id', Array.from(participatingTeamIds));
+      .select('id, name, short_name');
 
     if (teamsError || !teams) {
       return new Response(
@@ -198,7 +142,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[sync-points-table] Tournament participating teams: ${teams.map(t => t.short_name).join(', ')}`)
+    console.log(`[sync-points-table] Total teams in database: ${teams.length}`);
 
     // If no seriesId provided, we need to ask user for it
     if (!seriesId) {
@@ -273,14 +217,14 @@ Deno.serve(async (req) => {
         
         if (!apiTeamName) continue;
 
-        // Find matching team in our database using strict matching
+        // Find matching team in our database using STRICT matching only
         const matchingTeam = teams.find(team => 
-          teamsMatch(team, apiTeamName, apiTeamFullName)
+          teamsMatchStrict(team, apiTeamName, apiTeamFullName)
         );
 
         if (!matchingTeam) {
           console.log(`[sync-points-table] No matching team found for: ${apiTeamName} (${apiTeamFullName})`);
-          skippedTeams.push(apiTeamName);
+          skippedTeams.push(`${apiTeamName} (${apiTeamFullName})`);
           continue;
         }
 
