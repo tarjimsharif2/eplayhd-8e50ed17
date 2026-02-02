@@ -20,9 +20,9 @@ Deno.serve(async (req) => {
     // Get current time
     const now = new Date();
     
-    // Calculate time window: 14-16 minutes from now (to catch matches starting in ~15 minutes)
-    const minTime = new Date(now.getTime() + 14 * 60 * 1000); // 14 minutes from now
-    const maxTime = new Date(now.getTime() + 16 * 60 * 1000); // 16 minutes from now
+    // Calculate time window: 13-18 minutes from now (wider window for 3-minute cron interval)
+    const minTime = new Date(now.getTime() + 13 * 60 * 1000); // 13 minutes from now
+    const maxTime = new Date(now.getTime() + 18 * 60 * 1000); // 18 minutes from now
     
     console.log(`[auto-sync-playing-xi] Looking for cricket matches starting between ${minTime.toISOString()} and ${maxTime.toISOString()}`);
 
