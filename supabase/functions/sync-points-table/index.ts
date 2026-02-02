@@ -229,6 +229,10 @@ Deno.serve(async (req) => {
     // Process each group in points table
     for (const group of pointsTable) {
       const groupTable = group.pointsTableInfo || [];
+      // Extract group name from API response (e.g., "Group A", "Group B")
+      const groupName = group.groupName || null;
+      
+      console.log(`[sync-points-table] Processing group: ${groupName || 'No Group'}, teams: ${groupTable.length}`);
       
       for (const standing of groupTable) {
         const apiTeamName = standing.teamName || '';
@@ -247,7 +251,7 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        console.log(`[sync-points-table] Matched ${apiTeamName} (${apiTeamFullName}) -> ${matchingTeam.name} (${matchingTeam.short_name})`);
+        console.log(`[sync-points-table] Matched ${apiTeamName} (${apiTeamFullName}) -> ${matchingTeam.name} (${matchingTeam.short_name}) [Group: ${groupName || 'None'}]`);
 
         // Parse Cricbuzz standing data
         const played = parseInt(standing.matchesPlayed || 0) || 0;
@@ -264,7 +268,7 @@ Deno.serve(async (req) => {
         // Check if entry exists
         const { data: existing } = await supabase
           .from('tournament_points_table')
-          .select('id, net_run_rate')
+          .select('id, net_run_rate, group_name')
           .eq('tournament_id', tournamentId)
           .eq('team_id', matchingTeam.id)
           .maybeSingle();
@@ -281,6 +285,8 @@ Deno.serve(async (req) => {
           points,
           // Use API NRR directly
           net_run_rate: apiNrr,
+          // Include group name from API
+          group_name: groupName,
           updated_at: new Date().toISOString(),
         };
 
