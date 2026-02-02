@@ -582,7 +582,7 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
           match_start_time: match.startTime ? new Date(match.startTime).toISOString() : null,
           venue: match.venue || null,
           match_number: match.matchNumber || null,
-          match_format: match.matchFormat || 'T20',
+          match_format: (match.matchFormat && match.matchFormat.trim()) || 'T20',
           match_label: null,
         };
 
