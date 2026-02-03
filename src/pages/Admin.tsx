@@ -57,6 +57,7 @@ import CricketMatchImporter from "@/components/CricketMatchImporter";
 import RapidApiEndpointsManager from "@/components/RapidApiEndpointsManager";
 import MaintenanceModeManager from "@/components/MaintenanceModeManager";
 import ChannelsManager from "@/components/ChannelsManager";
+import MenuManager from "@/components/MenuManager";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
@@ -1721,6 +1722,11 @@ const Admin = () => {
                 {canManagePages && (
                   <TabsTrigger value="pages" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
                     Pages
+                  </TabsTrigger>
+                )}
+                {canManagePages && (
+                  <TabsTrigger value="menus" className="text-xs sm:text-sm whitespace-nowrap px-2 sm:px-3">
+                    Menus
                   </TabsTrigger>
                 )}
                 {canManageAds && (
@@ -4060,6 +4066,11 @@ const Admin = () => {
             {/* Pages Tab */}
             <TabsContent value="pages" className="space-y-6">
               <DynamicPagesManager />
+            </TabsContent>
+
+            {/* Menus Tab */}
+            <TabsContent value="menus" className="space-y-6">
+              <MenuManager />
             </TabsContent>
 
             {/* Channels Tab */}

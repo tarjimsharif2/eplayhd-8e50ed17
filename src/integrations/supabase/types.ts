@@ -271,6 +271,56 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_menus: {
+        Row: {
+          created_at: string
+          display_order: number | null
+          icon_name: string | null
+          id: string
+          is_active: boolean | null
+          menu_type: string | null
+          open_in_new_tab: boolean | null
+          parent_id: string | null
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          menu_type?: string | null
+          open_in_new_tab?: boolean | null
+          parent_id?: string | null
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          display_order?: number | null
+          icon_name?: string | null
+          id?: string
+          is_active?: boolean | null
+          menu_type?: string | null
+          open_in_new_tab?: boolean | null
+          parent_id?: string | null
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_menus_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "custom_menus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_role_permissions: {
         Row: {
           created_at: string | null

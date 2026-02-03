@@ -7,15 +7,27 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 import { useHeaderPages } from "@/hooks/useDynamicPages";
 import { useTournaments } from "@/hooks/useSportsData";
+import { useCustomMenus, buildMenuTree, CustomMenu } from "@/hooks/useCustomMenus";
+import * as LucideIcons from "lucide-react";
+
+const DynamicIcon = ({ iconName, className }: { iconName: string | null; className?: string }) => {
+  if (!iconName) return null;
+  const IconComponent = (LucideIcons as any)[iconName];
+  if (!IconComponent) return null;
+  return <IconComponent className={className || "w-4 h-4"} />;
+};
 
 const Header = () => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isTournamentOpen, setIsTournamentOpen] = useState(false);
   const [isMobileTournamentOpen, setIsMobileTournamentOpen] = useState(false);
+  const [openDropdowns, setOpenDropdowns] = useState<Set<string>>(new Set());
+  const [mobileOpenDropdowns, setMobileOpenDropdowns] = useState<Set<string>>(new Set());
   const location = useLocation();
   const { data: settings } = usePublicSiteSettings();
   const { data: headerPages } = useHeaderPages();
   const { data: tournaments } = useTournaments();
+  const { data: customMenus } = useCustomMenus();
 
   // Only show Home and Matches - no Admin link
   const navItems = [
@@ -24,6 +36,7 @@ const Header = () => {
   ];
 
   const menuTournaments = tournaments?.filter((t) => t.is_active && t.show_in_menu && !t.is_completed) || [];
+  const menuTree = customMenus ? buildMenuTree(customMenus) : [];
 
   // Group tournaments by sport
   const tournamentsBySport = useMemo(() => {
@@ -39,6 +52,157 @@ const Header = () => {
   }, [menuTournaments]);
 
   const siteName = settings?.site_name || "ePlayHD.com";
+
+  const toggleDropdown = (id: string) => {
+    setOpenDropdowns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const toggleMobileDropdown = (id: string) => {
+    setMobileOpenDropdowns(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
+  const renderDesktopMenu = (menu: CustomMenu) => {
+    const hasChildren = menu.children && menu.children.length > 0;
+    const isOpen = openDropdowns.has(menu.id);
+
+    if (hasChildren) {
+      return (
+        <div key={menu.id} className="relative">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1"
+            onClick={() => toggleDropdown(menu.id)}
+          >
+            <DynamicIcon iconName={menu.icon_name} className="w-4 h-4" />
+            {menu.title}
+            <ChevronDown className={`w-3 h-3 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+          </Button>
+          <AnimatePresence>
+            {isOpen && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => toggleDropdown(menu.id)} />
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute top-full left-0 mt-1 min-w-[180px] bg-popover border border-border rounded-md shadow-lg z-50 py-1"
+                >
+                  {menu.children!.map((child) => (
+                    <Link
+                      key={child.id}
+                      to={child.url || "#"}
+                      target={child.open_in_new_tab ? "_blank" : undefined}
+                      rel={child.open_in_new_tab ? "noopener noreferrer" : undefined}
+                      onClick={() => toggleDropdown(menu.id)}
+                      className="flex items-center gap-2 px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground transition-colors"
+                    >
+                      <DynamicIcon iconName={child.icon_name} className="w-4 h-4" />
+                      {child.title}
+                    </Link>
+                  ))}
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={menu.id}
+        to={menu.url || "#"}
+        target={menu.open_in_new_tab ? "_blank" : undefined}
+        rel={menu.open_in_new_tab ? "noopener noreferrer" : undefined}
+      >
+        <Button variant="ghost" size="sm" className="gap-1">
+          <DynamicIcon iconName={menu.icon_name} className="w-4 h-4" />
+          {menu.title}
+        </Button>
+      </Link>
+    );
+  };
+
+  const renderMobileMenu = (menu: CustomMenu) => {
+    const hasChildren = menu.children && menu.children.length > 0;
+    const isOpen = mobileOpenDropdowns.has(menu.id);
+
+    if (hasChildren) {
+      return (
+        <div key={menu.id}>
+          <Button
+            variant="ghost"
+            className="w-full justify-between"
+            onClick={() => toggleMobileDropdown(menu.id)}
+          >
+            <span className="flex items-center gap-2">
+              <DynamicIcon iconName={menu.icon_name} className="w-4 h-4" />
+              {menu.title}
+            </span>
+            <ChevronDown className={`w-4 h-4 transition-transform ${isOpen ? "rotate-180" : ""}`} />
+          </Button>
+          <AnimatePresence>
+            {isOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                {menu.children!.map((child) => (
+                  <Link
+                    key={child.id}
+                    to={child.url || "#"}
+                    target={child.open_in_new_tab ? "_blank" : undefined}
+                    rel={child.open_in_new_tab ? "noopener noreferrer" : undefined}
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Button variant="ghost" className="w-full justify-start pl-8 gap-2">
+                      <DynamicIcon iconName={child.icon_name} className="w-4 h-4" />
+                      {child.title}
+                    </Button>
+                  </Link>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      );
+    }
+
+    return (
+      <Link
+        key={menu.id}
+        to={menu.url || "#"}
+        target={menu.open_in_new_tab ? "_blank" : undefined}
+        rel={menu.open_in_new_tab ? "noopener noreferrer" : undefined}
+        onClick={() => setIsMenuOpen(false)}
+      >
+        <Button variant="ghost" className="w-full justify-start gap-2">
+          <DynamicIcon iconName={menu.icon_name} className="w-4 h-4" />
+          {menu.title}
+        </Button>
+      </Link>
+    );
+  };
 
   return (
     <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border">
@@ -130,6 +294,9 @@ const Header = () => {
                 </AnimatePresence>
               </div>
             )}
+
+            {/* Custom Menus */}
+            {menuTree.map(menu => renderDesktopMenu(menu))}
 
             {/* Dynamic Header Pages */}
             {headerPages?.map((page) => (
@@ -236,6 +403,9 @@ const Header = () => {
                   </AnimatePresence>
                 </div>
               )}
+
+              {/* Mobile Custom Menus */}
+              {menuTree.map(menu => renderMobileMenu(menu))}
 
               {/* Mobile Dynamic Pages */}
               {headerPages && headerPages.length > 0 && (
