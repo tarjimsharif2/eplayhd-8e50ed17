@@ -291,6 +291,13 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
     );
   };
 
+  // Check if any team has Playing XI selected (not just bench players)
+  const hasAnyPlayingXI = teamAPlayingXI.length > 0 || teamBPlayingXI.length > 0;
+  const sectionTitle = hasAnyPlayingXI ? "Playing XI" : "Full Squad";
+  const sectionSubtitle = hasAnyPlayingXI 
+    ? "Starting lineup for both teams" 
+    : "Squad players for both teams";
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -304,9 +311,9 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
               <Users className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <span>Playing XI</span>
+              <span>{sectionTitle}</span>
               <p className="text-xs font-normal text-muted-foreground mt-0.5">
-                Starting lineup for both teams
+                {sectionSubtitle}
               </p>
             </div>
           </CardTitle>
