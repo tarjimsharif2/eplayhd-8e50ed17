@@ -1,4 +1,5 @@
 import { useMatches, useSports } from "@/hooks/useSportsData";
+import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
 import MatchCard from "@/components/MatchCard";
 import MatchFilters, { MatchFilter } from "@/components/MatchFilters";
 import BannerSlider from "@/components/BannerSlider";
@@ -10,15 +11,19 @@ import { Button } from "@/components/ui/button";
 const MatchList = () => {
   const { data: matches, isLoading, error } = useMatches();
   const { data: sports } = useSports();
+  const { data: publicSettings } = usePublicSiteSettings();
   const [activeFilter, setActiveFilter] = useState<MatchFilter>('all');
   const [activeSportFilter, setActiveSportFilter] = useState<string>('all');
+
+  // Get configurable days for completed matches (default to 2)
+  const completedMatchDays = publicSettings?.homepage_completed_days || 2;
 
   // Filter and sort matches: Live first, then upcoming, then completed - sorted by match start time
   const filteredMatches = useMemo(() => {
     if (!matches) return [];
 
     const now = new Date();
-    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const cutoffDate = new Date(now.getTime() - completedMatchDays * 24 * 60 * 60 * 1000);
 
     // Helper function to get sort priority based on status and stumps
     const getStatusPriority = (status: string, isStumps?: boolean | null) => {
@@ -128,7 +133,7 @@ const MatchList = () => {
       // Get effective status (with frontend fallback for stale data)
       const effectiveStatus = getEffectiveStatus(match);
 
-      // Hide completed/abandoned matches older than 2 days
+      // Hide completed/abandoned matches older than configured days
       if (effectiveStatus === 'completed' || effectiveStatus === 'abandoned') {
         try {
           const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
@@ -139,7 +144,7 @@ const MatchList = () => {
               july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
             };
             const matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
-            if (matchDate < twoDaysAgo) return false;
+            if (matchDate < cutoffDate) return false;
           }
         } catch {
           // Keep match if date parsing fails
@@ -194,14 +199,14 @@ const MatchList = () => {
       }
       return dateB.getTime() - dateA.getTime();
     });
-  }, [matches, activeFilter, activeSportFilter]);
+  }, [matches, activeFilter, activeSportFilter, completedMatchDays]);
 
   // Get unique sports that have matches (for sport filter) - sorted by display_order
   const sportsWithMatches = useMemo(() => {
     if (!matches) return [];
     
     const now = new Date();
-    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const cutoffDate = new Date(now.getTime() - completedMatchDays * 24 * 60 * 60 * 1000);
     
     const sportSet = new Set<string>();
     
@@ -209,7 +214,7 @@ const MatchList = () => {
       // Filter out inactive matches
       if (match.is_active === false) return;
 
-      // Skip completed/abandoned matches older than 2 days
+      // Skip completed/abandoned matches older than configured days
       if (match.status === 'completed' || match.status === 'abandoned') {
         try {
           const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
@@ -220,7 +225,7 @@ const MatchList = () => {
               july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
             };
             const matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
-            if (matchDate < twoDaysAgo) return;
+            if (matchDate < cutoffDate) return;
           }
         } catch {
           // Continue if date parsing fails
@@ -250,14 +255,14 @@ const MatchList = () => {
     }
     
     return sportNames.sort();
-  }, [matches, sports]);
+  }, [matches, sports, completedMatchDays]);
 
   // Calculate counts for filter badges (using effective status for accurate counts)
   const counts = useMemo(() => {
     if (!matches) return { all: 0, upcoming: 0, live: 0, completed: 0 };
     
     const now = new Date();
-    const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000);
+    const cutoffDate = new Date(now.getTime() - completedMatchDays * 24 * 60 * 60 * 1000);
     
     // Helper function to check if a match should be treated as completed (same logic as above)
     // For Football: Use default 120 minutes if no explicit duration
@@ -312,7 +317,7 @@ const MatchList = () => {
 
       const effectiveStatus = getEffectiveStatusForCount(match);
 
-      // Skip completed/abandoned matches older than 2 days
+      // Skip completed/abandoned matches older than configured days
       if (effectiveStatus === 'completed' || effectiveStatus === 'abandoned') {
         try {
           const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
@@ -323,7 +328,7 @@ const MatchList = () => {
               july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
             };
             const matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
-            if (matchDate < twoDaysAgo) return;
+            if (matchDate < cutoffDate) return;
           }
         } catch {
           // Continue counting if date parsing fails
@@ -337,7 +342,7 @@ const MatchList = () => {
     });
     
     return { all, upcoming, live, completed };
-  }, [matches]);
+  }, [matches, completedMatchDays]);
 
   // Create a map to store effective status for each match
   const matchEffectiveStatuses = useMemo(() => {

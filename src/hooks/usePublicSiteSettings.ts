@@ -55,6 +55,8 @@ export interface PublicSiteSettings {
   maintenance_end_time: string | null;
   maintenance_contact_email: string | null;
   maintenance_social_message: string | null;
+  // Homepage settings
+  homepage_completed_days: number | null;
 }
 
 export const usePublicSiteSettings = () => {
