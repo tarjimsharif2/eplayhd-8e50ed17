@@ -36,25 +36,30 @@ const SportsChannels = () => {
             transition={{ delay: index * 0.02 }}
           >
             <Link to={`/channel/${channel.slug || channel.id}`}>
-              <div className="group flex items-center gap-2 px-3 py-2 rounded-full bg-card border border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-200">
-                {/* Channel Logo - Full size */}
+              <div className="group flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-200">
+                {/* Channel Logo */}
                 <div 
-                  className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border border-border/30 overflow-hidden"
+                  className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 border border-border/30"
                   style={{ backgroundColor: channel.logo_background_color || '#1a1a2e' }}
                 >
                   {channel.logo_url ? (
                     <img 
                       src={channel.logo_url} 
                       alt={channel.name} 
-                      className="w-full h-full object-contain p-1"
+                      className="w-6 h-6 object-contain"
                     />
                   ) : (
-                    <Tv className="w-6 h-6 text-muted-foreground" />
+                    <Tv className="w-5 h-5 text-muted-foreground" />
                   )}
                 </div>
 
+                {/* Channel Name */}
+                <span className="font-semibold text-base group-hover:text-primary transition-colors whitespace-nowrap">
+                  {channel.name}
+                </span>
+
                 {/* Watch Badge */}
-                <span className="flex items-center gap-1.5 text-xs font-medium text-green-500 bg-green-500/10 px-2.5 py-1 rounded-full">
+                <span className="flex items-center gap-1.5 text-xs font-medium text-green-500 bg-green-500/10 px-2 py-1 rounded-full">
                   <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
                   Watch
                 </span>
