@@ -324,7 +324,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
   };
 
   // Fetch squad from RapidAPI (Cricbuzz)
-  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape', forceRefresh = false) => {
+  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi', forceRefresh = false) => {
     setFetchingSquad(true);
 
     try {
@@ -345,6 +345,8 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         functionName = 'sync-espn-playing-xi';
       } else if (source === 'scrape') {
         functionName = 'scrape-playing-xi';
+      } else if (source === 'rapidapi') {
+        functionName = 'sync-rapidapi-playing-xi';
       }
       
       const response = await supabase.functions.invoke(functionName, {
@@ -569,11 +571,18 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-background border">
             <DropdownMenuItem 
+              onClick={() => handleFetchSquad('rapidapi', players && players.length > 0)}
+              disabled={fetchingSquad}
+            >
+              <CloudDownload className="w-4 h-4 mr-2" />
+              RapidAPI Cricbuzz
+            </DropdownMenuItem>
+            <DropdownMenuItem 
               onClick={() => handleFetchSquad('cricbuzz', players && players.length > 0)}
               disabled={fetchingSquad}
             >
               <CloudDownload className="w-4 h-4 mr-2" />
-              From Cricbuzz
+              From Cricbuzz (Free)
             </DropdownMenuItem>
             <DropdownMenuItem 
               onClick={() => handleFetchSquad('espn', players && players.length > 0)}
