@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, ChevronDown, ArrowUpDown } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, ChevronDown, ArrowUpDown, Wand2, Save, Check } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from "@/hooks/useSportsData";
@@ -165,6 +165,15 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [fetchingSquad, setFetchingSquad] = useState(false);
   const [clearingSquad, setClearingSquad] = useState(false);
+  const [savingChanges, setSavingChanges] = useState(false);
+  
+  // Pending changes state - tracks local is_bench changes before saving
+  const [pendingChanges, setPendingChanges] = useState<Record<string, boolean>>({});
+  
+  // Touch swap state for mobile
+  const [selectedForSwap, setSelectedForSwap] = useState<Player | null>(null);
+  const [longPressTimer, setLongPressTimer] = useState<NodeJS.Timeout | null>(null);
+  
   const [form, setForm] = useState({
     player_name: '',
     player_role: '',
@@ -178,11 +187,120 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
   const teamAPlayers = players?.filter(p => p.team_id === teamA.id) || [];
   const teamBPlayers = players?.filter(p => p.team_id === teamB.id) || [];
 
-  // Split into Playing XI and Bench
-  const teamAPlayingXI = teamAPlayers.filter(p => !p.is_bench).slice(0, 11);
-  const teamABench = teamAPlayers.filter(p => p.is_bench);
-  const teamBPlayingXI = teamBPlayers.filter(p => !p.is_bench).slice(0, 11);
-  const teamBBench = teamBPlayers.filter(p => p.is_bench);
+  // Get effective is_bench status (pending or actual)
+  const getEffectiveBench = (player: Player) => {
+    if (pendingChanges.hasOwnProperty(player.id)) {
+      return pendingChanges[player.id];
+    }
+    return player.is_bench ?? true;
+  };
+
+  // Split into Playing XI and Bench based on pending changes
+  const teamAPlayingXI = teamAPlayers.filter(p => !getEffectiveBench(p)).slice(0, 11);
+  const teamABench = teamAPlayers.filter(p => getEffectiveBench(p));
+  const teamBPlayingXI = teamBPlayers.filter(p => !getEffectiveBench(p)).slice(0, 11);
+  const teamBBench = teamBPlayers.filter(p => getEffectiveBench(p));
+
+  // Check if there are unsaved changes
+  const hasUnsavedChanges = Object.keys(pendingChanges).length > 0;
+
+  // Auto select first 11 players as Playing XI
+  const handleAutoSelect = (teamId: string) => {
+    const teamPlayers = teamId === teamA.id ? teamAPlayers : teamBPlayers;
+    
+    if (teamPlayers.length === 0) {
+      toast({ title: "কোনো প্লেয়ার নেই", description: "প্রথমে স্কোয়াড সিংক বা এড করুন", variant: "destructive" });
+      return;
+    }
+
+    const newPending = { ...pendingChanges };
+    
+    // Mark first 11 as Playing XI (is_bench: false), rest as bench (is_bench: true)
+    teamPlayers.forEach((player, index) => {
+      newPending[player.id] = index >= 11; // First 11 = false (Playing XI), rest = true (Bench)
+    });
+    
+    setPendingChanges(newPending);
+    toast({ title: "অটো সিলেক্ট সম্পন্ন", description: `প্রথম ১১ জন Playing XI তে যোগ হয়েছে। সেভ করুন।` });
+  };
+
+  // Save all pending changes
+  const handleSaveChanges = async () => {
+    if (!hasUnsavedChanges) return;
+    
+    setSavingChanges(true);
+    
+    try {
+      const updates = Object.entries(pendingChanges).map(([playerId, isBench]) => 
+        supabase
+          .from('match_playing_xi')
+          .update({ is_bench: isBench })
+          .eq('id', playerId)
+      );
+      
+      await Promise.all(updates);
+      
+      setPendingChanges({});
+      queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+      toast({ title: "সেভ হয়েছে!", description: "Playing XI আপডেট সম্পন্ন" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setSavingChanges(false);
+    }
+  };
+
+  // Toggle player between Playing XI and Bench (local state)
+  const handleToggleBenchLocal = (player: Player) => {
+    const currentStatus = getEffectiveBench(player);
+    setPendingChanges(prev => ({
+      ...prev,
+      [player.id]: !currentStatus
+    }));
+  };
+
+  // Touch handlers for mobile swap
+  const handleTouchStart = useCallback((player: Player, isInXI: boolean, benchPlayers: Player[]) => {
+    // Only allow selection from Playing XI players when there's a bench
+    if (!isInXI || benchPlayers.length === 0) return;
+    
+    const timer = setTimeout(() => {
+      setSelectedForSwap(player);
+      // Vibrate on mobile if supported
+      if (navigator.vibrate) navigator.vibrate(50);
+    }, 500); // 500ms long press
+    
+    setLongPressTimer(timer);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      setLongPressTimer(null);
+    }
+  }, [longPressTimer]);
+
+  const handleTouchSwap = useCallback((benchPlayer: Player) => {
+    if (!selectedForSwap) return;
+    
+    // Swap in pending changes
+    setPendingChanges(prev => ({
+      ...prev,
+      [selectedForSwap.id]: true,  // Move to bench
+      [benchPlayer.id]: false,     // Move to XI
+    }));
+    
+    toast({ 
+      title: "Swap করা হয়েছে",
+      description: `${benchPlayer.player_name} ↔ ${selectedForSwap.player_name}. সেভ করুন।`
+    });
+    
+    setSelectedForSwap(null);
+  }, [selectedForSwap, toast]);
+
+  const cancelSwapSelection = () => {
+    setSelectedForSwap(null);
+  };
 
   // Toggle player between Playing XI and Bench
   const handleToggleBench = async (player: Player) => {
@@ -493,157 +611,225 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     }
   };
 
-  const renderPlayerCard = (player: Player, benchPlayers: Player[], isInXI: boolean) => (
-    <Card key={player.id} className={`hover:border-primary/30 transition-colors ${player.is_bench ? 'opacity-70' : ''}`}>
-      <CardContent className="p-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 flex-wrap">
-            {player.batting_order && !player.is_bench && (
-              <span className="text-xs text-muted-foreground font-mono w-5">
-                #{player.batting_order}
+  const renderPlayerCard = (player: Player, benchPlayers: Player[], isInXI: boolean) => {
+    const effectiveBench = getEffectiveBench(player);
+    const hasPendingChange = pendingChanges.hasOwnProperty(player.id);
+    const isSelectedForSwap = selectedForSwap?.id === player.id;
+    
+    return (
+      <Card 
+        key={player.id} 
+        className={`hover:border-primary/30 transition-all touch-none select-none ${
+          effectiveBench ? 'opacity-70' : ''
+        } ${hasPendingChange ? 'ring-2 ring-yellow-500/50 bg-yellow-500/5' : ''} ${
+          isSelectedForSwap ? 'ring-2 ring-primary bg-primary/10' : ''
+        } ${selectedForSwap && !isInXI ? 'cursor-pointer hover:bg-primary/20' : ''}`}
+        onTouchStart={() => handleTouchStart(player, isInXI, benchPlayers)}
+        onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
+        onClick={() => {
+          // If we're in swap mode and clicking a bench player, swap them
+          if (selectedForSwap && !isInXI && !effectiveBench === false) {
+            handleTouchSwap(player);
+          }
+        }}
+      >
+        <CardContent className="p-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 flex-wrap">
+              {!effectiveBench && (
+                <span className="text-xs text-muted-foreground font-mono w-5">
+                  #{isInXI ? (benchPlayers.length > 0 ? (player.batting_order || '-') : '-') : '-'}
+                </span>
+              )}
+              <span className={`font-medium text-sm ${isSelectedForSwap ? 'text-primary' : ''}`}>
+                {player.player_name}
               </span>
-            )}
-            <span className="font-medium text-sm">{player.player_name}</span>
-            {player.is_captain && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10">C</Badge>
-            )}
-            {player.is_vice_captain && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">VC</Badge>
-            )}
-            {player.is_wicket_keeper && (
-              <Badge variant="outline" className="text-[10px] px-1.5 py-0">WK</Badge>
-            )}
-            {player.player_role && (
-              <span className="text-xs text-muted-foreground">• {player.player_role}</span>
-            )}
-          </div>
-          <div className="flex items-center gap-1">
-            {/* Swap Dropdown - only for players in Playing XI when bench exists */}
-            {isInXI && benchPlayers.length > 0 && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-7 w-7 text-blue-500 hover:text-blue-600"
-                    title="Swap with bench player"
-                  >
-                    <ArrowUpDown className="w-3 h-3" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="bg-background border max-h-60 overflow-y-auto">
-                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
-                    Swap with:
-                  </div>
-                  {benchPlayers.map(benchPlayer => (
-                    <DropdownMenuItem 
-                      key={benchPlayer.id}
-                      onClick={() => handleSwapPlayers(player, benchPlayer)}
+              {player.is_captain && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 bg-primary/10">C</Badge>
+              )}
+              {player.is_vice_captain && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">VC</Badge>
+              )}
+              {player.is_wicket_keeper && (
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0">WK</Badge>
+              )}
+              {player.player_role && (
+                <span className="text-xs text-muted-foreground">• {player.player_role}</span>
+              )}
+              {hasPendingChange && (
+                <Badge className="text-[9px] px-1 py-0 bg-yellow-500/20 text-yellow-400 border-yellow-500/30">
+                  unsaved
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-1">
+              {/* Swap Dropdown - only for players in Playing XI when bench exists */}
+              {isInXI && benchPlayers.length > 0 && !selectedForSwap && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-blue-500 hover:text-blue-600"
+                      title="Swap with bench player"
                     >
-                      {benchPlayer.player_name}
-                      {benchPlayer.player_role && (
-                        <span className="text-muted-foreground ml-1">• {benchPlayer.player_role}</span>
-                      )}
-                    </DropdownMenuItem>
-                  ))}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            )}
-            {/* Move to XI / Bench toggle button */}
-            <Button
-              size="icon"
-              variant="ghost"
-              className={`h-7 w-7 ${player.is_bench ? 'text-green-500 hover:text-green-600' : 'text-orange-500 hover:text-orange-600'}`}
-              onClick={() => handleToggleBench(player)}
-              title={player.is_bench ? 'Move to Playing XI' : 'Move to Bench'}
-            >
-              {player.is_bench ? <Plus className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7"
-              onClick={() => handleOpenDialog(player)}
-            >
-              <Edit2 className="w-3 h-3" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7 text-destructive hover:text-destructive"
-              onClick={() => handleDelete(player)}
-            >
-              <Trash2 className="w-3 h-3" />
-            </Button>
+                      <ArrowUpDown className="w-3 h-3" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="bg-background border max-h-60 overflow-y-auto">
+                    <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                      Swap with:
+                    </div>
+                    {benchPlayers.map(benchPlayer => (
+                      <DropdownMenuItem 
+                        key={benchPlayer.id}
+                        onClick={() => {
+                          setPendingChanges(prev => ({
+                            ...prev,
+                            [player.id]: true,
+                            [benchPlayer.id]: false,
+                          }));
+                        }}
+                      >
+                        {benchPlayer.player_name}
+                        {benchPlayer.player_role && (
+                          <span className="text-muted-foreground ml-1">• {benchPlayer.player_role}</span>
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {/* Move to XI / Bench toggle button */}
+              <Button
+                size="icon"
+                variant="ghost"
+                className={`h-7 w-7 ${effectiveBench ? 'text-green-500 hover:text-green-600' : 'text-orange-500 hover:text-orange-600'}`}
+                onClick={() => handleToggleBenchLocal(player)}
+                title={effectiveBench ? 'Move to Playing XI' : 'Move to Bench'}
+              >
+                {effectiveBench ? <Plus className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7"
+                onClick={() => handleOpenDialog(player)}
+              >
+                <Edit2 className="w-3 h-3" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-7 w-7 text-destructive hover:text-destructive"
+                onClick={() => handleDelete(player)}
+              >
+                <Trash2 className="w-3 h-3" />
+              </Button>
+            </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
+        </CardContent>
+      </Card>
+    );
+  };
 
-  const renderTeamSection = (team: Team, playingXI: Player[], bench: Player[]) => (
-    <div className="space-y-4">
-      {/* Playing XI Section */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            {team.logo_url && (
-              <img src={team.logo_url} alt={team.name} className="w-6 h-6 object-contain" />
-            )}
-            <h4 className="font-medium text-sm">{team.name}</h4>
-            <Badge variant="secondary" className="text-[10px]">
-              {playingXI.length}/11
-            </Badge>
-          </div>
-          <div className="flex gap-2">
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={() => {
-                setActiveTeam(team.id);
-                handleOpenDialog();
-              }}
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Add
-            </Button>
-            <Button 
-              size="sm" 
-              variant="secondary" 
-              onClick={() => handleOpenBulkDialog(team.id)}
-            >
-              <Upload className="w-3 h-3 mr-1" />
-              Bulk Add
+  const renderTeamSection = (team: Team, playingXI: Player[], bench: Player[]) => {
+    const allTeamPlayers = team.id === teamA.id ? teamAPlayers : teamBPlayers;
+    
+    return (
+      <div className="space-y-4">
+        {/* Swap mode indicator */}
+        {selectedForSwap && (
+          <div className="flex items-center justify-between p-3 bg-primary/10 border border-primary/30 rounded-lg">
+            <span className="text-sm">
+              <strong>{selectedForSwap.player_name}</strong> সিলেক্ট করা হয়েছে। Bench থেকে একজন প্লেয়ারে ট্যাপ করুন swap করতে।
+            </span>
+            <Button size="sm" variant="ghost" onClick={cancelSwapSelection}>
+              <X className="w-4 h-4" />
             </Button>
           </div>
+        )}
+
+        {/* Playing XI Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              {team.logo_url && (
+                <img src={team.logo_url} alt={team.name} className="w-6 h-6 object-contain" />
+              )}
+              <h4 className="font-medium text-sm">{team.name}</h4>
+              <Badge variant="secondary" className="text-[10px]">
+                {playingXI.length}/11
+              </Badge>
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              {/* Auto Select Button */}
+              {allTeamPlayers.length > 0 && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={() => handleAutoSelect(team.id)}
+                  className="gap-1"
+                >
+                  <Wand2 className="w-3 h-3" />
+                  Auto
+                </Button>
+              )}
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => {
+                  setActiveTeam(team.id);
+                  handleOpenDialog();
+                }}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add
+              </Button>
+              <Button 
+                size="sm" 
+                variant="secondary" 
+                onClick={() => handleOpenBulkDialog(team.id)}
+              >
+                <Upload className="w-3 h-3 mr-1" />
+                Bulk Add
+              </Button>
+            </div>
+          </div>
+          {playingXI.length > 0 ? (
+            <div className="space-y-2">
+              {playingXI.map(p => renderPlayerCard(p, bench, true))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
+              No players in Playing XI
+            </p>
+          )}
         </div>
-        {playingXI.length > 0 ? (
-          <div className="space-y-2">
-            {playingXI.map(p => renderPlayerCard(p, bench, true))}
+
+        {/* Full Squad / Bench Section */}
+        {bench.length > 0 && (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium text-sm text-muted-foreground">
+                {playingXI.length > 0 ? 'Bench' : 'Full Squad'}
+              </h4>
+              <Badge variant="outline" className="text-[10px]">
+                {bench.length}
+              </Badge>
+              {selectedForSwap && (
+                <span className="text-xs text-primary animate-pulse">← Tap to swap</span>
+              )}
+            </div>
+            <div className="space-y-2 pl-2 border-l-2 border-border/50">
+              {bench.map(p => renderPlayerCard(p, [], false))}
+            </div>
           </div>
-        ) : (
-          <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
-            No players in Playing XI
-          </p>
         )}
       </div>
-
-      {/* Bench Section */}
-      {bench.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center gap-2">
-            <h4 className="font-medium text-sm text-muted-foreground">Bench / Squad</h4>
-            <Badge variant="outline" className="text-[10px]">
-              {bench.length}
-            </Badge>
-          </div>
-          <div className="space-y-2 pl-2 border-l-2 border-border/50">
-            {bench.map(p => renderPlayerCard(p, [], false))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+    );
+  };
 
   if (isLoading) {
     return (
@@ -656,71 +842,94 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
   return (
     <div className="space-y-6">
       {/* Squad Action Buttons */}
-      <div className="flex items-center justify-end gap-4 flex-wrap">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        {/* Save Button - Left side */}
+        <div>
+          {hasUnsavedChanges && (
             <Button
-              variant="outline"
+              variant="default"
               size="sm"
-              disabled={fetchingSquad}
-              className="gap-2"
+              onClick={handleSaveChanges}
+              disabled={savingChanges}
+              className="gap-2 bg-green-600 hover:bg-green-700"
             >
-              {fetchingSquad ? (
+              {savingChanges ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <CloudDownload className="w-4 h-4" />
+                <Save className="w-4 h-4" />
               )}
-              {players && players.length > 0 ? 'Refresh Squad' : 'Fetch Squad'}
-              <ChevronDown className="w-3 h-3" />
+              Save Changes
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-background border">
-            <DropdownMenuItem 
-              onClick={() => handleFetchSquad('rapidapi', players && players.length > 0)}
-              disabled={fetchingSquad}
+          )}
+        </div>
+        
+        {/* Right side buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={fetchingSquad}
+                className="gap-2"
+              >
+                {fetchingSquad ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CloudDownload className="w-4 h-4" />
+                )}
+                {players && players.length > 0 ? 'Refresh Squad' : 'Fetch Squad'}
+                <ChevronDown className="w-3 h-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="bg-background border">
+              <DropdownMenuItem 
+                onClick={() => handleFetchSquad('rapidapi', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                RapidAPI Cricbuzz
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleFetchSquad('cricbuzz', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                From Cricbuzz (Free)
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleFetchSquad('espn', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                From ESPN Cricinfo
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleFetchSquad('scrape', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                Scrape from Cricbuzz
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {players && players.length > 0 && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleClearSquad}
+              disabled={clearingSquad}
+              className="gap-2"
             >
-              <CloudDownload className="w-4 h-4 mr-2" />
-              RapidAPI Cricbuzz
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => handleFetchSquad('cricbuzz', players && players.length > 0)}
-              disabled={fetchingSquad}
-            >
-              <CloudDownload className="w-4 h-4 mr-2" />
-              From Cricbuzz (Free)
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => handleFetchSquad('espn', players && players.length > 0)}
-              disabled={fetchingSquad}
-            >
-              <CloudDownload className="w-4 h-4 mr-2" />
-              From ESPN Cricinfo
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={() => handleFetchSquad('scrape', players && players.length > 0)}
-              disabled={fetchingSquad}
-            >
-              <CloudDownload className="w-4 h-4 mr-2" />
-              Scrape from Cricbuzz
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-        {players && players.length > 0 && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleClearSquad}
-            disabled={clearingSquad}
-            className="gap-2"
-          >
-            {clearingSquad ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <X className="w-4 h-4" />
-            )}
-            Clear All
-          </Button>
-        )}
+              {clearingSquad ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <X className="w-4 h-4" />
+              )}
+              Clear All
+            </Button>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue={teamA.id} className="w-full">
