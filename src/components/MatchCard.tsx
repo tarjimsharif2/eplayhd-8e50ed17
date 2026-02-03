@@ -371,11 +371,11 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
             </div>
           )}
 
-          {/* Tournament Header - Compact Style */}
+          {/* Tournament Header - Clean Style */}
           {tournament && (
             <div className={`text-center mb-2 ${tournament.logo_url ? 'pr-12' : ''}`}>
-              <p className="text-sm md:text-base text-foreground/90 font-medium leading-snug line-clamp-1">
-                {tournament.name} <span className="text-primary font-semibold">'{tournament.season.slice(-2)}</span>
+              <p className="text-sm text-muted-foreground font-medium line-clamp-1">
+                {tournament.name} • <span className="text-primary">{tournament.season}</span>
               </p>
             </div>
           )}
