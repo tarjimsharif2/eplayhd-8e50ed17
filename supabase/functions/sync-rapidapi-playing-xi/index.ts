@@ -594,6 +594,53 @@ Deno.serve(async (req) => {
       }
     }
 
+    // FALLBACK 6: Try SCORECARD endpoint for live/completed matches
+    // Extract players from batting/bowling lists in scorecard
+    if (!foundData && (teamAPlayers.length < 11 || teamBPlayers.length < 11)) {
+      console.log(`[sync-rapidapi-playing-xi] Trying SCORECARD fallback for live/completed match...`);
+      
+      try {
+        const scorecardUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}/scard`;
+        console.log(`[sync-rapidapi-playing-xi] Fetching scorecard: ${scorecardUrl}`);
+        
+        const scResponse = await fetch(scorecardUrl, {
+          method: 'GET',
+          headers: {
+            'X-RapidAPI-Key': settings.rapidapi_key,
+            'X-RapidAPI-Host': cricbuzzHost,
+          },
+        });
+        
+        if (scResponse.ok) {
+          const scData = await scResponse.json();
+          console.log(`[sync-rapidapi-playing-xi] Scorecard response keys: ${Object.keys(scData).join(', ')}`);
+          
+          const result = parseScorecardPlayers(scData, teamAName, teamAShortName, teamBName, teamBShortName);
+          
+          if (result.teamA.length > 0 || result.teamB.length > 0) {
+            console.log(`[sync-rapidapi-playing-xi] Found from scorecard: TeamA=${result.teamA.length}, TeamB=${result.teamB.length}`);
+            
+            // Only use if we found meaningful data (at least 5 players per team)
+            if (result.teamA.length >= 5 && teamAPlayers.length < result.teamA.length) {
+              teamAPlayers = result.teamA;
+            }
+            if (result.teamB.length >= 5 && teamBPlayers.length < result.teamB.length) {
+              teamBPlayers = result.teamB;
+            }
+            
+            if (teamAPlayers.length >= 11 && teamBPlayers.length >= 11) {
+              foundData = true;
+              console.log(`[sync-rapidapi-playing-xi] Found complete squad from scorecard!`);
+            }
+          }
+        } else {
+          console.log(`[sync-rapidapi-playing-xi] Scorecard endpoint returned: ${scResponse.status}`);
+        }
+      } catch (error) {
+        console.error(`[sync-rapidapi-playing-xi] Scorecard parsing error:`, error);
+      }
+    }
+
     // Check final status
     const totalPlayers = teamAPlayers.length + teamBPlayers.length;
     console.log(`[sync-rapidapi-playing-xi] Final player count: TeamA=${teamAPlayers.length}, TeamB=${teamBPlayers.length}`);
