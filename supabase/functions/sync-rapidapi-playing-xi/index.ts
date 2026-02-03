@@ -342,7 +342,133 @@ Deno.serve(async (req) => {
       }
     }
 
-    // FALLBACK 4: Try scorecard for LIVE/COMPLETED matches (when squad endpoints fail)
+    // FALLBACK 4: Try SERIES SQUADS endpoint - best for pre-match data!
+    // First get series ID from mcenter, then fetch full squads
+    if (!foundData && (teamAPlayers.length < 11 || teamBPlayers.length < 11)) {
+      console.log(`[sync-rapidapi-playing-xi] Trying SERIES SQUADS fallback...`);
+      
+      try {
+        // First get the series ID from mcenter
+        const mcenterUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}`;
+        const mcenterResponse = await fetch(mcenterUrl, {
+          method: 'GET',
+          headers: {
+            'X-RapidAPI-Key': settings.rapidapi_key,
+            'X-RapidAPI-Host': cricbuzzHost,
+          },
+        });
+
+        if (mcenterResponse.ok) {
+          const mcenterData = await mcenterResponse.json();
+          const seriesId = mcenterData.seriesid || mcenterData.seriesId;
+          
+          if (seriesId) {
+            console.log(`[sync-rapidapi-playing-xi] Found series ID: ${seriesId}, fetching series squads...`);
+            
+            // Fetch series squads
+            const seriesSquadsUrl = `https://${cricbuzzHost}/series/v1/${seriesId}/squads`;
+            console.log(`[sync-rapidapi-playing-xi] Calling: ${seriesSquadsUrl}`);
+            
+            const squadsResponse = await fetch(seriesSquadsUrl, {
+              method: 'GET',
+              headers: {
+                'X-RapidAPI-Key': settings.rapidapi_key,
+                'X-RapidAPI-Host': cricbuzzHost,
+              },
+            });
+
+            console.log(`[sync-rapidapi-playing-xi] Series squads returned: ${squadsResponse.status}`);
+            
+            if (squadsResponse.ok) {
+              const squadsData = await squadsResponse.json();
+              console.log(`[sync-rapidapi-playing-xi] Series squads keys:`, Object.keys(squadsData).join(', '));
+              console.log(`[sync-rapidapi-playing-xi] Series squads sample:`, JSON.stringify(squadsData).substring(0, 1500));
+              
+              const result = parseSeriesSquads(squadsData, teamAName, teamAShortName, teamBName, teamBShortName, cricbuzzHost, settings.rapidapi_key);
+              
+              // If parseSeriesSquads returns squad IDs, we need to fetch individual squad details
+              if (result.teamASquadId || result.teamBSquadId) {
+                console.log(`[sync-rapidapi-playing-xi] Found squad IDs - TeamA: ${result.teamASquadId}, TeamB: ${result.teamBSquadId}`);
+                
+                // Fetch individual squad details
+                if (result.teamASquadId && teamAPlayers.length < 11) {
+                  const squadDetailUrl = `https://${cricbuzzHost}/series/v1/${seriesId}/squads/${result.teamASquadId}`;
+                  console.log(`[sync-rapidapi-playing-xi] Fetching TeamA squad: ${squadDetailUrl}`);
+                  
+                  const detailResponse = await fetch(squadDetailUrl, {
+                    method: 'GET',
+                    headers: {
+                      'X-RapidAPI-Key': settings.rapidapi_key,
+                      'X-RapidAPI-Host': cricbuzzHost,
+                    },
+                  });
+                  
+                  if (detailResponse.ok) {
+                    const detailData = await detailResponse.json();
+                    console.log(`[sync-rapidapi-playing-xi] TeamA squad detail keys:`, Object.keys(detailData).join(', '));
+                    console.log(`[sync-rapidapi-playing-xi] TeamA squad sample:`, JSON.stringify(detailData).substring(0, 1000));
+                    
+                    const players = parseSquadDetailPlayers(detailData);
+                    console.log(`[sync-rapidapi-playing-xi] TeamA parsed: ${players.length} players`);
+                    if (players.length >= 11) {
+                      teamAPlayers = players;
+                    }
+                  }
+                }
+                
+                if (result.teamBSquadId && teamBPlayers.length < 11) {
+                  const squadDetailUrl = `https://${cricbuzzHost}/series/v1/${seriesId}/squads/${result.teamBSquadId}`;
+                  console.log(`[sync-rapidapi-playing-xi] Fetching TeamB squad: ${squadDetailUrl}`);
+                  
+                  const detailResponse = await fetch(squadDetailUrl, {
+                    method: 'GET',
+                    headers: {
+                      'X-RapidAPI-Key': settings.rapidapi_key,
+                      'X-RapidAPI-Host': cricbuzzHost,
+                    },
+                  });
+                  
+                  if (detailResponse.ok) {
+                    const detailData = await detailResponse.json();
+                    console.log(`[sync-rapidapi-playing-xi] TeamB squad detail keys:`, Object.keys(detailData).join(', '));
+                    console.log(`[sync-rapidapi-playing-xi] TeamB squad sample:`, JSON.stringify(detailData).substring(0, 1000));
+                    
+                    const players = parseSquadDetailPlayers(detailData);
+                    console.log(`[sync-rapidapi-playing-xi] TeamB parsed: ${players.length} players`);
+                    if (players.length >= 11) {
+                      teamBPlayers = players;
+                    }
+                  }
+                }
+                
+                // Check if we now have complete data
+                if (teamAPlayers.length >= 11 && teamBPlayers.length >= 11) {
+                  foundData = true;
+                  console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from series squads`);
+                }
+              } else if (result.teamA.length > 0 || result.teamB.length > 0) {
+                // Direct player data from series squads
+                if (result.teamA.length >= 11 && result.teamB.length >= 11) {
+                  teamAPlayers = result.teamA;
+                  teamBPlayers = result.teamB;
+                  foundData = true;
+                  console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from series squads direct`);
+                } else {
+                  if (result.teamA.length > teamAPlayers.length) teamAPlayers = result.teamA;
+                  if (result.teamB.length > teamBPlayers.length) teamBPlayers = result.teamB;
+                }
+              }
+            }
+          } else {
+            console.log(`[sync-rapidapi-playing-xi] No series ID found in mcenter response`);
+          }
+        }
+      } catch (error) {
+        console.error(`[sync-rapidapi-playing-xi] Series squads error:`, error);
+      }
+    }
+
+    // FALLBACK 5: Try scorecard for LIVE/COMPLETED matches (when squad endpoints fail)
     // This can extract players from batting/bowling data
     if (!foundData && (teamAPlayers.length < 11 || teamBPlayers.length < 11)) {
       const scorecardUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}/scard`;
@@ -1217,5 +1343,140 @@ function extractPlayersFromArray(arr: any[]): Player[] {
     }
   }
   
+  return players;
+}
+
+// Parse series squads endpoint (/series/v1/{seriesId}/squads)
+// This endpoint returns list of team squads with their squad IDs
+interface SeriesSquadsResult {
+  teamA: Player[];
+  teamB: Player[];
+  teamASquadId?: string;
+  teamBSquadId?: string;
+}
+
+function parseSeriesSquads(
+  data: any, 
+  teamAName: string, 
+  teamAShort: string, 
+  teamBName: string, 
+  teamBShort: string,
+  cricbuzzHost: string,
+  apiKey: string
+): SeriesSquadsResult {
+  const result: SeriesSquadsResult = { teamA: [], teamB: [] };
+  
+  const normalizeTeam = (name: string) => (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const teamANorm = normalizeTeam(teamAName);
+  const teamAShortNorm = normalizeTeam(teamAShort);
+  const teamBNorm = normalizeTeam(teamBName);
+  const teamBShortNorm = normalizeTeam(teamBShort);
+  
+  console.log(`[parseSeriesSquads] Looking for teams: "${teamAName}" (${teamAShort}) vs "${teamBName}" (${teamBShort})`);
+  
+  // The /series/v1/{seriesId}/squads endpoint returns:
+  // { "squads": [ { "squadId": 123, "squadType": "team", "isHeader": false, "imageId": xxx }, { "squadId": 456, "squadType": "team", ... } ] }
+  // We need to get the squadId for each team and then call /series/v1/{seriesId}/squads/{squadId}
+  
+  const squads = data.squads || data.squad || data.teams || [];
+  
+  if (Array.isArray(squads)) {
+    console.log(`[parseSeriesSquads] Found ${squads.length} squads`);
+    
+    for (const squad of squads) {
+      // Skip header items
+      if (squad.isHeader === true || squad.squadType === 'header') continue;
+      
+      const squadId = squad.squadId || squad.id;
+      const squadName = normalizeTeam(squad.squadName || squad.teamName || squad.name || '');
+      
+      console.log(`[parseSeriesSquads] Squad: id=${squadId}, name="${squad.squadName || squad.teamName || squad.name}"`);
+      
+      // Check if this squad matches team A
+      const matchesTeamA = squadName.includes(teamANorm) || teamANorm.includes(squadName) ||
+                           squadName.includes(teamAShortNorm) || squadName === teamAShortNorm;
+      
+      // Check if this squad matches team B
+      const matchesTeamB = squadName.includes(teamBNorm) || teamBNorm.includes(squadName) ||
+                           squadName.includes(teamBShortNorm) || squadName === teamBShortNorm;
+      
+      if (matchesTeamA && squadId && !result.teamASquadId) {
+        result.teamASquadId = squadId.toString();
+        console.log(`[parseSeriesSquads] Matched TeamA squad: ${squadId}`);
+      } else if (matchesTeamB && squadId && !result.teamBSquadId) {
+        result.teamBSquadId = squadId.toString();
+        console.log(`[parseSeriesSquads] Matched TeamB squad: ${squadId}`);
+      }
+      
+      // Also try to extract players if they're embedded in the squad object
+      if (squad.players || squad.player || squad.squad) {
+        const players = extractPlayersFromTeam(squad);
+        if (players.length > 0) {
+          if (matchesTeamA && result.teamA.length === 0) {
+            result.teamA = players;
+          } else if (matchesTeamB && result.teamB.length === 0) {
+            result.teamB = players;
+          }
+        }
+      }
+    }
+  }
+  
+  console.log(`[parseSeriesSquads] Result: TeamA=${result.teamA.length} (squadId=${result.teamASquadId}), TeamB=${result.teamB.length} (squadId=${result.teamBSquadId})`);
+  return result;
+}
+
+// Parse squad detail endpoint (/series/v1/{seriesId}/squads/{squadId})
+// This returns full player list for a specific team
+function parseSquadDetailPlayers(data: any): Player[] {
+  const players: Player[] = [];
+  const seen = new Set<string>();
+  
+  console.log(`[parseSquadDetailPlayers] Parsing squad detail, keys: ${Object.keys(data).join(', ')}`);
+  
+  // The response structure could be:
+  // { "player": [ { "id": xx, "name": "Player Name", "role": "Batsman", ... }, ... ] }
+  // Or: { "players": [...] }
+  // Or: { "squad": { "player": [...] } }
+  
+  const playerArrays = [
+    data.player,
+    data.players,
+    data.squad?.player,
+    data.squad?.players,
+    data.playingXI,
+    data.playing11,
+    data.team?.player,
+    data.team?.players,
+  ];
+  
+  for (const arr of playerArrays) {
+    if (Array.isArray(arr) && arr.length > 0) {
+      console.log(`[parseSquadDetailPlayers] Found player array with ${arr.length} items`);
+      
+      for (const p of arr) {
+        const player = extractPlayerInfoV2(p);
+        if (player && !seen.has(player.name.toLowerCase())) {
+          seen.add(player.name.toLowerCase());
+          players.push(player);
+        }
+      }
+      
+      if (players.length >= 11) break;
+    }
+  }
+  
+  // If no players found, try recursive search
+  if (players.length === 0) {
+    const foundPlayers = findPlayersInObject(data);
+    for (const p of foundPlayers) {
+      if (!seen.has(p.name.toLowerCase())) {
+        seen.add(p.name.toLowerCase());
+        players.push(p);
+      }
+    }
+  }
+  
+  console.log(`[parseSquadDetailPlayers] Found ${players.length} players`);
   return players;
 }
