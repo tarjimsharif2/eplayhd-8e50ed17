@@ -209,7 +209,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     const teamPlayers = teamId === teamA.id ? teamAPlayers : teamBPlayers;
     
     if (teamPlayers.length === 0) {
-      toast({ title: "কোনো প্লেয়ার নেই", description: "প্রথমে স্কোয়াড সিংক বা এড করুন", variant: "destructive" });
+      toast({ title: "No players found", description: "Sync or add squad first", variant: "destructive" });
       return;
     }
 
@@ -221,7 +221,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     });
     
     setPendingChanges(newPending);
-    toast({ title: "অটো সিলেক্ট সম্পন্ন", description: `প্রথম ১১ জন Playing XI তে যোগ হয়েছে। সেভ করুন।` });
+    toast({ title: "Auto select complete", description: `First 11 added to Playing XI. Save to apply.` });
   };
 
   // Save all pending changes
@@ -242,7 +242,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
       
       setPendingChanges({});
       queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
-      toast({ title: "সেভ হয়েছে!", description: "Playing XI আপডেট সম্পন্ন" });
+      toast({ title: "Saved!", description: "Playing XI updated successfully" });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     } finally {
@@ -288,8 +288,8 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
       // XI-to-XI swap: just swap batting_order conceptually (both stay in XI)
       // Since both are in XI, we don't change is_bench, just show a message
       toast({ 
-        title: "XI প্লেয়ার স্বাপ",
-        description: `${targetPlayer.player_name} ↔ ${selectedForSwap.player_name} - দুজনই Playing XI তে আছে`
+        title: "XI Players Swapped",
+        description: `${targetPlayer.player_name} ↔ ${selectedForSwap.player_name} - Both are in Playing XI`
       });
     } else {
       // XI-to-Bench swap: move selected to bench, move target to XI
@@ -300,8 +300,8 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
       }));
       
       toast({ 
-        title: "Swap করা হয়েছে",
-        description: `${targetPlayer.player_name} ↔ ${selectedForSwap.player_name}. সেভ করুন।`
+        title: "Swapped",
+        description: `${targetPlayer.player_name} ↔ ${selectedForSwap.player_name}. Save to apply.`
       });
     }
     
@@ -570,7 +570,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
           description = `${result.message || result.error}\n\nSources: ${sourceSummary}\n\n${result.suggestion || ''}`;
         }
         toast({ 
-          title: result.alreadyExists ? "Already synced" : "১১+১১ প্লেয়ার পাওয়া যায়নি", 
+          title: result.alreadyExists ? "Already synced" : "11+11 players not found", 
           description,
           variant: result.alreadyExists ? "default" : "destructive"
         });
@@ -757,7 +757,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         {selectedForSwap && (
           <div className="flex items-center justify-between p-3 bg-primary/10 border border-primary/30 rounded-lg">
             <span className="text-sm">
-              <strong>{selectedForSwap.player_name}</strong> সিলেক্ট করা হয়েছে। যেকোনো প্লেয়ারে ট্যাপ করুন swap করতে।
+              <strong>{selectedForSwap.player_name}</strong> selected. Tap any player to swap.
             </span>
             <Button size="sm" variant="ghost" onClick={cancelSwapSelection}>
               <X className="w-4 h-4" />
