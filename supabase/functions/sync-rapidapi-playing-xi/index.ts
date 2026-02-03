@@ -728,21 +728,52 @@ function parseScorecardPlayers(data: any, teamAName: string, teamAShort: string,
   const normalizeTeam = (name: string) => (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
   const teamANorm = normalizeTeam(teamAName);
   const teamAShortNorm = normalizeTeam(teamAShort);
+  const teamBNorm = normalizeTeam(teamBName);
+  const teamBShortNorm = normalizeTeam(teamBShort);
 
-  // Try to find innings data
-  const innings = data.scoreCard || data.innings || data.inningsData || [];
+  // Try to find innings data - handle both "scoreCard" and "scorecard" (case-insensitive)
+  const innings = data.scoreCard || data.scorecard || data.innings || data.inningsData || [];
+  
+  console.log(`[parseScorecardPlayers] Found ${Array.isArray(innings) ? innings.length : 0} innings`);
+  
+  // Track which teams we've assigned to which position
+  let firstInningsTeam: string | null = null;
+  let firstIsTeamA: boolean | null = null;
   
   for (const inn of (Array.isArray(innings) ? innings : [])) {
-    const inningsTeam = normalizeTeam(inn.batTeamName || inn.teamName || inn.team || '');
-    const isTeamA = inningsTeam.includes(teamANorm) || inningsTeam.includes(teamAShortNorm) ||
-                    teamANorm.includes(inningsTeam) || teamAShortNorm === inningsTeam;
+    // Get batting team name from various fields
+    const batTeamName = inn.batTeamName || inn.batTeamSName || inn.battingTeam || '';
+    const inningsTeam = normalizeTeam(batTeamName);
     
-    // Get batsmen
-    const batsmen = inn.batTeamDetails?.batsmenData || inn.batsmen || inn.batting || [];
+    console.log(`[parseScorecardPlayers] Innings ${inn.inningsid || inn.inningsId || '?'}: batTeam="${batTeamName}"`);
+    
+    // Determine if this is team A or B based on name matching
+    let isTeamA: boolean;
+    
+    if (firstInningsTeam === null) {
+      // First innings - determine based on team name matching
+      const matchesTeamA = inningsTeam.includes(teamANorm) || teamANorm.includes(inningsTeam) ||
+                           inningsTeam.includes(teamAShortNorm) || inningsTeam === teamAShortNorm;
+      const matchesTeamB = inningsTeam.includes(teamBNorm) || teamBNorm.includes(inningsTeam) ||
+                           inningsTeam.includes(teamBShortNorm) || inningsTeam === teamBShortNorm;
+      
+      isTeamA = matchesTeamA && !matchesTeamB;
+      firstInningsTeam = inningsTeam;
+      firstIsTeamA = isTeamA;
+    } else {
+      // Second innings - assign to opposite team
+      isTeamA = !firstIsTeamA;
+    }
+    
+    // Get batsmen - try multiple field names used by Cricbuzz API
+    // The response uses "batsman" (singular) not "batsmen"
+    const batsmen = inn.batsman || inn.batsmen || inn.batTeamDetails?.batsmenData || inn.batting || [];
     const batsmenArr = typeof batsmen === 'object' && !Array.isArray(batsmen) ? Object.values(batsmen) : batsmen;
     
+    console.log(`[parseScorecardPlayers] Found ${Array.isArray(batsmenArr) ? batsmenArr.length : 0} batsmen`);
+    
     for (const b of (Array.isArray(batsmenArr) ? batsmenArr : [])) {
-      const player = extractPlayerInfo(b);
+      const player = extractScorecardPlayer(b);
       if (player) {
         if (isTeamA && !seenA.has(player.name.toLowerCase()) && teamA.length < 11) {
           seenA.add(player.name.toLowerCase());
@@ -755,11 +786,14 @@ function parseScorecardPlayers(data: any, teamAName: string, teamAShort: string,
     }
     
     // Get bowlers (they belong to the OTHER team)
-    const bowlers = inn.bowlTeamDetails?.bowlersData || inn.bowlers || inn.bowling || [];
+    // The response uses "bowler" (singular) not "bowlers"
+    const bowlers = inn.bowler || inn.bowlers || inn.bowlTeamDetails?.bowlersData || inn.bowling || [];
     const bowlersArr = typeof bowlers === 'object' && !Array.isArray(bowlers) ? Object.values(bowlers) : bowlers;
     
+    console.log(`[parseScorecardPlayers] Found ${Array.isArray(bowlersArr) ? bowlersArr.length : 0} bowlers`);
+    
     for (const b of (Array.isArray(bowlersArr) ? bowlersArr : [])) {
-      const player = extractPlayerInfo(b);
+      const player = extractScorecardPlayer(b);
       if (player) {
         // Bowlers belong to the opposite team
         if (!isTeamA && !seenA.has(player.name.toLowerCase()) && teamA.length < 11) {
@@ -773,7 +807,27 @@ function parseScorecardPlayers(data: any, teamAName: string, teamAShort: string,
     }
   }
   
+  console.log(`[parseScorecardPlayers] Final: TeamA=${teamA.length}, TeamB=${teamB.length}`);
+  
   return { teamA, teamB };
+}
+
+// Extract player from scorecard entry (batsman/bowler)
+function extractScorecardPlayer(p: any): Player | null {
+  if (!p) return null;
+  
+  // Cricbuzz scorecard structure: { id, name, nickname, iscaptain, iskeeper, ... }
+  let name = p.name || p.nickname || p.fullName || p.shortName || '';
+  const isCaptain = p.iscaptain === true || p.isCaptain === true || p.captain === true;
+  const isWicketKeeper = p.iskeeper === true || p.isKeeper === true || p.keeper === true;
+  const isViceCaptain = p.isvicecaptain === true || p.isViceCaptain === true;
+  
+  // Clean up name
+  name = cleanPlayerName(name);
+  
+  if (!name || name.length < 2) return null;
+  
+  return { name, isCaptain, isWicketKeeper, isViceCaptain, role: null };
 }
 
 // Parse match info endpoint data for playing XI
