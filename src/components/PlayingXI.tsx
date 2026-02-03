@@ -90,23 +90,43 @@ const getRoleIcon = (role: string | null, isWicketKeeper: boolean) => {
   return <BatIcon />;
 };
 
+// Get short role name for display
+const getShortRoleName = (role: string | null): string => {
+  const roleLower = (role || '').toLowerCase();
+  
+  if (roleLower.includes('batting') && roleLower.includes('all')) return 'Bat AR';
+  if (roleLower.includes('bowling') && roleLower.includes('all')) return 'Bowl AR';
+  if (roleLower.includes('all') || roleLower.includes('rounder')) return 'AR';
+  if (roleLower.includes('fast') || roleLower.includes('pacer')) return 'Fast';
+  if (roleLower.includes('spin')) return 'Spin';
+  if (roleLower.includes('medium')) return 'Med';
+  if (roleLower.includes('bowl')) return 'Bowl';
+  if (roleLower.includes('open')) return 'Open';
+  if (roleLower.includes('bat')) return 'Bat';
+  if (roleLower.includes('wk') || roleLower.includes('keep')) return 'WK';
+  
+  // Return first word if short enough, otherwise abbreviate
+  const firstWord = (role || '').split(' ')[0];
+  return firstWord.length <= 6 ? firstWord : firstWord.slice(0, 5);
+};
+
 const getRoleBadgeColor = (role: string | null): string => {
   const roleLower = (role || '').toLowerCase();
   
   if (roleLower.includes('all') || roleLower.includes('rounder')) {
-    return 'bg-purple-500/20 text-purple-300 border-purple-500/30';
+    return 'bg-purple-500/20 text-purple-300';
   }
   if (roleLower.includes('bowl') || roleLower.includes('fast') || roleLower.includes('spin') || roleLower.includes('medium')) {
-    return 'bg-red-500/20 text-red-300 border-red-500/30';
+    return 'bg-red-500/20 text-red-300';
   }
   if (roleLower.includes('bat') || roleLower.includes('open')) {
-    return 'bg-green-500/20 text-green-300 border-green-500/30';
+    return 'bg-green-500/20 text-green-300';
   }
   if (roleLower.includes('keep') || roleLower.includes('wk')) {
-    return 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30';
+    return 'bg-yellow-500/20 text-yellow-300';
   }
   
-  return 'bg-muted/50 text-muted-foreground border-border/50';
+  return 'bg-muted/50 text-muted-foreground';
 };
 
 const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo, teamBLogo }: PlayingXIProps) => {
@@ -208,10 +228,10 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
         )}
       </div>
       
-      {/* Player role badge - compact */}
+      {/* Player role badge - short abbreviation */}
       {player.player_role && (
-        <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ml-2 ${getRoleBadgeColor(player.player_role)}`}>
-          {player.player_role.length > 12 ? player.player_role.slice(0, 10) + '..' : player.player_role}
+        <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ml-1 whitespace-nowrap ${getRoleBadgeColor(player.player_role)}`}>
+          {getShortRoleName(player.player_role)}
         </span>
       )}
     </motion.div>
