@@ -567,6 +567,44 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Try to get actual Playing XI from scorecard to identify bench players
+    let scorecardTeamA: Player[] = [];
+    let scorecardTeamB: Player[] = [];
+    
+    const scorecardUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}/scard`;
+    try {
+      const scorecardResponse = await fetch(scorecardUrl, {
+        method: 'GET',
+        headers: {
+          'X-RapidAPI-Key': settings.rapidapi_key,
+          'X-RapidAPI-Host': cricbuzzHost,
+        },
+      });
+      
+      if (scorecardResponse.ok) {
+        const scorecardData = await scorecardResponse.json();
+        const scorecardResult = parseScorecardPlayers(scorecardData, teamAName, teamAShortName, teamBName, teamBShortName);
+        scorecardTeamA = scorecardResult.teamA;
+        scorecardTeamB = scorecardResult.teamB;
+        console.log(`[sync-rapidapi-playing-xi] Scorecard players for bench detection: TeamA=${scorecardTeamA.length}, TeamB=${scorecardTeamB.length}`);
+      }
+    } catch (err) {
+      console.log(`[sync-rapidapi-playing-xi] Could not fetch scorecard for bench detection`);
+    }
+
+    // Helper to check if player is in scorecard (actual Playing XI)
+    const normalizePlayerName = (name: string) => name.toLowerCase().replace(/[^a-z]/g, '');
+    const isInScorecard = (playerName: string, scorecardPlayers: Player[]) => {
+      const normName = normalizePlayerName(playerName);
+      return scorecardPlayers.some(sp => {
+        const normScName = normalizePlayerName(sp.name);
+        return normScName === normName || 
+               normScName.includes(normName) || 
+               normName.includes(normScName) ||
+               normScName.split(' ').pop() === normName.split(' ').pop(); // Match by surname
+      });
+    };
+
     // Delete existing incomplete data
     if (existingPlayers && existingPlayers.length > 0) {
       console.log(`[sync-rapidapi-playing-xi] Deleting ${existingPlayers.length} incomplete players`);
@@ -576,9 +614,16 @@ Deno.serve(async (req) => {
         .eq('match_id', matchId);
     }
 
-    // Add Team A players
+    // Add Team A players - first 11 or those in scorecard as Playing XI, rest as Bench
     let battingOrder = 1;
-    for (const player of teamAPlayers.slice(0, 11)) {
+    let benchOrder = 100;
+    
+    // If we have scorecard data, use it to determine Playing XI vs Bench
+    const hasScorecard = scorecardTeamA.length >= 8; // At least 8 players from scorecard
+    
+    for (const player of teamAPlayers) {
+      const isBench = hasScorecard ? !isInScorecard(player.name, scorecardTeamA) : battingOrder > 11;
+      
       playersToAdd.push({
         match_id: matchId,
         team_id: teamAId,
@@ -587,13 +632,19 @@ Deno.serve(async (req) => {
         is_captain: player.isCaptain,
         is_vice_captain: player.isViceCaptain,
         is_wicket_keeper: player.isWicketKeeper,
-        batting_order: battingOrder++,
+        batting_order: isBench ? benchOrder++ : battingOrder++,
+        is_bench: isBench,
       });
     }
 
     // Add Team B players
     battingOrder = 1;
-    for (const player of teamBPlayers.slice(0, 11)) {
+    benchOrder = 100;
+    const hasScorecard2 = scorecardTeamB.length >= 8;
+    
+    for (const player of teamBPlayers) {
+      const isBench = hasScorecard2 ? !isInScorecard(player.name, scorecardTeamB) : battingOrder > 11;
+      
       playersToAdd.push({
         match_id: matchId,
         team_id: teamBId,
@@ -602,9 +653,15 @@ Deno.serve(async (req) => {
         is_captain: player.isCaptain,
         is_vice_captain: player.isViceCaptain,
         is_wicket_keeper: player.isWicketKeeper,
-        batting_order: battingOrder++,
+        batting_order: isBench ? benchOrder++ : battingOrder++,
+        is_bench: isBench,
       });
     }
+
+    // Count bench players
+    const benchCount = playersToAdd.filter(p => p.is_bench).length;
+    const playingCount = playersToAdd.filter(p => !p.is_bench).length;
+    console.log(`[sync-rapidapi-playing-xi] Players: ${playingCount} playing, ${benchCount} bench`);
 
     // Insert players
     if (playersToAdd.length > 0) {
@@ -627,9 +684,11 @@ Deno.serve(async (req) => {
       JSON.stringify({ 
         success: true, 
         playersAdded: playersToAdd.length,
+        playingXI: playingCount,
+        benchPlayers: benchCount,
         teamAPlayers: teamAPlayers.length,
         teamBPlayers: teamBPlayers.length,
-        message: `Added ${playersToAdd.length} players from RapidAPI Cricbuzz`
+        message: `Added ${playingCount} playing + ${benchCount} bench players from RapidAPI Cricbuzz`
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
