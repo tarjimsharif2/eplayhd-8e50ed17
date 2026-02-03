@@ -1338,7 +1338,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <History className="w-5 h-5" />
-              পুরাতন ম্যাচ থেকে স্কোয়াড ইমপোর্ট
+              Import Squad from Previous Match
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -1348,7 +1348,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
               </div>
             ) : previousMatches && previousMatches.length > 0 ? (
               <div className="space-y-3">
-                <Label>ম্যাচ সিলেক্ট করুন</Label>
+                <Label>Select Match</Label>
                 <div className="max-h-64 overflow-y-auto space-y-2">
                   {previousMatches.map(match => (
                     <Card 
@@ -1382,15 +1382,15 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
                     {loadingPreviousPlayers ? (
                       <div className="flex items-center gap-2 text-sm text-muted-foreground">
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        প্লেয়ার লোড হচ্ছে...
+                        Loading players...
                       </div>
                     ) : previousMatchPlayers && previousMatchPlayers.length > 0 ? (
                       <div className="text-sm text-muted-foreground">
-                        <span className="text-foreground font-medium">{previousMatchPlayers.length}</span> জন প্লেয়ার পাওয়া গেছে
+                        <span className="text-foreground font-medium">{previousMatchPlayers.length}</span> players found
                       </div>
                     ) : (
                       <div className="text-sm text-destructive">
-                        এই ম্যাচে কোনো প্লেয়ার নেই
+                        No players found in this match
                       </div>
                     )}
                   </div>
@@ -1399,7 +1399,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
             ) : (
               <div className="text-center py-8 text-muted-foreground">
                 <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p>একই টিমের কোনো পুরাতন ম্যাচ পাওয়া যায়নি</p>
+                <p>No previous matches found for these teams</p>
               </div>
             )}
           </div>
@@ -1408,7 +1408,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
               setImportDialogOpen(false);
               setSelectedPreviousMatch(null);
             }}>
-              বাতিল
+              Cancel
             </Button>
             <Button 
               onClick={handleImportFromPreviousMatch}
@@ -1419,7 +1419,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
               ) : (
                 <CloudDownload className="w-4 h-4 mr-2" />
               )}
-              ইমপোর্ট করুন
+              Import
             </Button>
           </DialogFooter>
         </DialogContent>
