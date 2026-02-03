@@ -319,8 +319,8 @@ const MatchPage = () => {
             />
           )}
 
-          {/* Playing XI Section - For non-football matches */}
-          {!isFootball && teamA && teamB && (
+          {/* Playing XI Section - For non-football matches (only if show_playing_xi is enabled) */}
+          {!isFootball && teamA && teamB && (match as any).show_playing_xi && (
             <div className="mb-6">
               <PlayingXI
                 matchId={match.id}

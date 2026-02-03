@@ -201,6 +201,7 @@ const Admin = () => {
     manual_status_override: false,
     score_source: 'manual' as 'manual' | 'api_cricket' | 'espn',
     espn_event_id: '' as string | null,
+    show_playing_xi: false,
   });
 
   const [teamForm, setTeamForm] = useState({
@@ -627,6 +628,7 @@ const Admin = () => {
         manual_status_override: matchForm.manual_status_override,
         score_source: matchForm.score_source || 'manual',
         espn_event_id: matchForm.espn_event_id || null,
+        show_playing_xi: matchForm.show_playing_xi,
       };
       let matchId: string | undefined;
       
@@ -703,6 +705,7 @@ const Admin = () => {
       manual_status_override: (match as any).manual_status_override || false,
       score_source: (match as any).score_source || 'manual',
       espn_event_id: (match as any).espn_event_id || '',
+      show_playing_xi: (match as any).show_playing_xi || false,
     });
     setMatchDialogOpen(true);
   };
@@ -809,6 +812,7 @@ const Admin = () => {
       manual_status_override: false,
       score_source: 'manual',
       espn_event_id: '',
+      show_playing_xi: false,
     });
     setMatchDialogOpen(true);
     toast({ title: "Match copied", description: "Edit the details and save to create a new match." });
@@ -857,6 +861,7 @@ const Admin = () => {
       manual_status_override: false,
       score_source: 'manual',
       espn_event_id: '',
+      show_playing_xi: false,
     });
   };
 
@@ -1996,6 +2001,21 @@ const Admin = () => {
                         <Switch
                           checked={matchForm.is_priority}
                           onCheckedChange={(checked) => setMatchForm({ ...matchForm, is_priority: checked })}
+                        />
+                      </div>
+
+                      {/* Show Playing XI Toggle */}
+                      <div className="flex items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <Label className="flex items-center gap-2">
+                            <Users className="w-4 h-4 text-blue-500" />
+                            Show Playing XI
+                          </Label>
+                          <p className="text-xs text-muted-foreground">Display Playing XI section on match page</p>
+                        </div>
+                        <Switch
+                          checked={matchForm.show_playing_xi}
+                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, show_playing_xi: checked })}
                         />
                       </div>
 

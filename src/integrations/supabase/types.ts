@@ -540,6 +540,7 @@ export type Database = {
           seo_description: string | null
           seo_keywords: string | null
           seo_title: string | null
+          show_playing_xi: boolean | null
           slug: string | null
           sport_id: string | null
           status: string
@@ -586,6 +587,7 @@ export type Database = {
           seo_description?: string | null
           seo_keywords?: string | null
           seo_title?: string | null
+          show_playing_xi?: boolean | null
           slug?: string | null
           sport_id?: string | null
           status?: string
@@ -632,6 +634,7 @@ export type Database = {
           seo_description?: string | null
           seo_keywords?: string | null
           seo_title?: string | null
+          show_playing_xi?: boolean | null
           slug?: string | null
           sport_id?: string | null
           status?: string

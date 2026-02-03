@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, ChevronDown } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, ChevronDown, ArrowUpDown } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from "@/hooks/useSportsData";
@@ -26,6 +26,7 @@ interface Player {
   is_vice_captain: boolean;
   is_wicket_keeper: boolean;
   batting_order: number | null;
+  is_bench?: boolean;
 }
 
 interface PlayingXIManagerProps {
@@ -176,6 +177,53 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
 
   const teamAPlayers = players?.filter(p => p.team_id === teamA.id) || [];
   const teamBPlayers = players?.filter(p => p.team_id === teamB.id) || [];
+
+  // Split into Playing XI and Bench
+  const teamAPlayingXI = teamAPlayers.filter(p => !p.is_bench).slice(0, 11);
+  const teamABench = teamAPlayers.filter(p => p.is_bench);
+  const teamBPlayingXI = teamBPlayers.filter(p => !p.is_bench).slice(0, 11);
+  const teamBBench = teamBPlayers.filter(p => p.is_bench);
+
+  // Toggle player between Playing XI and Bench
+  const handleToggleBench = async (player: Player) => {
+    try {
+      await updatePlayer.mutateAsync({
+        id: player.id,
+        match_id: matchId,
+        is_bench: !player.is_bench,
+      });
+      toast({ 
+        title: player.is_bench ? "Added to Playing XI" : "Moved to Bench",
+        description: player.player_name
+      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  // Swap two players (one from XI, one from Bench)
+  const handleSwapPlayers = async (xiPlayer: Player, benchPlayer: Player) => {
+    try {
+      await Promise.all([
+        updatePlayer.mutateAsync({
+          id: xiPlayer.id,
+          match_id: matchId,
+          is_bench: true,
+        }),
+        updatePlayer.mutateAsync({
+          id: benchPlayer.id,
+          match_id: matchId,
+          is_bench: false,
+        }),
+      ]);
+      toast({ 
+        title: "Players swapped",
+        description: `${benchPlayer.player_name} ↔ ${xiPlayer.player_name}`
+      });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
 
   const resetForm = () => {
     setEditingPlayer(null);
@@ -445,12 +493,12 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     }
   };
 
-  const renderPlayerCard = (player: Player) => (
-    <Card key={player.id} className="hover:border-primary/30 transition-colors">
+  const renderPlayerCard = (player: Player, benchPlayers: Player[], isInXI: boolean) => (
+    <Card key={player.id} className={`hover:border-primary/30 transition-colors ${player.is_bench ? 'opacity-70' : ''}`}>
       <CardContent className="p-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 flex-wrap">
-            {player.batting_order && (
+            {player.batting_order && !player.is_bench && (
               <span className="text-xs text-muted-foreground font-mono w-5">
                 #{player.batting_order}
               </span>
@@ -470,6 +518,47 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
             )}
           </div>
           <div className="flex items-center gap-1">
+            {/* Swap Dropdown - only for players in Playing XI when bench exists */}
+            {isInXI && benchPlayers.length > 0 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-7 w-7 text-blue-500 hover:text-blue-600"
+                    title="Swap with bench player"
+                  >
+                    <ArrowUpDown className="w-3 h-3" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-background border max-h-60 overflow-y-auto">
+                  <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground">
+                    Swap with:
+                  </div>
+                  {benchPlayers.map(benchPlayer => (
+                    <DropdownMenuItem 
+                      key={benchPlayer.id}
+                      onClick={() => handleSwapPlayers(player, benchPlayer)}
+                    >
+                      {benchPlayer.player_name}
+                      {benchPlayer.player_role && (
+                        <span className="text-muted-foreground ml-1">• {benchPlayer.player_role}</span>
+                      )}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {/* Move to XI / Bench toggle button */}
+            <Button
+              size="icon"
+              variant="ghost"
+              className={`h-7 w-7 ${player.is_bench ? 'text-green-500 hover:text-green-600' : 'text-orange-500 hover:text-orange-600'}`}
+              onClick={() => handleToggleBench(player)}
+              title={player.is_bench ? 'Move to Playing XI' : 'Move to Bench'}
+            >
+              {player.is_bench ? <Plus className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+            </Button>
             <Button
               size="icon"
               variant="ghost"
@@ -492,19 +581,20 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     </Card>
   );
 
-  const renderTeamSection = (team: Team, teamPlayers: Player[]) => (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          {team.logo_url && (
-            <img src={team.logo_url} alt={team.name} className="w-6 h-6 object-contain" />
-          )}
-          <h4 className="font-medium text-sm">{team.name}</h4>
-          <Badge variant="secondary" className="text-[10px]">
-            {teamPlayers.length}/11
-          </Badge>
-        </div>
-        {teamPlayers.length < 11 && (
+  const renderTeamSection = (team: Team, playingXI: Player[], bench: Player[]) => (
+    <div className="space-y-4">
+      {/* Playing XI Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            {team.logo_url && (
+              <img src={team.logo_url} alt={team.name} className="w-6 h-6 object-contain" />
+            )}
+            <h4 className="font-medium text-sm">{team.name}</h4>
+            <Badge variant="secondary" className="text-[10px]">
+              {playingXI.length}/11
+            </Badge>
+          </div>
           <div className="flex gap-2">
             <Button 
               size="sm" 
@@ -526,16 +616,31 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
               Bulk Add
             </Button>
           </div>
+        </div>
+        {playingXI.length > 0 ? (
+          <div className="space-y-2">
+            {playingXI.map(p => renderPlayerCard(p, bench, true))}
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
+            No players in Playing XI
+          </p>
         )}
       </div>
-      {teamPlayers.length > 0 ? (
-        <div className="space-y-2">
-          {teamPlayers.map(renderPlayerCard)}
+
+      {/* Bench Section */}
+      {bench.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <h4 className="font-medium text-sm text-muted-foreground">Bench / Squad</h4>
+            <Badge variant="outline" className="text-[10px]">
+              {bench.length}
+            </Badge>
+          </div>
+          <div className="space-y-2 pl-2 border-l-2 border-border/50">
+            {bench.map(p => renderPlayerCard(p, [], false))}
+          </div>
         </div>
-      ) : (
-        <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
-          No players added yet
-        </p>
       )}
     </div>
   );
@@ -632,10 +737,10 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
           </TabsTrigger>
         </TabsList>
         <TabsContent value={teamA.id} className="mt-4">
-          {renderTeamSection(teamA, teamAPlayers)}
+          {renderTeamSection(teamA, teamAPlayingXI, teamABench)}
         </TabsContent>
         <TabsContent value={teamB.id} className="mt-4">
-          {renderTeamSection(teamB, teamBPlayers)}
+          {renderTeamSection(teamB, teamBPlayingXI, teamBBench)}
         </TabsContent>
       </Tabs>
 
