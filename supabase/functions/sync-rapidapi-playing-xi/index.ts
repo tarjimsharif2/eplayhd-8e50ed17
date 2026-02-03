@@ -315,141 +315,25 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Endpoint 4: Try scorecard as fallback
-    if (!foundData) {
-      const scardEndpoint = endpoints.scorecard_endpoint || '/mcenter/v1/{match_id}/scard';
-      const scardUrl = `https://${cricbuzzHost}${scardEndpoint.replace('{match_id}', cbMatchId)}`;
-      
-      console.log(`[sync-rapidapi-playing-xi] Trying scorecard endpoint: ${scardUrl}`);
-      
-      try {
-        const response = await fetch(scardUrl, {
-          method: 'GET',
-          headers: {
-            'X-RapidAPI-Key': settings.rapidapi_key,
-            'X-RapidAPI-Host': cricbuzzHost,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`[sync-rapidapi-playing-xi] Scorecard response:`, JSON.stringify(data).substring(0, 500));
-          
-          const result = parseScorecardPlayers(data, teamAName, teamAShortName, teamBName, teamBShortName);
-          if (result.teamA.length >= 5 || result.teamB.length >= 5) {
-            teamAPlayers = result.teamA;
-            teamBPlayers = result.teamB;
-            foundData = true;
-            console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from scorecard`);
-          }
-        }
-      } catch (error) {
-        console.error(`[sync-rapidapi-playing-xi] Scorecard endpoint error:`, error);
-      }
-    }
-
-    // Endpoint 5: Try liveScore endpoint to get current players on field
-    if (foundData && (teamAPlayers.length < 11 || teamBPlayers.length < 11)) {
-      const liveScoreUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}/liveScore`;
-      
-      console.log(`[sync-rapidapi-playing-xi] Trying liveScore endpoint for additional players: ${liveScoreUrl}`);
-      
-      try {
-        const response = await fetch(liveScoreUrl, {
-          method: 'GET',
-          headers: {
-            'X-RapidAPI-Key': settings.rapidapi_key,
-            'X-RapidAPI-Host': cricbuzzHost,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          console.log(`[sync-rapidapi-playing-xi] LiveScore response keys:`, Object.keys(data).join(', '));
-          
-          // Extract additional players from liveScore data
-          const additionalPlayers = extractPlayersFromLiveScore(data);
-          console.log(`[sync-rapidapi-playing-xi] Found ${additionalPlayers.length} additional players from liveScore`);
-          
-          // Add missing players
-          const seenA = new Set(teamAPlayers.map(p => p.name.toLowerCase()));
-          const seenB = new Set(teamBPlayers.map(p => p.name.toLowerCase()));
-          
-          for (const player of additionalPlayers) {
-            if (teamAPlayers.length < 11 && !seenA.has(player.name.toLowerCase())) {
-              seenA.add(player.name.toLowerCase());
-              teamAPlayers.push(player);
-            } else if (teamBPlayers.length < 11 && !seenB.has(player.name.toLowerCase())) {
-              seenB.add(player.name.toLowerCase());
-              teamBPlayers.push(player);
-            }
-          }
-        }
-      } catch (error) {
-        console.error(`[sync-rapidapi-playing-xi] LiveScore endpoint error:`, error);
-      }
-    }
-
-    // If still incomplete, try commentary endpoint to extract more player names
-    if (foundData && (teamAPlayers.length < 11 || teamBPlayers.length < 11)) {
-      const commUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}/comm`;
-      
-      console.log(`[sync-rapidapi-playing-xi] Trying commentary endpoint for additional players`);
-      
-      try {
-        const response = await fetch(commUrl, {
-          method: 'GET',
-          headers: {
-            'X-RapidAPI-Key': settings.rapidapi_key,
-            'X-RapidAPI-Host': cricbuzzHost,
-          },
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          
-          // Extract players from commentary
-          const additionalPlayers = extractPlayersFromCommentary(data);
-          console.log(`[sync-rapidapi-playing-xi] Found ${additionalPlayers.length} players from commentary`);
-          
-          // Add missing players
-          const seenA = new Set(teamAPlayers.map(p => p.name.toLowerCase()));
-          const seenB = new Set(teamBPlayers.map(p => p.name.toLowerCase()));
-          
-          for (const player of additionalPlayers) {
-            if (teamAPlayers.length < 11 && !seenA.has(player.name.toLowerCase())) {
-              seenA.add(player.name.toLowerCase());
-              teamAPlayers.push(player);
-            } else if (teamBPlayers.length < 11 && !seenB.has(player.name.toLowerCase())) {
-              seenB.add(player.name.toLowerCase());
-              teamBPlayers.push(player);
-            }
-          }
-        }
-      } catch (error) {
-        console.error(`[sync-rapidapi-playing-xi] Commentary endpoint error:`, error);
-      }
-    }
+    // DISABLED: Scorecard-based squad extraction - not reliable for getting full 11+11
+    // Only use proper squad endpoints above
 
     // Check final status
     const totalPlayers = teamAPlayers.length + teamBPlayers.length;
     console.log(`[sync-rapidapi-playing-xi] Final player count: TeamA=${teamAPlayers.length}, TeamB=${teamBPlayers.length}`);
 
-    if (!foundData || totalPlayers < 5) {
+    // Require at least 11+11 for complete data
+    if (!foundData || teamAPlayers.length < 11 || teamBPlayers.length < 11) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Playing XI not available yet. Team A: ${teamAPlayers.length}, Team B: ${teamBPlayers.length} players found.`,
-          playersAdded: 0
+          error: `Playing XI not available yet from API. Team A: ${teamAPlayers.length}/11, Team B: ${teamBPlayers.length}/11 players found. Try again later or use Bulk Add.`,
+          playersAdded: 0,
+          teamAPlayers: teamAPlayers.length,
+          teamBPlayers: teamBPlayers.length
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    }
-
-    // Warn if incomplete but still save what we have
-    const isIncomplete = teamAPlayers.length < 11 || teamBPlayers.length < 11;
-    if (isIncomplete) {
-      console.log(`[sync-rapidapi-playing-xi] Warning: Incomplete data - match may still be in progress. Saving ${teamAPlayers.length}+${teamBPlayers.length} players.`);
     }
 
     // Delete existing incomplete data
