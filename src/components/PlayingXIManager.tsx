@@ -475,17 +475,14 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         return;
       }
 
-      // Clear existing players for this team only
-      const existingTeamPlayers = players?.filter(p => p.team_id === importForTeam) || [];
-      if (existingTeamPlayers.length > 0) {
-        const { error: deleteError } = await supabase
-          .from('match_playing_xi')
-          .delete()
-          .eq('match_id', matchId)
-          .eq('team_id', importForTeam);
-        
-        if (deleteError) throw deleteError;
-      }
+      // Always clear existing players for this team before importing
+      const { error: deleteError } = await supabase
+        .from('match_playing_xi')
+        .delete()
+        .eq('match_id', matchId)
+        .eq('team_id', importForTeam);
+      
+      if (deleteError) throw deleteError;
 
       // Add players with correct team_id for current match
       const playersToAdd = teamPlayersFromPrevious.map(p => ({
@@ -1353,21 +1350,26 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {/* Team Selector */}
             <div className="space-y-2">
               <Label>Import for Team</Label>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   variant={importForTeam === teamA.id ? "default" : "outline"}
                   className="w-full"
-                  onClick={() => setImportForTeam(teamA.id)}
+                  onClick={() => {
+                    setImportForTeam(teamA.id);
+                    setSelectedPreviousMatch(null); // Reset match selection when switching team
+                  }}
                 >
                   {teamA.short_name || teamA.name}
                 </Button>
                 <Button
                   variant={importForTeam === teamB.id ? "default" : "outline"}
                   className="w-full"
-                  onClick={() => setImportForTeam(teamB.id)}
+                  onClick={() => {
+                    setImportForTeam(teamB.id);
+                    setSelectedPreviousMatch(null); // Reset match selection when switching team
+                  }}
                 >
                   {teamB.short_name || teamB.name}
                 </Button>
