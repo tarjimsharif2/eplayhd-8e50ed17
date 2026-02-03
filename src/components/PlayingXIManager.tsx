@@ -457,35 +457,17 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
       const selectedMatch = previousMatches?.find(m => m.id === selectedPreviousMatch);
       if (!selectedMatch) throw new Error("Match not found");
 
-      // Find which team from previous match maps to our target team
-      let sourceTeamId: string | null = null;
+      // Check if the selected team played in this match
+      const teamPlayedInMatch = selectedMatch.team_a_id === importForTeam || selectedMatch.team_b_id === importForTeam;
       
-      // Check if importForTeam was team_a or team_b in the previous match
-      if (selectedMatch.team_a_id === importForTeam) {
-        sourceTeamId = selectedMatch.team_a_id;
-      } else if (selectedMatch.team_b_id === importForTeam) {
-        sourceTeamId = selectedMatch.team_b_id;
-      } else {
-        // The team might have played in the other position (team_a played as team_b)
-        // Check if the team we're importing for played in this match
-        if (selectedMatch.team_a_id === teamA.id || selectedMatch.team_a_id === teamB.id) {
-          if (importForTeam === teamA.id && selectedMatch.team_a_id === teamA.id) sourceTeamId = selectedMatch.team_a_id;
-          if (importForTeam === teamB.id && selectedMatch.team_a_id === teamB.id) sourceTeamId = selectedMatch.team_a_id;
-        }
-        if (selectedMatch.team_b_id === teamA.id || selectedMatch.team_b_id === teamB.id) {
-          if (importForTeam === teamA.id && selectedMatch.team_b_id === teamA.id) sourceTeamId = selectedMatch.team_b_id;
-          if (importForTeam === teamB.id && selectedMatch.team_b_id === teamB.id) sourceTeamId = selectedMatch.team_b_id;
-        }
-      }
-
-      if (!sourceTeamId) {
+      if (!teamPlayedInMatch) {
         toast({ title: "Error", description: "Selected team did not play in this match", variant: "destructive" });
         setImportingSquad(false);
         return;
       }
 
-      // Filter players from that team only
-      const teamPlayersFromPrevious = previousMatchPlayers.filter(p => p.team_id === sourceTeamId);
+      // Filter players from that team only (team_id is consistent across all matches)
+      const teamPlayersFromPrevious = previousMatchPlayers.filter(p => p.team_id === importForTeam);
 
       if (teamPlayersFromPrevious.length === 0) {
         toast({ title: "Error", description: "No players found for this team in selected match", variant: "destructive" });
