@@ -259,10 +259,10 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     }));
   };
 
-  // Touch handlers for mobile swap
-  const handleTouchStart = useCallback((player: Player, isInXI: boolean, benchPlayers: Player[]) => {
-    // Only allow selection from Playing XI players when there's a bench
-    if (!isInXI || benchPlayers.length === 0) return;
+  // Touch handlers for mobile swap - works between XI players AND XI-to-Bench
+  const handleTouchStart = useCallback((player: Player, isInXI: boolean) => {
+    // Allow selection from any Playing XI player
+    if (!isInXI) return;
     
     const timer = setTimeout(() => {
       setSelectedForSwap(player);
@@ -280,20 +280,30 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     }
   }, [longPressTimer]);
 
-  const handleTouchSwap = useCallback((benchPlayer: Player) => {
-    if (!selectedForSwap) return;
+  // Swap two players - works for XI-to-XI or XI-to-Bench
+  const handleTouchSwap = useCallback((targetPlayer: Player, targetIsInXI: boolean) => {
+    if (!selectedForSwap || selectedForSwap.id === targetPlayer.id) return;
     
-    // Swap in pending changes
-    setPendingChanges(prev => ({
-      ...prev,
-      [selectedForSwap.id]: true,  // Move to bench
-      [benchPlayer.id]: false,     // Move to XI
-    }));
-    
-    toast({ 
-      title: "Swap করা হয়েছে",
-      description: `${benchPlayer.player_name} ↔ ${selectedForSwap.player_name}. সেভ করুন।`
-    });
+    if (targetIsInXI) {
+      // XI-to-XI swap: just swap batting_order conceptually (both stay in XI)
+      // Since both are in XI, we don't change is_bench, just show a message
+      toast({ 
+        title: "XI প্লেয়ার স্বাপ",
+        description: `${targetPlayer.player_name} ↔ ${selectedForSwap.player_name} - দুজনই Playing XI তে আছে`
+      });
+    } else {
+      // XI-to-Bench swap: move selected to bench, move target to XI
+      setPendingChanges(prev => ({
+        ...prev,
+        [selectedForSwap.id]: true,  // Move to bench
+        [targetPlayer.id]: false,     // Move to XI
+      }));
+      
+      toast({ 
+        title: "Swap করা হয়েছে",
+        description: `${targetPlayer.player_name} ↔ ${selectedForSwap.player_name}. সেভ করুন।`
+      });
+    }
     
     setSelectedForSwap(null);
   }, [selectedForSwap, toast]);
@@ -616,6 +626,10 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     const hasPendingChange = pendingChanges.hasOwnProperty(player.id);
     const isSelectedForSwap = selectedForSwap?.id === player.id;
     
+    // Check if this player is a valid swap target
+    const isSwapTarget = selectedForSwap && selectedForSwap.id !== player.id;
+    const canSwapWithThis = isSwapTarget && (isInXI || !isInXI); // Can swap with any player
+    
     return (
       <Card 
         key={player.id} 
@@ -623,14 +637,14 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
           effectiveBench ? 'opacity-70' : ''
         } ${hasPendingChange ? 'ring-2 ring-yellow-500/50 bg-yellow-500/5' : ''} ${
           isSelectedForSwap ? 'ring-2 ring-primary bg-primary/10' : ''
-        } ${selectedForSwap && !isInXI ? 'cursor-pointer hover:bg-primary/20' : ''}`}
-        onTouchStart={() => handleTouchStart(player, isInXI, benchPlayers)}
+        } ${canSwapWithThis ? 'cursor-pointer hover:bg-primary/20 border-primary/40' : ''}`}
+        onTouchStart={() => handleTouchStart(player, isInXI)}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={handleTouchEnd}
         onClick={() => {
-          // If we're in swap mode and clicking a bench player, swap them
-          if (selectedForSwap && !isInXI && !effectiveBench === false) {
-            handleTouchSwap(player);
+          // If we're in swap mode and clicking any other player, swap them
+          if (canSwapWithThis) {
+            handleTouchSwap(player, isInXI);
           }
         }}
       >
@@ -743,7 +757,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         {selectedForSwap && (
           <div className="flex items-center justify-between p-3 bg-primary/10 border border-primary/30 rounded-lg">
             <span className="text-sm">
-              <strong>{selectedForSwap.player_name}</strong> সিলেক্ট করা হয়েছে। Bench থেকে একজন প্লেয়ারে ট্যাপ করুন swap করতে।
+              <strong>{selectedForSwap.player_name}</strong> সিলেক্ট করা হয়েছে। যেকোনো প্লেয়ারে ট্যাপ করুন swap করতে।
             </span>
             <Button size="sm" variant="ghost" onClick={cancelSwapSelection}>
               <X className="w-4 h-4" />
