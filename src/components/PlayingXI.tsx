@@ -167,60 +167,52 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
       key={player.id} 
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: index * 0.03 }}
-      className={`flex items-center justify-between py-2.5 px-3 rounded-lg transition-all duration-200 border ${
+      transition={{ delay: index * 0.02 }}
+      className={`flex items-center justify-between py-1.5 px-2 rounded transition-all duration-200 ${
         isBench 
-          ? 'bg-gradient-to-r from-muted/20 to-muted/10 border-border/20 opacity-70' 
-          : 'bg-gradient-to-r from-muted/40 to-muted/20 hover:from-muted/60 hover:to-muted/40 border-border/30 hover:border-border/50'
+          ? 'bg-muted/10 opacity-60' 
+          : 'bg-muted/20 hover:bg-muted/30'
       }`}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
         {/* Order number */}
-        <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+        <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center flex-shrink-0 ${
           isBench ? 'bg-muted/30 text-muted-foreground' : 'bg-primary/20 text-primary'
         }`}>
           {isBench ? 'B' : index + 1}
         </span>
         
         {/* Role icon */}
-        <div className="w-6 flex items-center justify-center">
+        <div className="w-4 flex items-center justify-center flex-shrink-0">
           {getRoleIcon(player.player_role, player.is_wicket_keeper)}
         </div>
         
         {/* Player name */}
-        <span className={`text-sm font-medium ${isBench ? 'text-muted-foreground' : ''}`}>{player.player_name}</span>
+        <span className={`text-xs font-medium truncate ${isBench ? 'text-muted-foreground' : ''}`}>
+          {player.player_name}
+        </span>
         
-        {/* Captain/VC/WK badges */}
-        <div className="flex items-center gap-1">
-          {player.is_captain && (
-            <Badge className="text-[9px] px-1.5 py-0 bg-amber-500/20 text-amber-400 border-amber-500/30 flex items-center gap-0.5">
-              <Star className="w-2.5 h-2.5" />
-              C
-            </Badge>
-          )}
-          {player.is_vice_captain && (
-            <Badge className="text-[9px] px-1.5 py-0 bg-blue-500/20 text-blue-400 border-blue-500/30 flex items-center gap-0.5">
-              <Zap className="w-2.5 h-2.5" />
-              VC
-            </Badge>
-          )}
-          {player.is_wicket_keeper && (
-            <Badge className="text-[9px] px-1.5 py-0 bg-emerald-500/20 text-emerald-400 border-emerald-500/30 flex items-center gap-0.5">
-              <Shield className="w-2.5 h-2.5" />
-              WK
-            </Badge>
-          )}
-        </div>
+        {/* Captain/VC/WK badges - compact inline */}
+        {(player.is_captain || player.is_vice_captain || player.is_wicket_keeper) && (
+          <div className="flex items-center gap-0.5 flex-shrink-0">
+            {player.is_captain && (
+              <span className="text-[8px] px-1 py-0 bg-amber-500/20 text-amber-400 rounded font-bold">C</span>
+            )}
+            {player.is_vice_captain && (
+              <span className="text-[8px] px-1 py-0 bg-blue-500/20 text-blue-400 rounded font-bold">VC</span>
+            )}
+            {player.is_wicket_keeper && (
+              <span className="text-[8px] px-1 py-0 bg-emerald-500/20 text-emerald-400 rounded font-bold">WK</span>
+            )}
+          </div>
+        )}
       </div>
       
-      {/* Player role badge */}
+      {/* Player role badge - compact */}
       {player.player_role && (
-        <Badge 
-          variant="outline" 
-          className={`text-[10px] px-2 py-0.5 font-medium ${getRoleBadgeColor(player.player_role)}`}
-        >
-          {player.player_role}
-        </Badge>
+        <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ml-2 ${getRoleBadgeColor(player.player_role)}`}>
+          {player.player_role.length > 12 ? player.player_role.slice(0, 10) + '..' : player.player_role}
+        </span>
       )}
     </motion.div>
   );
@@ -230,32 +222,36 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
     const hasPlayingXI = playingXI.length > 0;
     
     return (
-      <div className="space-y-2">
+      <div className="space-y-1">
         {/* Playing XI - only show if there are selected players */}
         {hasPlayingXI && (
           <>
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-medium text-primary uppercase tracking-wide">Playing XI</span>
-              <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/20 text-primary border-primary/30">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-[10px] font-medium text-primary uppercase tracking-wide">Playing XI</span>
+              <Badge variant="outline" className="text-[8px] px-1 py-0 bg-primary/20 text-primary border-primary/30">
                 {playingXI.length}
               </Badge>
             </div>
-            {playingXI.map((player, index) => renderPlayer(player, index, false))}
+            <div className="space-y-0.5">
+              {playingXI.map((player, index) => renderPlayer(player, index, false))}
+            </div>
           </>
         )}
         
         {/* Full Squad / Bench section */}
         {bench.length > 0 && (
-          <div className={hasPlayingXI ? "mt-4" : ""}>
-            <div className={`flex items-center gap-2 mb-2 ${hasPlayingXI ? "pt-2 border-t border-border/30" : ""}`}>
-              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+          <div className={hasPlayingXI ? "mt-2" : ""}>
+            <div className={`flex items-center gap-2 mb-1 ${hasPlayingXI ? "pt-2 border-t border-border/30" : ""}`}>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
                 {hasPlayingXI ? "Bench" : "Full Squad"}
               </span>
-              <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-muted/30">
+              <Badge variant="outline" className="text-[8px] px-1 py-0 bg-muted/30">
                 {bench.length}
               </Badge>
             </div>
-            {bench.map((player, index) => renderPlayer(player, index, !hasPlayingXI ? false : true))}
+            <div className="space-y-0.5">
+              {bench.map((player, index) => renderPlayer(player, index, !hasPlayingXI ? false : true))}
+            </div>
           </div>
         )}
       </div>
@@ -334,13 +330,13 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
             </TabsContent>
           </Tabs>
 
-          {/* Role Legend */}
-          <div className="mt-4 pt-3 border-t border-border/30">
-            <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-              <div className="flex items-center gap-1"><BatIcon /> Batsman</div>
-              <div className="flex items-center gap-1"><BallIcon /> Bowler</div>
-              <div className="flex items-center gap-1"><AllRounderIcon /> All-Rounder</div>
-              <div className="flex items-center gap-1"><WicketKeeperIcon /> Wicket Keeper</div>
+          {/* Role Legend - more compact */}
+          <div className="mt-3 pt-2 border-t border-border/30">
+            <div className="flex flex-wrap items-center gap-2 text-[9px] text-muted-foreground">
+              <div className="flex items-center gap-0.5"><BatIcon /> Bat</div>
+              <div className="flex items-center gap-0.5"><BallIcon /> Bowl</div>
+              <div className="flex items-center gap-0.5"><AllRounderIcon /> AR</div>
+              <div className="flex items-center gap-0.5"><WicketKeeperIcon /> WK</div>
             </div>
           </div>
         </CardContent>
