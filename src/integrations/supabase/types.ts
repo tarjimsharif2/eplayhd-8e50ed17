@@ -399,6 +399,7 @@ export type Database = {
       match_playing_xi: {
         Row: {
           batting_order: number | null
+          change_status: string | null
           created_at: string
           id: string
           is_bench: boolean | null
@@ -413,6 +414,7 @@ export type Database = {
         }
         Insert: {
           batting_order?: number | null
+          change_status?: string | null
           created_at?: string
           id?: string
           is_bench?: boolean | null
@@ -427,6 +429,7 @@ export type Database = {
         }
         Update: {
           batting_order?: number | null
+          change_status?: string | null
           created_at?: string
           id?: string
           is_bench?: boolean | null

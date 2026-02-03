@@ -10,11 +10,12 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, ChevronDown, ArrowUpDown, Wand2, Save, Check } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, ChevronDown, ArrowUpDown, Wand2, Save, Check, History, UserPlus, UserMinus } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from "@/hooks/useSportsData";
 import { useToast } from "@/hooks/use-toast";
+import { format } from "date-fns";
 
 interface Player {
   id: string;
@@ -27,6 +28,17 @@ interface Player {
   is_wicket_keeper: boolean;
   batting_order: number | null;
   is_bench?: boolean;
+  change_status?: string | null;
+}
+
+interface PreviousMatch {
+  id: string;
+  match_date: string;
+  team_a_id: string;
+  team_b_id: string;
+  team_a: { name: string; short_name: string };
+  team_b: { name: string; short_name: string };
+  tournament?: { name: string } | null;
 }
 
 interface PlayingXIManagerProps {
@@ -161,11 +173,14 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [activeTeam, setActiveTeam] = useState<string>(teamA.id);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
   const [fetchingSquad, setFetchingSquad] = useState(false);
   const [clearingSquad, setClearingSquad] = useState(false);
   const [savingChanges, setSavingChanges] = useState(false);
+  const [importingSquad, setImportingSquad] = useState(false);
+  const [selectedPreviousMatch, setSelectedPreviousMatch] = useState<string | null>(null);
   
   // Pending changes state - tracks local is_bench changes before saving
   const [pendingChanges, setPendingChanges] = useState<Record<string, boolean>>({});
@@ -181,8 +196,51 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     is_vice_captain: false,
     is_wicket_keeper: false,
     batting_order: null as number | null,
+    change_status: '' as string,
   });
   const [bulkText, setBulkText] = useState('');
+
+  // Fetch previous matches with same teams
+  const { data: previousMatches, isLoading: loadingPreviousMatches } = useQuery({
+    queryKey: ['previous_matches_for_import', teamA.id, teamB.id, matchId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('matches')
+        .select(`
+          id,
+          match_date,
+          team_a_id,
+          team_b_id,
+          team_a:teams!matches_team_a_id_fkey(name, short_name),
+          team_b:teams!matches_team_b_id_fkey(name, short_name),
+          tournament:tournaments(name)
+        `)
+        .or(`and(team_a_id.eq.${teamA.id},team_b_id.eq.${teamB.id}),and(team_a_id.eq.${teamB.id},team_b_id.eq.${teamA.id}),team_a_id.eq.${teamA.id},team_b_id.eq.${teamA.id},team_a_id.eq.${teamB.id},team_b_id.eq.${teamB.id}`)
+        .neq('id', matchId)
+        .order('match_date', { ascending: false })
+        .limit(20);
+
+      if (error) throw error;
+      return data as PreviousMatch[];
+    },
+    enabled: importDialogOpen,
+  });
+
+  // Fetch players from selected previous match
+  const { data: previousMatchPlayers, isLoading: loadingPreviousPlayers } = useQuery({
+    queryKey: ['previous_match_players', selectedPreviousMatch],
+    queryFn: async () => {
+      if (!selectedPreviousMatch) return [];
+      const { data, error } = await supabase
+        .from('match_playing_xi')
+        .select('*')
+        .eq('match_id', selectedPreviousMatch);
+
+      if (error) throw error;
+      return data as Player[];
+    },
+    enabled: !!selectedPreviousMatch,
+  });
 
   const teamAPlayers = players?.filter(p => p.team_id === teamA.id) || [];
   const teamBPlayers = players?.filter(p => p.team_id === teamB.id) || [];
@@ -362,6 +420,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
       is_vice_captain: false,
       is_wicket_keeper: false,
       batting_order: null,
+      change_status: '',
     });
   };
 
@@ -376,11 +435,110 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         is_vice_captain: player.is_vice_captain,
         is_wicket_keeper: player.is_wicket_keeper,
         batting_order: player.batting_order,
+        change_status: player.change_status || '',
       });
     } else {
       resetForm();
     }
     setDialogOpen(true);
+  };
+
+  // Import squad from previous match
+  const handleImportFromPreviousMatch = async () => {
+    if (!selectedPreviousMatch || !previousMatchPlayers || previousMatchPlayers.length === 0) {
+      toast({ title: "Error", description: "No players to import", variant: "destructive" });
+      return;
+    }
+
+    setImportingSquad(true);
+
+    try {
+      // Clear existing players first
+      if (players && players.length > 0) {
+        const { error: deleteError } = await supabase
+          .from('match_playing_xi')
+          .delete()
+          .eq('match_id', matchId);
+        
+        if (deleteError) throw deleteError;
+      }
+
+      // Map team IDs from previous match to current match
+      const selectedMatch = previousMatches?.find(m => m.id === selectedPreviousMatch);
+      
+      const playersToAdd = previousMatchPlayers.map(p => {
+        // Map team_id correctly
+        let targetTeamId = p.team_id;
+        if (selectedMatch) {
+          if (p.team_id === selectedMatch.team_a_id) {
+            // Check if team_a of previous match is team_a or team_b of current match
+            targetTeamId = teamA.id === selectedMatch.team_a_id || teamB.id === selectedMatch.team_a_id
+              ? (teamA.id === selectedMatch.team_a_id ? teamA.id : teamB.id)
+              : p.team_id;
+          } else if (p.team_id === selectedMatch.team_b_id) {
+            targetTeamId = teamA.id === selectedMatch.team_b_id || teamB.id === selectedMatch.team_b_id
+              ? (teamA.id === selectedMatch.team_b_id ? teamA.id : teamB.id)
+              : p.team_id;
+          }
+        }
+        
+        return {
+          match_id: matchId,
+          team_id: targetTeamId,
+          player_name: p.player_name,
+          player_role: p.player_role,
+          is_captain: p.is_captain,
+          is_vice_captain: p.is_vice_captain,
+          is_wicket_keeper: p.is_wicket_keeper,
+          batting_order: p.batting_order,
+          is_bench: p.is_bench ?? false,
+          change_status: null, // Reset change status for imported players
+        };
+      });
+
+      const { error } = await supabase
+        .from('match_playing_xi')
+        .insert(playersToAdd);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+      setImportDialogOpen(false);
+      setSelectedPreviousMatch(null);
+      toast({ title: "Squad imported!", description: `${playersToAdd.length} players imported successfully` });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    } finally {
+      setImportingSquad(false);
+    }
+  };
+
+  // Mark player as IN (new to squad)
+  const handleMarkAsIn = async (player: Player) => {
+    try {
+      await updatePlayer.mutateAsync({
+        id: player.id,
+        match_id: matchId,
+        change_status: player.change_status === 'in' ? null : 'in',
+      });
+      toast({ title: player.change_status === 'in' ? "Unmarked" : "Marked as IN" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+
+  // Mark player as OUT (dropped from squad)
+  const handleMarkAsOut = async (player: Player) => {
+    try {
+      await updatePlayer.mutateAsync({
+        id: player.id,
+        match_id: matchId,
+        change_status: player.change_status === 'out' ? null : 'out',
+      });
+      toast({ title: player.change_status === 'out' ? "Unmarked" : "Marked as OUT" });
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
   };
 
   const handleOpenBulkDialog = (teamId: string) => {
@@ -651,6 +809,19 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         <CardContent className="p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
+              {/* IN/OUT Status Badge */}
+              {player.change_status === 'in' && (
+                <Badge className="text-[9px] px-1 py-0 bg-green-500/20 text-green-400 border-green-500/30 gap-0.5">
+                  <UserPlus className="w-2.5 h-2.5" />
+                  IN
+                </Badge>
+              )}
+              {player.change_status === 'out' && (
+                <Badge className="text-[9px] px-1 py-0 bg-red-500/20 text-red-400 border-red-500/30 gap-0.5">
+                  <UserMinus className="w-2.5 h-2.5" />
+                  OUT
+                </Badge>
+              )}
               {!effectiveBench && (
                 <span className="text-xs text-muted-foreground font-mono w-5">
                   #{isInXI ? (benchPlayers.length > 0 ? (player.batting_order || '-') : '-') : '-'}
@@ -678,7 +849,41 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
               )}
             </div>
             <div className="flex items-center gap-1">
-              {/* Swap Dropdown - only for players in Playing XI when bench exists */}
+              {/* Mark as IN/OUT dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={`h-7 w-7 ${player.change_status ? 'text-primary' : 'text-muted-foreground'}`}
+                    title="Mark as IN/OUT"
+                  >
+                    {player.change_status === 'in' ? (
+                      <UserPlus className="w-3 h-3 text-green-500" />
+                    ) : player.change_status === 'out' ? (
+                      <UserMinus className="w-3 h-3 text-red-500" />
+                    ) : (
+                      <UserPlus className="w-3 h-3" />
+                    )}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="bg-background border">
+                  <DropdownMenuItem 
+                    onClick={() => handleMarkAsIn(player)}
+                    className={player.change_status === 'in' ? 'bg-green-500/10' : ''}
+                  >
+                    <UserPlus className="w-4 h-4 mr-2 text-green-500" />
+                    {player.change_status === 'in' ? 'Remove IN mark' : 'Mark as IN (নতুন)'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem 
+                    onClick={() => handleMarkAsOut(player)}
+                    className={player.change_status === 'out' ? 'bg-red-500/10' : ''}
+                  >
+                    <UserMinus className="w-4 h-4 mr-2 text-red-500" />
+                    {player.change_status === 'out' ? 'Remove OUT mark' : 'Mark as OUT (বাদ)'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
               {isInXI && benchPlayers.length > 0 && !selectedForSwap && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -927,6 +1132,18 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          
+          {/* Import from Previous Match Button */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setImportDialogOpen(true)}
+            className="gap-2"
+          >
+            <History className="w-4 h-4" />
+            Import from Match
+          </Button>
+          
           {players && players.length > 0 && (
             <Button
               variant="destructive"
@@ -1107,6 +1324,102 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               )}
               Add Players
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Import from Previous Match Dialog */}
+      <Dialog open={importDialogOpen} onOpenChange={(open) => {
+        setImportDialogOpen(open);
+        if (!open) setSelectedPreviousMatch(null);
+      }}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <History className="w-5 h-5" />
+              পুরাতন ম্যাচ থেকে স্কোয়াড ইমপোর্ট
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {loadingPreviousMatches ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : previousMatches && previousMatches.length > 0 ? (
+              <div className="space-y-3">
+                <Label>ম্যাচ সিলেক্ট করুন</Label>
+                <div className="max-h-64 overflow-y-auto space-y-2">
+                  {previousMatches.map(match => (
+                    <Card 
+                      key={match.id}
+                      className={`cursor-pointer transition-all hover:border-primary/50 ${
+                        selectedPreviousMatch === match.id ? 'ring-2 ring-primary border-primary' : ''
+                      }`}
+                      onClick={() => setSelectedPreviousMatch(match.id)}
+                    >
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-medium text-sm">
+                              {match.team_a?.short_name || match.team_a?.name} vs {match.team_b?.short_name || match.team_b?.name}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {match.match_date} {match.tournament?.name ? `• ${match.tournament.name}` : ''}
+                            </p>
+                          </div>
+                          {selectedPreviousMatch === match.id && (
+                            <Check className="w-4 h-4 text-primary" />
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+                
+                {selectedPreviousMatch && (
+                  <div className="pt-2 border-t">
+                    {loadingPreviousPlayers ? (
+                      <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        প্লেয়ার লোড হচ্ছে...
+                      </div>
+                    ) : previousMatchPlayers && previousMatchPlayers.length > 0 ? (
+                      <div className="text-sm text-muted-foreground">
+                        <span className="text-foreground font-medium">{previousMatchPlayers.length}</span> জন প্লেয়ার পাওয়া গেছে
+                      </div>
+                    ) : (
+                      <div className="text-sm text-destructive">
+                        এই ম্যাচে কোনো প্লেয়ার নেই
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-muted-foreground">
+                <History className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                <p>একই টিমের কোনো পুরাতন ম্যাচ পাওয়া যায়নি</p>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => {
+              setImportDialogOpen(false);
+              setSelectedPreviousMatch(null);
+            }}>
+              বাতিল
+            </Button>
+            <Button 
+              onClick={handleImportFromPreviousMatch}
+              disabled={!selectedPreviousMatch || importingSquad || (previousMatchPlayers?.length === 0)}
+            >
+              {importingSquad ? (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              ) : (
+                <CloudDownload className="w-4 h-4 mr-2" />
+              )}
+              ইমপোর্ট করুন
             </Button>
           </DialogFooter>
         </DialogContent>
