@@ -45,17 +45,21 @@ const Header = () => {
       <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2 group">
+          <Link to="/" className="flex items-center gap-3 group">
             {settings?.logo_url ? (
-              <img src={settings.logo_url} alt={siteName} className="w-10 h-10 rounded-xl object-contain" />
+              <img 
+                src={settings.logo_url} 
+                alt={siteName} 
+                className="h-10 sm:h-12 w-auto max-w-[120px] object-contain" 
+              />
             ) : (
-              <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center premium-shadow group-hover:glow-primary transition-shadow">
-                <Tv className="w-5 h-5 text-primary-foreground" />
+              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-gradient-primary flex items-center justify-center premium-shadow group-hover:glow-primary transition-shadow">
+                <Tv className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
               </div>
             )}
             <div className="flex flex-col">
-              <span className="font-display text-lg tracking-wide text-gradient">{siteName}</span>
-              <span className="text-[9px] text-muted-foreground -mt-1 tracking-wider">ANYTIME, ANYWHERE</span>
+              <span className="font-display text-base sm:text-lg tracking-wide text-gradient">{siteName}</span>
+              <span className="text-[8px] sm:text-[9px] text-muted-foreground -mt-0.5 tracking-wider">ANYTIME, ANYWHERE</span>
             </div>
           </Link>
 
