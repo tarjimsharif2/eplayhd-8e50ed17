@@ -1,13 +1,26 @@
+import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useChannels } from '@/hooks/useChannels';
-import { Tv, Radio, Loader2, ArrowLeft } from 'lucide-react';
+import { Tv, Radio, Loader2, ArrowLeft, Search, X } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Input } from '@/components/ui/input';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SEOHead from '@/components/SEOHead';
 
 const ChannelsPage = () => {
   const { data: channels, isLoading } = useChannels();
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const filteredChannels = useMemo(() => {
+    if (!channels) return [];
+    if (!searchQuery.trim()) return channels;
+    
+    const query = searchQuery.toLowerCase();
+    return channels.filter(channel => 
+      channel.name.toLowerCase().includes(query)
+    );
+  }, [channels, searchQuery]);
 
   return (
     <>
@@ -35,6 +48,26 @@ const ChannelsPage = () => {
             </div>
           </div>
 
+          {/* Search Box */}
+          <div className="relative mb-6 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              type="text"
+              placeholder="Search channels..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
           {isLoading ? (
             <div className="flex justify-center py-16">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -44,9 +77,14 @@ const ChannelsPage = () => {
               <Tv className="w-12 h-12 mx-auto mb-4 opacity-50" />
               <p>No channels available</p>
             </div>
+          ) : filteredChannels.length === 0 ? (
+            <div className="text-center py-16 text-muted-foreground">
+              <Search className="w-12 h-12 mx-auto mb-4 opacity-50" />
+              <p>No channels found for "{searchQuery}"</p>
+            </div>
           ) : (
             <div className="flex flex-wrap gap-3">
-              {channels.map((channel, index) => (
+              {filteredChannels.map((channel, index) => (
                 <motion.div
                   key={channel.id}
                   initial={{ opacity: 0, scale: 0.9 }}
