@@ -1686,7 +1686,12 @@ function parseSquadDetailPlayers(data: any): { playingXI: Player[], bench: Playe
     }
   }
   
-  // Fallback: Flat player array structure
+  // IMPORTANT: If no category structure found, this is a FULL SQUAD, not Playing XI
+  // We should NOT use fallback position-based logic for Playing XI
+  // Instead, mark all as bench/squad and return empty playingXI
+  // This ensures we only save actual Playing XI when API provides category labels
+  
+  // Fallback: Flat player array structure - treat ALL as squad/bench, NOT playing XI
   const playerArrays = [
     data.player,
     data.players,
@@ -1698,45 +1703,40 @@ function parseSquadDetailPlayers(data: any): { playingXI: Player[], bench: Playe
     data.team?.players,
   ];
   
+  const allPlayers: Player[] = [];
+  const seenAll = new Set<string>();
+  
   for (const arr of playerArrays) {
     if (Array.isArray(arr) && arr.length > 0) {
-      console.log(`[parseSquadDetailPlayers] Fallback: Found player array with ${arr.length} items`);
+      console.log(`[parseSquadDetailPlayers] Fallback: Found player array with ${arr.length} items (full squad, NOT playing XI)`);
       
       for (const p of arr) {
         const player = extractPlayerInfoV2(p);
-        if (player && !seenXI.has(player.name.toLowerCase()) && !seenBench.has(player.name.toLowerCase())) {
-          if (playingXI.length < 11) {
-            seenXI.add(player.name.toLowerCase());
-            playingXI.push(player);
-          } else {
-            seenBench.add(player.name.toLowerCase());
-            bench.push(player);
-          }
+        if (player && !seenAll.has(player.name.toLowerCase())) {
+          seenAll.add(player.name.toLowerCase());
+          allPlayers.push(player);
         }
       }
       
-      if (playingXI.length >= 11) break;
+      break; // Use first valid array
     }
   }
   
   // If no players found, try recursive search
-  if (playingXI.length === 0) {
+  if (allPlayers.length === 0) {
     const foundPlayers = findPlayersInObject(data);
     for (const p of foundPlayers) {
-      if (!seenXI.has(p.name.toLowerCase()) && !seenBench.has(p.name.toLowerCase())) {
-        if (playingXI.length < 11) {
-          seenXI.add(p.name.toLowerCase());
-          playingXI.push(p);
-        } else {
-          seenBench.add(p.name.toLowerCase());
-          bench.push(p);
-        }
+      if (!seenAll.has(p.name.toLowerCase())) {
+        seenAll.add(p.name.toLowerCase());
+        allPlayers.push(p);
       }
     }
   }
   
-  console.log(`[parseSquadDetailPlayers] Final: Playing XI=${playingXI.length}, Bench=${bench.length}`);
-  return { playingXI, bench };
+  // Return empty playingXI when no category labels - this forces caller to NOT save
+  // This is intentional - without "playing XI" category, we don't know who's actually playing
+  console.log(`[parseSquadDetailPlayers] Final: No category labels - found ${allPlayers.length} squad members, returning empty Playing XI`);
+  return { playingXI: [], bench: allPlayers };
 }
 
 // Extract team name from squad detail response
