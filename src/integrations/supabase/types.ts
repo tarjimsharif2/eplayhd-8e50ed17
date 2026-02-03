@@ -850,6 +850,7 @@ export type Database = {
           google_adsense_id: string | null
           google_analytics_id: string | null
           header_ad_code: string | null
+          homepage_completed_days: number | null
           id: string
           in_article_ad_code: string | null
           logo_url: string | null
@@ -911,6 +912,7 @@ export type Database = {
           google_adsense_id?: string | null
           google_analytics_id?: string | null
           header_ad_code?: string | null
+          homepage_completed_days?: number | null
           id?: string
           in_article_ad_code?: string | null
           logo_url?: string | null
@@ -972,6 +974,7 @@ export type Database = {
           google_adsense_id?: string | null
           google_analytics_id?: string | null
           header_ad_code?: string | null
+          homepage_completed_days?: number | null
           id?: string
           in_article_ad_code?: string | null
           logo_url?: string | null
@@ -1034,6 +1037,7 @@ export type Database = {
           google_adsense_id: string | null
           google_analytics_id: string | null
           header_ad_code: string | null
+          homepage_completed_days: number | null
           id: string
           in_article_ad_code: string | null
           logo_url: string | null
@@ -1085,6 +1089,7 @@ export type Database = {
           google_adsense_id?: string | null
           google_analytics_id?: string | null
           header_ad_code?: string | null
+          homepage_completed_days?: number | null
           id: string
           in_article_ad_code?: string | null
           logo_url?: string | null
@@ -1136,6 +1141,7 @@ export type Database = {
           google_adsense_id?: string | null
           google_analytics_id?: string | null
           header_ad_code?: string | null
+          homepage_completed_days?: number | null
           id?: string
           in_article_ad_code?: string | null
           logo_url?: string | null
