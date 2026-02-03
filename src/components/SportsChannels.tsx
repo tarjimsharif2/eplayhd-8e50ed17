@@ -53,16 +53,16 @@ const SportsChannels = () => {
                   )}
                 </div>
 
-                {/* Channel Name */}
-                <span className="font-medium text-sm group-hover:text-primary transition-colors whitespace-nowrap">
-                  {channel.name}
-                </span>
-
-                {/* Watch Badge */}
-                <span className="flex items-center gap-1 text-[10px] font-medium text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded-full animate-pulse">
-                  <span className="w-1 h-1 bg-red-500 rounded-full" />
-                  Watch
-                </span>
+                {/* Channel Name & Watch */}
+                <div className="flex flex-col">
+                  <span className="font-medium text-sm group-hover:text-primary transition-colors whitespace-nowrap">
+                    {channel.name}
+                  </span>
+                  <span className="flex items-center gap-1 text-[9px] font-medium text-red-500 animate-pulse">
+                    <span className="w-1 h-1 bg-red-500 rounded-full" />
+                    Watch
+                  </span>
+                </div>
               </div>
             </Link>
           </motion.div>
