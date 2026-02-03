@@ -136,16 +136,27 @@ const MatchList = () => {
       // Hide completed/abandoned matches older than configured days
       if (effectiveStatus === 'completed' || effectiveStatus === 'abandoned') {
         try {
-          const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
-          if (dateMatch) {
-            const [, day, month, year] = dateMatch;
-            const monthMap: Record<string, number> = {
-              january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
-              july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
-            };
-            const matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
-            if (matchDate < cutoffDate) return false;
+          let matchDate: Date | null = null;
+          
+          // Try ISO format first (YYYY-MM-DD)
+          const isoMatch = match.match_date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          if (isoMatch) {
+            const [, year, month, day] = isoMatch;
+            matchDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          } else {
+            // Try text format (e.g., "27th January 2026")
+            const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
+            if (dateMatch) {
+              const [, day, month, year] = dateMatch;
+              const monthMap: Record<string, number> = {
+                january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+                july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+              };
+              matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
+            }
           }
+          
+          if (matchDate && matchDate < cutoffDate) return false;
         } catch {
           // Keep match if date parsing fails
         }
@@ -217,16 +228,27 @@ const MatchList = () => {
       // Skip completed/abandoned matches older than configured days
       if (match.status === 'completed' || match.status === 'abandoned') {
         try {
-          const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
-          if (dateMatch) {
-            const [, day, month, year] = dateMatch;
-            const monthMap: Record<string, number> = {
-              january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
-              july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
-            };
-            const matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
-            if (matchDate < cutoffDate) return;
+          let matchDate: Date | null = null;
+          
+          // Try ISO format first (YYYY-MM-DD)
+          const isoMatch = match.match_date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          if (isoMatch) {
+            const [, year, month, day] = isoMatch;
+            matchDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          } else {
+            // Try text format (e.g., "27th January 2026")
+            const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
+            if (dateMatch) {
+              const [, day, month, year] = dateMatch;
+              const monthMap: Record<string, number> = {
+                january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+                july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+              };
+              matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
+            }
           }
+          
+          if (matchDate && matchDate < cutoffDate) return;
         } catch {
           // Continue if date parsing fails
         }
@@ -320,16 +342,27 @@ const MatchList = () => {
       // Skip completed/abandoned matches older than configured days
       if (effectiveStatus === 'completed' || effectiveStatus === 'abandoned') {
         try {
-          const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
-          if (dateMatch) {
-            const [, day, month, year] = dateMatch;
-            const monthMap: Record<string, number> = {
-              january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
-              july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
-            };
-            const matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
-            if (matchDate < cutoffDate) return;
+          let matchDate: Date | null = null;
+          
+          // Try ISO format first (YYYY-MM-DD)
+          const isoMatch = match.match_date.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+          if (isoMatch) {
+            const [, year, month, day] = isoMatch;
+            matchDate = new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+          } else {
+            // Try text format (e.g., "27th January 2026")
+            const dateMatch = match.match_date.match(/(\d+)(?:st|nd|rd|th)?\s+(\w+)\s+(\d{4})/i);
+            if (dateMatch) {
+              const [, day, month, year] = dateMatch;
+              const monthMap: Record<string, number> = {
+                january: 0, february: 1, march: 2, april: 3, may: 4, june: 5,
+                july: 6, august: 7, september: 8, october: 9, november: 10, december: 11
+              };
+              matchDate = new Date(parseInt(year), monthMap[month.toLowerCase()], parseInt(day));
+            }
           }
+          
+          if (matchDate && matchDate < cutoffDate) return;
         } catch {
           // Continue counting if date parsing fails
         }
