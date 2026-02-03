@@ -104,6 +104,134 @@ export type Database = {
           },
         ]
       }
+      channel_streaming_servers: {
+        Row: {
+          ad_block_enabled: boolean | null
+          channel_id: string
+          clearkey_key: string | null
+          clearkey_key_id: string | null
+          cookie_value: string | null
+          created_at: string
+          display_order: number | null
+          drm_license_url: string | null
+          drm_scheme: string | null
+          id: string
+          is_active: boolean | null
+          is_working: boolean | null
+          origin_value: string | null
+          original_display_order: number | null
+          player_type: string | null
+          referer_value: string | null
+          server_name: string
+          server_type: string
+          server_url: string
+          updated_at: string
+          user_agent: string | null
+        }
+        Insert: {
+          ad_block_enabled?: boolean | null
+          channel_id: string
+          clearkey_key?: string | null
+          clearkey_key_id?: string | null
+          cookie_value?: string | null
+          created_at?: string
+          display_order?: number | null
+          drm_license_url?: string | null
+          drm_scheme?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_working?: boolean | null
+          origin_value?: string | null
+          original_display_order?: number | null
+          player_type?: string | null
+          referer_value?: string | null
+          server_name: string
+          server_type?: string
+          server_url: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Update: {
+          ad_block_enabled?: boolean | null
+          channel_id?: string
+          clearkey_key?: string | null
+          clearkey_key_id?: string | null
+          cookie_value?: string | null
+          created_at?: string
+          display_order?: number | null
+          drm_license_url?: string | null
+          drm_scheme?: string | null
+          id?: string
+          is_active?: boolean | null
+          is_working?: boolean | null
+          origin_value?: string | null
+          original_display_order?: number | null
+          player_type?: string | null
+          referer_value?: string | null
+          server_name?: string
+          server_type?: string
+          server_url?: string
+          updated_at?: string
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "channel_streaming_servers_channel_id_fkey"
+            columns: ["channel_id"]
+            isOneToOne: false
+            referencedRelation: "channels"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      channels: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          is_active: boolean | null
+          logo_background_color: string | null
+          logo_url: string | null
+          name: string
+          seo_description: string | null
+          seo_keywords: string | null
+          seo_title: string | null
+          slug: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          logo_background_color?: string | null
+          logo_url?: string | null
+          name: string
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
+          slug?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_active?: boolean | null
+          logo_background_color?: string | null
+          logo_url?: string | null
+          name?: string
+          seo_description?: string | null
+          seo_keywords?: string | null
+          seo_title?: string | null
+          slug?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cricket_series: {
         Row: {
           created_at: string | null
