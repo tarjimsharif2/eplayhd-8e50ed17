@@ -36,6 +36,7 @@ interface Player {
   is_vice_captain: boolean;
   is_wicket_keeper: boolean;
   batting_order: number | null;
+  is_bench?: boolean;
 }
 
 interface PlayingXIProps {
@@ -115,8 +116,14 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
     return null;
   }
 
-  const teamAPlayers = players?.filter(p => p.team_id === teamAId) || [];
-  const teamBPlayers = players?.filter(p => p.team_id === teamBId) || [];
+  // Separate playing XI and bench players
+  const teamAPlayingXI = players?.filter(p => p.team_id === teamAId && !p.is_bench) || [];
+  const teamABench = players?.filter(p => p.team_id === teamAId && p.is_bench) || [];
+  const teamBPlayingXI = players?.filter(p => p.team_id === teamBId && !p.is_bench) || [];
+  const teamBBench = players?.filter(p => p.team_id === teamBId && p.is_bench) || [];
+
+  const teamAPlayers = [...teamAPlayingXI, ...teamABench];
+  const teamBPlayers = [...teamBPlayingXI, ...teamBBench];
 
   // Show placeholder message if no players yet
   if (teamAPlayers.length === 0 && teamBPlayers.length === 0) {
@@ -155,18 +162,24 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
     );
   }
 
-  const renderPlayer = (player: Player, index: number) => (
+  const renderPlayer = (player: Player, index: number, isBench: boolean = false) => (
     <motion.div 
       key={player.id} 
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.03 }}
-      className="flex items-center justify-between py-2.5 px-3 rounded-lg bg-gradient-to-r from-muted/40 to-muted/20 hover:from-muted/60 hover:to-muted/40 transition-all duration-200 border border-border/30 hover:border-border/50"
+      className={`flex items-center justify-between py-2.5 px-3 rounded-lg transition-all duration-200 border ${
+        isBench 
+          ? 'bg-gradient-to-r from-muted/20 to-muted/10 border-border/20 opacity-70' 
+          : 'bg-gradient-to-r from-muted/40 to-muted/20 hover:from-muted/60 hover:to-muted/40 border-border/30 hover:border-border/50'
+      }`}
     >
       <div className="flex items-center gap-3">
         {/* Order number */}
-        <span className="w-5 h-5 rounded-full bg-primary/20 text-primary text-[10px] font-bold flex items-center justify-center">
-          {index + 1}
+        <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center ${
+          isBench ? 'bg-muted/30 text-muted-foreground' : 'bg-primary/20 text-primary'
+        }`}>
+          {isBench ? 'B' : index + 1}
         </span>
         
         {/* Role icon */}
@@ -175,7 +188,7 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
         </div>
         
         {/* Player name */}
-        <span className="text-sm font-medium">{player.player_name}</span>
+        <span className={`text-sm font-medium ${isBench ? 'text-muted-foreground' : ''}`}>{player.player_name}</span>
         
         {/* Captain/VC/WK badges */}
         <div className="flex items-center gap-1">
@@ -212,9 +225,23 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
     </motion.div>
   );
 
-  const renderTeamPlayers = (players: Player[]) => (
+  const renderTeamPlayers = (playingXI: Player[], bench: Player[]) => (
     <div className="space-y-2">
-      {players.map((player, index) => renderPlayer(player, index))}
+      {/* Playing XI */}
+      {playingXI.map((player, index) => renderPlayer(player, index, false))}
+      
+      {/* Bench section */}
+      {bench.length > 0 && (
+        <div className="mt-4">
+          <div className="flex items-center gap-2 mb-2 pt-2 border-t border-border/30">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Bench</span>
+            <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-muted/30">
+              {bench.length}
+            </Badge>
+          </div>
+          {bench.map((player, index) => renderPlayer(player, index, true))}
+        </div>
+      )}
     </div>
   );
 
@@ -268,7 +295,7 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {renderTeamPlayers(teamAPlayers)}
+                  {renderTeamPlayers(teamAPlayingXI, teamABench)}
                 </motion.div>
               ) : (
                 <p className="text-center text-muted-foreground text-sm py-4">No players added</p>
@@ -282,7 +309,7 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.2 }}
                 >
-                  {renderTeamPlayers(teamBPlayers)}
+                  {renderTeamPlayers(teamBPlayingXI, teamBBench)}
                 </motion.div>
               ) : (
                 <p className="text-center text-muted-foreground text-sm py-4">No players added</p>

@@ -401,6 +401,7 @@ export type Database = {
           batting_order: number | null
           created_at: string
           id: string
+          is_bench: boolean | null
           is_captain: boolean | null
           is_vice_captain: boolean | null
           is_wicket_keeper: boolean | null
@@ -414,6 +415,7 @@ export type Database = {
           batting_order?: number | null
           created_at?: string
           id?: string
+          is_bench?: boolean | null
           is_captain?: boolean | null
           is_vice_captain?: boolean | null
           is_wicket_keeper?: boolean | null
@@ -427,6 +429,7 @@ export type Database = {
           batting_order?: number | null
           created_at?: string
           id?: string
+          is_bench?: boolean | null
           is_captain?: boolean | null
           is_vice_captain?: boolean | null
           is_wicket_keeper?: boolean | null
