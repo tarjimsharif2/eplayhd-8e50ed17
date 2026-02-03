@@ -196,14 +196,13 @@ Deno.serve(async (req) => {
     let teamBPlayers: Player[] = [];
     let foundData = false;
 
-    // Endpoint 1: /mcenter/v1/{match_id}/hsquad (Match Squad)
-    const squadEndpoint = endpoints.squad_endpoint || '/mcenter/v1/{match_id}/hsquad';
-    const squadUrl = `https://${cricbuzzHost}${squadEndpoint.replace('{match_id}', cbMatchId)}`;
+    // PRIMARY: Use /matches/v1/{matchId}/team endpoint (Official Squad Endpoint)
+    const matchesTeamUrl = `https://${cricbuzzHost}/matches/v1/${cbMatchId}/team`;
     
-    console.log(`[sync-rapidapi-playing-xi] Trying squad endpoint: ${squadUrl}`);
+    console.log(`[sync-rapidapi-playing-xi] Trying PRIMARY matches/team endpoint: ${matchesTeamUrl}`);
     
     try {
-      const response = await fetch(squadUrl, {
+      const response = await fetch(matchesTeamUrl, {
         method: 'GET',
         headers: {
           'X-RapidAPI-Key': settings.rapidapi_key,
@@ -213,81 +212,68 @@ Deno.serve(async (req) => {
 
       if (response.ok) {
         const data = await response.json();
-        console.log(`[sync-rapidapi-playing-xi] Squad response:`, JSON.stringify(data).substring(0, 500));
+        console.log(`[sync-rapidapi-playing-xi] matches/team response keys:`, Object.keys(data).join(', '));
+        console.log(`[sync-rapidapi-playing-xi] matches/team response sample:`, JSON.stringify(data).substring(0, 1000));
         
-        // Parse squad data
-        const result = parseSquadData(data, teamAName, teamAShortName, teamBName, teamBShortName);
+        // Parse the team data structure
+        const result = parseMatchesTeamEndpoint(data, teamAName, teamAShortName, teamBName, teamBShortName);
+        
         if (result.teamA.length >= 11 && result.teamB.length >= 11) {
           teamAPlayers = result.teamA;
           teamBPlayers = result.teamB;
           foundData = true;
-          console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from hsquad`);
+          console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from matches/team`);
+        } else {
+          console.log(`[sync-rapidapi-playing-xi] Partial data from matches/team: ${result.teamA.length}+${result.teamB.length}`);
+          // Save partial if we have anything
+          if (result.teamA.length > 0) teamAPlayers = result.teamA;
+          if (result.teamB.length > 0) teamBPlayers = result.teamB;
         }
+      } else {
+        console.log(`[sync-rapidapi-playing-xi] matches/team endpoint returned: ${response.status}`);
       }
     } catch (error) {
-      console.error(`[sync-rapidapi-playing-xi] Squad endpoint error:`, error);
+      console.error(`[sync-rapidapi-playing-xi] matches/team endpoint error:`, error);
     }
 
-    // Endpoint 2: Try team-specific endpoints /mcenter/v1/{match_id}/team/1 and /mcenter/v1/{match_id}/team/2
+    // FALLBACK 1: Try /mcenter/v1/{match_id}/hsquad if primary failed
     if (!foundData) {
-      console.log(`[sync-rapidapi-playing-xi] Trying team-specific endpoints...`);
+      const squadEndpoint = endpoints.squad_endpoint || '/mcenter/v1/{match_id}/hsquad';
+      const squadUrl = `https://${cricbuzzHost}${squadEndpoint.replace('{match_id}', cbMatchId)}`;
       
-      for (let teamNum = 1; teamNum <= 2; teamNum++) {
-        const teamUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}/team/${teamNum}`;
-        
-        console.log(`[sync-rapidapi-playing-xi] Trying team endpoint: ${teamUrl}`);
-        
-        try {
-          const response = await fetch(teamUrl, {
-            method: 'GET',
-            headers: {
-              'X-RapidAPI-Key': settings.rapidapi_key,
-              'X-RapidAPI-Host': cricbuzzHost,
-            },
-          });
+      console.log(`[sync-rapidapi-playing-xi] Trying FALLBACK hsquad endpoint: ${squadUrl}`);
+      
+      try {
+        const response = await fetch(squadUrl, {
+          method: 'GET',
+          headers: {
+            'X-RapidAPI-Key': settings.rapidapi_key,
+            'X-RapidAPI-Host': cricbuzzHost,
+          },
+        });
 
-          if (response.ok) {
-            const data = await response.json();
-            console.log(`[sync-rapidapi-playing-xi] Team ${teamNum} response keys:`, Object.keys(data).join(', '));
-            console.log(`[sync-rapidapi-playing-xi] Team ${teamNum} response sample:`, JSON.stringify(data).substring(0, 800));
-            
-            const players = parseTeamEndpointData(data);
-            console.log(`[sync-rapidapi-playing-xi] Team ${teamNum} parsed ${players.length} players`);
-            
-            if (players.length >= 11) {
-              if (teamNum === 1) {
-                teamAPlayers = players.slice(0, 11);
-              } else {
-                teamBPlayers = players.slice(0, 11);
-              }
-            } else if (players.length > 0) {
-              // Still save partial data
-              if (teamNum === 1 && teamAPlayers.length === 0) {
-                teamAPlayers = players;
-              } else if (teamNum === 2 && teamBPlayers.length === 0) {
-                teamBPlayers = players;
-              }
-            }
-          } else {
-            console.log(`[sync-rapidapi-playing-xi] Team ${teamNum} endpoint returned: ${response.status}`);
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`[sync-rapidapi-playing-xi] hsquad response:`, JSON.stringify(data).substring(0, 500));
+          
+          const result = parseSquadData(data, teamAName, teamAShortName, teamBName, teamBShortName);
+          if (result.teamA.length >= 11 && result.teamB.length >= 11) {
+            teamAPlayers = result.teamA;
+            teamBPlayers = result.teamB;
+            foundData = true;
+            console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from hsquad`);
           }
-        } catch (error) {
-          console.error(`[sync-rapidapi-playing-xi] Team ${teamNum} endpoint error:`, error);
         }
-      }
-
-      if (teamAPlayers.length >= 11 && teamBPlayers.length >= 11) {
-        foundData = true;
-        console.log(`[sync-rapidapi-playing-xi] Found data from team endpoints: ${teamAPlayers.length}+${teamBPlayers.length}`);
+      } catch (error) {
+        console.error(`[sync-rapidapi-playing-xi] hsquad endpoint error:`, error);
       }
     }
 
-    // Endpoint 3: Try match info endpoint for squad data (works before match starts)
+    // FALLBACK 2: Try /matches/v1/{match_id} for match info with squads
     if (!foundData) {
-      const matchInfoEndpoint = endpoints.match_info_endpoint || '/mcenter/v1/{match_id}';
-      const matchInfoUrl = `https://${cricbuzzHost}${matchInfoEndpoint.replace('{match_id}', cbMatchId)}`;
+      const matchInfoUrl = `https://${cricbuzzHost}/matches/v1/${cbMatchId}`;
       
-      console.log(`[sync-rapidapi-playing-xi] Trying match info endpoint: ${matchInfoUrl}`);
+      console.log(`[sync-rapidapi-playing-xi] Trying FALLBACK matches/info endpoint: ${matchInfoUrl}`);
       
       try {
         const response = await fetch(matchInfoUrl, {
@@ -300,18 +286,50 @@ Deno.serve(async (req) => {
 
         if (response.ok) {
           const data = await response.json();
-          console.log(`[sync-rapidapi-playing-xi] Match info response keys:`, Object.keys(data).join(', '));
+          console.log(`[sync-rapidapi-playing-xi] matches/info response keys:`, Object.keys(data).join(', '));
           
           const result = parseMatchInfoPlayers(data, teamAName, teamAShortName, teamBName, teamBShortName);
           if (result.teamA.length >= 11 && result.teamB.length >= 11) {
             teamAPlayers = result.teamA;
             teamBPlayers = result.teamB;
             foundData = true;
-            console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from match info`);
+            console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from matches/info`);
           }
         }
       } catch (error) {
-        console.error(`[sync-rapidapi-playing-xi] Match info endpoint error:`, error);
+        console.error(`[sync-rapidapi-playing-xi] matches/info endpoint error:`, error);
+      }
+    }
+
+    // FALLBACK 3: Try /mcenter/v1/{match_id} endpoint
+    if (!foundData) {
+      const mcenterUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}`;
+      
+      console.log(`[sync-rapidapi-playing-xi] Trying FALLBACK mcenter endpoint: ${mcenterUrl}`);
+      
+      try {
+        const response = await fetch(mcenterUrl, {
+          method: 'GET',
+          headers: {
+            'X-RapidAPI-Key': settings.rapidapi_key,
+            'X-RapidAPI-Host': cricbuzzHost,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`[sync-rapidapi-playing-xi] mcenter response keys:`, Object.keys(data).join(', '));
+          
+          const result = parseMatchInfoPlayers(data, teamAName, teamAShortName, teamBName, teamBShortName);
+          if (result.teamA.length >= 11 && result.teamB.length >= 11) {
+            teamAPlayers = result.teamA;
+            teamBPlayers = result.teamB;
+            foundData = true;
+            console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from mcenter`);
+          }
+        }
+      } catch (error) {
+        console.error(`[sync-rapidapi-playing-xi] mcenter endpoint error:`, error);
       }
     }
 
@@ -1005,6 +1023,149 @@ function extractPlayersFromCommentary(data: any): Player[] {
           players.push({ name, isCaptain: false, isWicketKeeper: false, isViceCaptain: false, role: null });
         }
       }
+    }
+  }
+  
+  return players;
+}
+
+// Parse /matches/v1/{matchId}/team endpoint response
+function parseMatchesTeamEndpoint(data: any, teamAName: string, teamAShort: string, teamBName: string, teamBShort: string): { teamA: Player[], teamB: Player[] } {
+  const teamA: Player[] = [];
+  const teamB: Player[] = [];
+  const seenA = new Set<string>();
+  const seenB = new Set<string>();
+  
+  const normalizeTeam = (name: string) => (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const teamANorm = normalizeTeam(teamAName);
+  const teamAShortNorm = normalizeTeam(teamAShort);
+  const teamBNorm = normalizeTeam(teamBName);
+  const teamBShortNorm = normalizeTeam(teamBShort);
+
+  console.log(`[parseMatchesTeamEndpoint] Looking for teams: A=${teamAName}/${teamAShort}, B=${teamBName}/${teamBShort}`);
+
+  // Check for team1, team2 structure
+  const team1 = data.team1 || data.matchTeam1 || {};
+  const team2 = data.team2 || data.matchTeam2 || {};
+  
+  // Check for players array directly
+  if (data.team1Players || data.team2Players) {
+    const team1Players = extractPlayersFromArray(data.team1Players || []);
+    const team2Players = extractPlayersFromArray(data.team2Players || []);
+    
+    // Match teams by name
+    const team1Name = normalizeTeam(data.team1Name || data.team1?.teamName || '');
+    if (team1Name.includes(teamANorm) || teamANorm.includes(team1Name) || team1Name === teamAShortNorm) {
+      return { teamA: team1Players.slice(0, 11), teamB: team2Players.slice(0, 11) };
+    } else {
+      return { teamA: team2Players.slice(0, 11), teamB: team1Players.slice(0, 11) };
+    }
+  }
+
+  // Handle structure: { team1: { player: [...] }, team2: { player: [...] } }
+  if (team1.player || team1.players || team2.player || team2.players) {
+    const team1Players = extractPlayersFromArray(team1.player || team1.players || []);
+    const team2Players = extractPlayersFromArray(team2.player || team2.players || []);
+    
+    const team1Name = normalizeTeam(team1.teamName || team1.name || team1.teamSName || '');
+    console.log(`[parseMatchesTeamEndpoint] team1 name: ${team1Name}, players: ${team1Players.length}`);
+    console.log(`[parseMatchesTeamEndpoint] team2 players: ${team2Players.length}`);
+    
+    if (team1Name.includes(teamANorm) || teamANorm.includes(team1Name) || team1Name === teamAShortNorm) {
+      return { teamA: team1Players.slice(0, 11), teamB: team2Players.slice(0, 11) };
+    } else {
+      return { teamA: team2Players.slice(0, 11), teamB: team1Players.slice(0, 11) };
+    }
+  }
+
+  // Handle structure: { players: { team1: [...], team2: [...] } }
+  if (data.players && (data.players.team1 || data.players.team2)) {
+    const team1Players = extractPlayersFromArray(data.players.team1 || []);
+    const team2Players = extractPlayersFromArray(data.players.team2 || []);
+    return { teamA: team1Players.slice(0, 11), teamB: team2Players.slice(0, 11) };
+  }
+
+  // Handle array of team objects
+  if (Array.isArray(data.teams)) {
+    for (const team of data.teams) {
+      const teamName = normalizeTeam(team.teamName || team.name || team.teamSName || '');
+      const players = extractPlayersFromArray(team.player || team.players || team.playingXI || []);
+      
+      console.log(`[parseMatchesTeamEndpoint] Found team: ${teamName} with ${players.length} players`);
+      
+      const isTeamA = teamName.includes(teamANorm) || teamANorm.includes(teamName) || 
+                      teamName === teamAShortNorm || teamAShortNorm.includes(teamName);
+      
+      if (isTeamA && teamA.length === 0) {
+        for (const p of players) {
+          if (!seenA.has(p.name.toLowerCase())) {
+            seenA.add(p.name.toLowerCase());
+            teamA.push(p);
+          }
+        }
+      } else if (teamB.length === 0) {
+        for (const p of players) {
+          if (!seenB.has(p.name.toLowerCase())) {
+            seenB.add(p.name.toLowerCase());
+            teamB.push(p);
+          }
+        }
+      }
+    }
+  }
+
+  // Try matchTeamInfo structure
+  if (data.matchTeamInfo && Array.isArray(data.matchTeamInfo)) {
+    for (const teamInfo of data.matchTeamInfo) {
+      const teamName = normalizeTeam(teamInfo.battingTeamShortName || teamInfo.teamName || teamInfo.name || '');
+      const squadArr = teamInfo.squad || teamInfo.players || teamInfo.playingXI || [];
+      const players = extractPlayersFromArray(squadArr);
+      
+      console.log(`[parseMatchesTeamEndpoint] matchTeamInfo team: ${teamName} with ${players.length} players`);
+      
+      const isTeamA = teamName.includes(teamANorm) || teamANorm.includes(teamName) || 
+                      teamName === teamAShortNorm || teamAShortNorm.includes(teamName);
+      
+      if (isTeamA && teamA.length === 0) {
+        teamA.push(...players.slice(0, 11));
+      } else if (teamB.length === 0) {
+        teamB.push(...players.slice(0, 11));
+      }
+    }
+  }
+
+  // Try to find players in deeply nested structures
+  if (teamA.length === 0 && teamB.length === 0) {
+    const foundPlayers = findPlayersInObject(data);
+    console.log(`[parseMatchesTeamEndpoint] Deep search found ${foundPlayers.length} players`);
+    
+    // Split evenly if we can't determine teams
+    if (foundPlayers.length >= 22) {
+      for (let i = 0; i < 11 && i < foundPlayers.length; i++) {
+        teamA.push(foundPlayers[i]);
+      }
+      for (let i = 11; i < 22 && i < foundPlayers.length; i++) {
+        teamB.push(foundPlayers[i]);
+      }
+    }
+  }
+
+  console.log(`[parseMatchesTeamEndpoint] Final: TeamA=${teamA.length}, TeamB=${teamB.length}`);
+  return { teamA: teamA.slice(0, 11), teamB: teamB.slice(0, 11) };
+}
+
+// Extract players from an array
+function extractPlayersFromArray(arr: any[]): Player[] {
+  const players: Player[] = [];
+  const seen = new Set<string>();
+  
+  if (!Array.isArray(arr)) return players;
+  
+  for (const p of arr) {
+    const player = extractPlayerInfoV2(p);
+    if (player && !seen.has(player.name.toLowerCase())) {
+      seen.add(player.name.toLowerCase());
+      players.push(player);
     }
   }
   
