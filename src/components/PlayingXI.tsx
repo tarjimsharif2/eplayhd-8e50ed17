@@ -196,18 +196,6 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
       } ${player.change_status === 'in' ? 'border-l-2 border-green-500' : ''} ${player.change_status === 'out' ? 'border-l-2 border-red-500 opacity-50' : ''}`}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        {/* IN/OUT Status Badge */}
-        {player.change_status === 'in' && (
-          <span className="text-[7px] px-1 py-0 bg-green-500/30 text-green-400 rounded font-bold flex-shrink-0">
-            IN
-          </span>
-        )}
-        {player.change_status === 'out' && (
-          <span className="text-[7px] px-1 py-0 bg-red-500/30 text-red-400 rounded font-bold flex-shrink-0">
-            OUT
-          </span>
-        )}
-        
         {/* Order number */}
         <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center flex-shrink-0 ${
           isBench ? 'bg-muted/30 text-muted-foreground' : 'bg-primary/20 text-primary'
@@ -220,8 +208,8 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
           {getRoleIcon(player.player_role, player.is_wicket_keeper)}
         </div>
         
-        {/* Player name */}
-        <span className={`text-xs font-medium truncate ${isBench ? 'text-muted-foreground' : ''} ${player.change_status === 'out' ? 'line-through' : ''}`}>
+        {/* Player name - strikethrough for OUT players */}
+        <span className={`text-xs font-medium truncate ${isBench ? 'text-muted-foreground' : ''} ${player.change_status === 'out' ? 'line-through text-muted-foreground' : ''}`}>
           {player.player_name}
         </span>
         
@@ -238,6 +226,18 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
               <span className="text-[8px] px-1 py-0 bg-emerald-500/20 text-emerald-400 rounded font-bold">WK</span>
             )}
           </div>
+        )}
+        
+        {/* IN/OUT Status Badge - after player name */}
+        {player.change_status === 'in' && (
+          <span className="text-[7px] px-1 py-0 bg-green-500/30 text-green-400 rounded font-bold flex-shrink-0">
+            IN
+          </span>
+        )}
+        {player.change_status === 'out' && (
+          <span className="text-[7px] px-1 py-0 bg-red-500/30 text-red-400 rounded font-bold flex-shrink-0">
+            OUT
+          </span>
         )}
       </div>
       
