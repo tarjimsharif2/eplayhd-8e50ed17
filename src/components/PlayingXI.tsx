@@ -225,25 +225,42 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
     </motion.div>
   );
 
-  const renderTeamPlayers = (playingXI: Player[], bench: Player[]) => (
-    <div className="space-y-2">
-      {/* Playing XI */}
-      {playingXI.map((player, index) => renderPlayer(player, index, false))}
-      
-      {/* Bench section */}
-      {bench.length > 0 && (
-        <div className="mt-4">
-          <div className="flex items-center gap-2 mb-2 pt-2 border-t border-border/30">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Bench</span>
-            <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-muted/30">
-              {bench.length}
-            </Badge>
+  const renderTeamPlayers = (playingXI: Player[], bench: Player[]) => {
+    // If no Playing XI selected, show all as "Full Squad"
+    const hasPlayingXI = playingXI.length > 0;
+    
+    return (
+      <div className="space-y-2">
+        {/* Playing XI - only show if there are selected players */}
+        {hasPlayingXI && (
+          <>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-medium text-primary uppercase tracking-wide">Playing XI</span>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-primary/20 text-primary border-primary/30">
+                {playingXI.length}
+              </Badge>
+            </div>
+            {playingXI.map((player, index) => renderPlayer(player, index, false))}
+          </>
+        )}
+        
+        {/* Full Squad / Bench section */}
+        {bench.length > 0 && (
+          <div className={hasPlayingXI ? "mt-4" : ""}>
+            <div className={`flex items-center gap-2 mb-2 ${hasPlayingXI ? "pt-2 border-t border-border/30" : ""}`}>
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                {hasPlayingXI ? "Bench" : "Full Squad"}
+              </span>
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 bg-muted/30">
+                {bench.length}
+              </Badge>
+            </div>
+            {bench.map((player, index) => renderPlayer(player, index, !hasPlayingXI ? false : true))}
           </div>
-          {bench.map((player, index) => renderPlayer(player, index, true))}
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  };
 
   return (
     <motion.div
