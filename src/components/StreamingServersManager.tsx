@@ -175,6 +175,8 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
       player_type: null,
       clearkey_key_id: null,
       clearkey_key: null,
+      is_working: true,
+      original_display_order: null,
     };
 
     try {
@@ -296,6 +298,8 @@ const StreamingServersManager = ({ match, onClose }: StreamingServersManagerProp
         player_type: null,
         clearkey_key_id: null,
         clearkey_key: null,
+        is_working: true,
+        original_display_order: null,
       });
       toast({ title: "Server added to match" });
       setActiveTab('servers');

@@ -1,5 +1,5 @@
 import { useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import VideoPlayer from '@/components/VideoPlayer';
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useStreamingServers, StreamingServer } from '@/hooks/useStreamingServers';
+import { useMarkServerNotWorking, useMarkServerWorking } from '@/hooks/useStreamServerStatus';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,6 +35,8 @@ const MatchPage = () => {
   
   const { data: siteSettings } = useSiteSettings();
   const { data: servers, isLoading: serversLoading } = useStreamingServers(match?.id || '');
+  const markNotWorking = useMarkServerNotWorking();
+  const markWorking = useMarkServerWorking();
   
   // Real-time updates for match and innings
   const { realtimeMatch } = useRealtimeMatch(match?.id);
@@ -244,6 +247,14 @@ const MatchPage = () => {
                       origin: activeServer.origin_value,
                       cookie: activeServer.cookie_value,
                       userAgent: activeServer.user_agent,
+                    }}
+                    onStreamError={() => {
+                      // Mark this server as not working - moves to end of list
+                      markNotWorking.mutate(activeServer.id);
+                    }}
+                    onStreamSuccess={() => {
+                      // Mark this server as working - restores original position
+                      markWorking.mutate(activeServer.id);
                     }}
                   />
                 ) : (

@@ -1303,8 +1303,12 @@ export type Database = {
           drm_scheme: string | null
           id: string
           is_active: boolean | null
+          is_working: boolean | null
+          last_reported_at: string | null
           match_id: string
+          not_working_reports: number | null
           origin_value: string | null
+          original_display_order: number | null
           player_type: string | null
           referer_value: string | null
           server_name: string
@@ -1324,8 +1328,12 @@ export type Database = {
           drm_scheme?: string | null
           id?: string
           is_active?: boolean | null
+          is_working?: boolean | null
+          last_reported_at?: string | null
           match_id: string
+          not_working_reports?: number | null
           origin_value?: string | null
+          original_display_order?: number | null
           player_type?: string | null
           referer_value?: string | null
           server_name: string
@@ -1345,8 +1353,12 @@ export type Database = {
           drm_scheme?: string | null
           id?: string
           is_active?: boolean | null
+          is_working?: boolean | null
+          last_reported_at?: string | null
           match_id?: string
+          not_working_reports?: number | null
           origin_value?: string | null
+          original_display_order?: number | null
           player_type?: string | null
           referer_value?: string | null
           server_name?: string

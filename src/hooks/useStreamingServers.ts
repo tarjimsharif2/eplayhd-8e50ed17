@@ -19,6 +19,8 @@ export interface StreamingServer {
   ad_block_enabled: boolean;
   clearkey_key_id: string | null;
   clearkey_key: string | null;
+  is_working: boolean | null;
+  original_display_order: number | null;
   created_at: string;
   updated_at: string;
 }

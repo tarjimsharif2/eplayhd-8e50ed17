@@ -21,6 +21,8 @@ interface VideoPlayerProps {
   url: string;
   type: 'iframe' | 'm3u8' | 'embed' | 'iframe_to_m3u8';
   headers?: StreamHeaders;
+  onStreamError?: () => void;
+  onStreamSuccess?: () => void;
 }
 
 // Validate that URL uses safe protocols (http:// or https://)
@@ -74,7 +76,7 @@ interface QualityLevel {
   label: string;
 }
 
-const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
+const ClapprPlayer = ({ url, headers, onStreamError, onStreamSuccess }: { url: string; headers?: StreamHeaders; onStreamError?: () => void; onStreamSuccess?: () => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -218,8 +220,16 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           }
         });
 
+        // Track successful playback
+        let successNotified = false;
         player.on('play', () => {
-          if (mounted) setIsPlaying(true);
+          if (mounted) {
+            setIsPlaying(true);
+            if (!successNotified && onStreamSuccess) {
+              successNotified = true;
+              onStreamSuccess();
+            }
+          }
         });
 
         player.on('pause', () => {
@@ -231,6 +241,9 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
           if (mounted) {
             setError('Failed to load stream');
             setIsLoading(false);
+            if (onStreamError) {
+              onStreamError();
+            }
           }
         });
 
@@ -365,7 +378,7 @@ const ClapprPlayer = ({ url, headers }: { url: string; headers?: StreamHeaders }
 };
 
 // Component for iframe_to_m3u8 type that extracts and plays M3U8
-const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHeaders }) => {
+const IframeToM3U8Player = ({ url, headers, onStreamError, onStreamSuccess }: { url: string; headers?: StreamHeaders; onStreamError?: () => void; onStreamSuccess?: () => void }) => {
   const [extractedUrl, setExtractedUrl] = useState<string | null>(null);
   const [isExtracting, setIsExtracting] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -403,6 +416,9 @@ const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHea
       } catch (err) {
         console.error('M3U8 extraction error:', err);
         setError(err instanceof Error ? err.message : 'Failed to extract stream');
+        if (onStreamError) {
+          onStreamError();
+        }
       } finally {
         setIsExtracting(false);
       }
@@ -433,13 +449,13 @@ const IframeToM3U8Player = ({ url, headers }: { url: string; headers?: StreamHea
   }
 
   if (extractedUrl) {
-    return <ClapprPlayer url={extractedUrl} headers={headers} />;
+    return <ClapprPlayer url={extractedUrl} headers={headers} onStreamError={onStreamError} onStreamSuccess={onStreamSuccess} />;
   }
 
   return null;
 };
 
-const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
+const VideoPlayer = ({ url, type, headers, onStreamError, onStreamSuccess }: VideoPlayerProps) => {
   const [useDirectEmbed, setUseDirectEmbed] = useState(false);
   const [isIframeLoading, setIsIframeLoading] = useState(true);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -455,12 +471,12 @@ const VideoPlayer = ({ url, type, headers }: VideoPlayerProps) => {
 
   // For M3U8 streams, use Clappr player (with proxy if headers are set)
   if (type === 'm3u8') {
-    return <ClapprPlayer url={url} headers={headers} />;
+    return <ClapprPlayer url={url} headers={headers} onStreamError={onStreamError} onStreamSuccess={onStreamSuccess} />;
   }
 
   // For iframe_to_m3u8 type, extract and play M3U8
   if (type === 'iframe_to_m3u8') {
-    return <IframeToM3U8Player url={url} headers={headers} />;
+    return <IframeToM3U8Player url={url} headers={headers} onStreamError={onStreamError} onStreamSuccess={onStreamSuccess} />;
   }
 
   // For iframe and embed types - only use proxy if headers are needed AND not using direct embed
