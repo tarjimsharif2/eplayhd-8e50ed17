@@ -252,16 +252,25 @@ Deno.serve(async (req) => {
           },
         });
 
+        console.log(`[sync-rapidapi-playing-xi] hsquad endpoint returned: ${response.status}`);
+        
         if (response.ok) {
           const data = await response.json();
-          console.log(`[sync-rapidapi-playing-xi] hsquad response:`, JSON.stringify(data).substring(0, 500));
+          console.log(`[sync-rapidapi-playing-xi] hsquad response sample:`, JSON.stringify(data).substring(0, 800));
+          console.log(`[sync-rapidapi-playing-xi] hsquad keys:`, Object.keys(data).join(', '));
           
           const result = parseSquadData(data, teamAName, teamAShortName, teamBName, teamBShortName);
+          console.log(`[sync-rapidapi-playing-xi] hsquad parsed: TeamA=${result.teamA.length}, TeamB=${result.teamB.length}`);
+          
           if (result.teamA.length >= 11 && result.teamB.length >= 11) {
             teamAPlayers = result.teamA;
             teamBPlayers = result.teamB;
             foundData = true;
             console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from hsquad`);
+          } else if (result.teamA.length > 0 || result.teamB.length > 0) {
+            // Save partial data
+            if (result.teamA.length > teamAPlayers.length) teamAPlayers = result.teamA;
+            if (result.teamB.length > teamBPlayers.length) teamBPlayers = result.teamB;
           }
         }
       } catch (error) {
@@ -333,8 +342,47 @@ Deno.serve(async (req) => {
       }
     }
 
-    // DISABLED: Scorecard-based squad extraction - not reliable for getting full 11+11
-    // Only use proper squad endpoints above
+    // FALLBACK 4: Try scorecard for LIVE/COMPLETED matches (when squad endpoints fail)
+    // This can extract players from batting/bowling data
+    if (!foundData && (teamAPlayers.length < 11 || teamBPlayers.length < 11)) {
+      const scorecardUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}/scard`;
+      
+      console.log(`[sync-rapidapi-playing-xi] Trying FALLBACK scorecard endpoint: ${scorecardUrl}`);
+      
+      try {
+        const response = await fetch(scorecardUrl, {
+          method: 'GET',
+          headers: {
+            'X-RapidAPI-Key': settings.rapidapi_key,
+            'X-RapidAPI-Host': cricbuzzHost,
+          },
+        });
+
+        console.log(`[sync-rapidapi-playing-xi] scorecard endpoint returned: ${response.status}`);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log(`[sync-rapidapi-playing-xi] scorecard keys:`, Object.keys(data).join(', '));
+          
+          const result = parseScorecardPlayers(data, teamAName, teamAShortName, teamBName, teamBShortName);
+          console.log(`[sync-rapidapi-playing-xi] scorecard parsed: TeamA=${result.teamA.length}, TeamB=${result.teamB.length}`);
+          
+          if (result.teamA.length >= 11 && result.teamB.length >= 11) {
+            teamAPlayers = result.teamA;
+            teamBPlayers = result.teamB;
+            foundData = true;
+            console.log(`[sync-rapidapi-playing-xi] Found ${teamAPlayers.length}+${teamBPlayers.length} from scorecard`);
+          } else if (result.teamA.length > teamAPlayers.length || result.teamB.length > teamBPlayers.length) {
+            // Merge with existing partial data
+            if (result.teamA.length > teamAPlayers.length) teamAPlayers = result.teamA;
+            if (result.teamB.length > teamBPlayers.length) teamBPlayers = result.teamB;
+            console.log(`[sync-rapidapi-playing-xi] Scorecard partial: TeamA=${teamAPlayers.length}, TeamB=${teamBPlayers.length}`);
+          }
+        }
+      } catch (error) {
+        console.error(`[sync-rapidapi-playing-xi] scorecard endpoint error:`, error);
+      }
+    }
 
     // Check final status
     const totalPlayers = teamAPlayers.length + teamBPlayers.length;
