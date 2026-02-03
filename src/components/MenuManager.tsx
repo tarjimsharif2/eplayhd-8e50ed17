@@ -225,8 +225,8 @@ const MenuManager = () => {
               <div className="space-y-2">
                 <Label>Icon</Label>
                 <Select
-                  value={formData.icon_name}
-                  onValueChange={(value) => setFormData({ ...formData, icon_name: value })}
+                  value={formData.icon_name || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, icon_name: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select icon">
@@ -239,7 +239,7 @@ const MenuManager = () => {
                     </SelectValue>
                   </SelectTrigger>
                   <SelectContent className="max-h-[300px]">
-                    <SelectItem value="">No Icon</SelectItem>
+                    <SelectItem value="none">No Icon</SelectItem>
                     {POPULAR_ICONS.map(icon => (
                       <SelectItem key={icon} value={icon}>
                         <div className="flex items-center gap-2">
@@ -255,14 +255,14 @@ const MenuManager = () => {
               <div className="space-y-2">
                 <Label>Parent Menu (for sub-menu)</Label>
                 <Select
-                  value={formData.parent_id}
-                  onValueChange={(value) => setFormData({ ...formData, parent_id: value })}
+                  value={formData.parent_id || "none"}
+                  onValueChange={(value) => setFormData({ ...formData, parent_id: value === "none" ? "" : value })}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="None (Top Level)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None (Top Level)</SelectItem>
+                    <SelectItem value="none">None (Top Level)</SelectItem>
                     {parentMenuOptions
                       .filter(m => m.id !== editingMenu?.id)
                       .map(menu => (
