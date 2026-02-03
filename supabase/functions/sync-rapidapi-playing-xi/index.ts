@@ -191,7 +191,6 @@ Deno.serve(async (req) => {
     console.log(`[sync-rapidapi-playing-xi] Using Cricbuzz match ID: ${cbMatchId}`);
 
     // Try multiple endpoints to get Playing XI
-    const playersToAdd: any[] = [];
     let teamAPlayers: Player[] = [];
     let teamBPlayers: Player[] = [];
     let teamABench: Player[] = [];
@@ -594,155 +593,170 @@ Deno.serve(async (req) => {
       }
     }
 
-    // FALLBACK 6: Try SCORECARD endpoint for live/completed matches
-    // Extract players from batting/bowling lists in scorecard
-    if (!foundData && (teamAPlayers.length < 11 || teamBPlayers.length < 11)) {
-      console.log(`[sync-rapidapi-playing-xi] Trying SCORECARD fallback for live/completed match...`);
-      
-      try {
-        const scorecardUrl = `https://${cricbuzzHost}/mcenter/v1/${cbMatchId}/scard`;
-        console.log(`[sync-rapidapi-playing-xi] Fetching scorecard: ${scorecardUrl}`);
-        
-        const scResponse = await fetch(scorecardUrl, {
-          method: 'GET',
-          headers: {
-            'X-RapidAPI-Key': settings.rapidapi_key,
-            'X-RapidAPI-Host': cricbuzzHost,
-          },
-        });
-        
-        if (scResponse.ok) {
-          const scData = await scResponse.json();
-          console.log(`[sync-rapidapi-playing-xi] Scorecard response keys: ${Object.keys(scData).join(', ')}`);
-          
-          const result = parseScorecardPlayers(scData, teamAName, teamAShortName, teamBName, teamBShortName);
-          
-          if (result.teamA.length > 0 || result.teamB.length > 0) {
-            console.log(`[sync-rapidapi-playing-xi] Found from scorecard: TeamA=${result.teamA.length}, TeamB=${result.teamB.length}`);
-            
-            // Only use if we found meaningful data (at least 5 players per team)
-            if (result.teamA.length >= 5 && teamAPlayers.length < result.teamA.length) {
-              teamAPlayers = result.teamA;
-            }
-            if (result.teamB.length >= 5 && teamBPlayers.length < result.teamB.length) {
-              teamBPlayers = result.teamB;
-            }
-            
-            if (teamAPlayers.length >= 11 && teamBPlayers.length >= 11) {
-              foundData = true;
-              console.log(`[sync-rapidapi-playing-xi] Found complete squad from scorecard!`);
-            }
-          }
-        } else {
-          console.log(`[sync-rapidapi-playing-xi] Scorecard endpoint returned: ${scResponse.status}`);
-        }
-      } catch (error) {
-        console.error(`[sync-rapidapi-playing-xi] Scorecard parsing error:`, error);
-      }
-    }
+    // REMOVED: Scorecard fallback - we should NOT extract Playing XI from scorecard
+    // Scorecard shows batted/bowled players which may not be the actual Playing XI
+    // Only use explicit squad/team endpoints with category labels
 
-    // Check final status
-    const totalPlayers = teamAPlayers.length + teamBPlayers.length;
-    console.log(`[sync-rapidapi-playing-xi] Final player count: TeamA=${teamAPlayers.length}, TeamB=${teamBPlayers.length}`);
+    // Check final status - NEW LOGIC:
+    // We show the full squad (with bench players) as long as we have SOME players
+    // Playing XI will only be marked when API provides explicit "Playing XI" category
+    const totalSquad = teamAPlayers.length + teamABench.length + teamBPlayers.length + teamBBench.length;
+    const teamATotalSquad = teamAPlayers.length + teamABench.length;
+    const teamBTotalSquad = teamBPlayers.length + teamBBench.length;
+    
+    console.log(`[sync-rapidapi-playing-xi] Final: TeamA=${teamAPlayers.length} playing + ${teamABench.length} bench = ${teamATotalSquad} total`);
+    console.log(`[sync-rapidapi-playing-xi] Final: TeamB=${teamBPlayers.length} playing + ${teamBBench.length} bench = ${teamBTotalSquad} total`);
 
-    // Require at least 11+11 for complete data
-    if (!foundData || teamAPlayers.length < 11 || teamBPlayers.length < 11) {
+    // If we have NO players at all, report error
+    if (totalSquad === 0) {
       return new Response(
         JSON.stringify({ 
           success: false, 
-          error: `Playing XI not available yet from API. Team A: ${teamAPlayers.length}/11, Team B: ${teamBPlayers.length}/11 players found. Try again later or use Bulk Add.`,
+          error: `No squad data found from API. Try again later or use Bulk Add.`,
           playersAdded: 0,
-          teamAPlayers: teamAPlayers.length,
-          teamBPlayers: teamBPlayers.length
+          teamAPlayers: 0,
+          teamBPlayers: 0
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // If we have partial data (at least 5 per team), save it
+    // Even if Playing XI is not determined yet, we can show the squad
+    if (teamATotalSquad < 5 || teamBTotalSquad < 5) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: `Partial squad data: Team A: ${teamATotalSquad} players, Team B: ${teamBTotalSquad} players. Need at least 5 per team. Try again later or use Bulk Add.`,
+          playersAdded: 0,
+          teamAPlayers: teamATotalSquad,
+          teamBPlayers: teamBTotalSquad
         }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Use API-provided category info when available (teamABench/teamBBench)
-    // Only fall back to position-based logic if no explicit bench data
+    const hasExplicitPlayingXI = teamAPlayers.length > 0 || teamBPlayers.length > 0;
     const hasExplicitBenchData = teamABench.length > 0 || teamBBench.length > 0;
-    console.log(`[sync-rapidapi-playing-xi] Explicit bench data: ${hasExplicitBenchData ? 'YES' : 'NO (using position-based)'}`);
+    console.log(`[sync-rapidapi-playing-xi] Explicit Playing XI: ${hasExplicitPlayingXI ? 'YES' : 'NO'}, Bench data: ${hasExplicitBenchData ? 'YES' : 'NO'}`);
 
     // Delete existing incomplete data
     if (existingPlayers && existingPlayers.length > 0) {
-      console.log(`[sync-rapidapi-playing-xi] Deleting ${existingPlayers.length} incomplete players`);
+      console.log(`[sync-rapidapi-playing-xi] Deleting ${existingPlayers.length} existing players`);
       await supabase
         .from('match_playing_xi')
         .delete()
         .eq('match_id', matchId);
     }
 
-    // Add Team A Playing XI
+    // Prepare players to add
+    const playersToAdd: any[] = [];
     let battingOrder = 1;
-    for (const player of teamAPlayers.slice(0, 11)) {
-      playersToAdd.push({
-        match_id: matchId,
-        team_id: teamAId,
-        player_name: player.name,
-        player_role: player.role,
-        is_captain: player.isCaptain,
-        is_vice_captain: player.isViceCaptain,
-        is_wicket_keeper: player.isWicketKeeper,
-        batting_order: battingOrder++,
-        is_bench: false,
-      });
-    }
-
-    // Add Team A Bench (from explicit bench data, or remaining players if no explicit data)
     let benchOrder = 100;
-    const teamABenchPlayers = hasExplicitBenchData ? teamABench : teamAPlayers.slice(11);
-    for (const player of teamABenchPlayers) {
-      playersToAdd.push({
-        match_id: matchId,
-        team_id: teamAId,
-        player_name: player.name,
-        player_role: player.role,
-        is_captain: player.isCaptain,
-        is_vice_captain: player.isViceCaptain,
-        is_wicket_keeper: player.isWicketKeeper,
-        batting_order: benchOrder++,
-        is_bench: true,
-      });
+
+    // If we have explicit Playing XI from API (category labeled), use that
+    if (hasExplicitPlayingXI) {
+      // Add Team A Playing XI (up to 11)
+      for (const player of teamAPlayers.slice(0, 11)) {
+        playersToAdd.push({
+          match_id: matchId,
+          team_id: teamAId,
+          player_name: player.name,
+          player_role: player.role,
+          is_captain: player.isCaptain,
+          is_vice_captain: player.isViceCaptain,
+          is_wicket_keeper: player.isWicketKeeper,
+          batting_order: battingOrder++,
+          is_bench: false,
+        });
+      }
+
+      // Add Team A Bench
+      for (const player of teamABench) {
+        playersToAdd.push({
+          match_id: matchId,
+          team_id: teamAId,
+          player_name: player.name,
+          player_role: player.role,
+          is_captain: player.isCaptain,
+          is_vice_captain: player.isViceCaptain,
+          is_wicket_keeper: player.isWicketKeeper,
+          batting_order: benchOrder++,
+          is_bench: true,
+        });
+      }
+
+      // Add Team B Playing XI (up to 11)
+      battingOrder = 1;
+      for (const player of teamBPlayers.slice(0, 11)) {
+        playersToAdd.push({
+          match_id: matchId,
+          team_id: teamBId,
+          player_name: player.name,
+          player_role: player.role,
+          is_captain: player.isCaptain,
+          is_vice_captain: player.isViceCaptain,
+          is_wicket_keeper: player.isWicketKeeper,
+          batting_order: battingOrder++,
+          is_bench: false,
+        });
+      }
+
+      // Add Team B Bench
+      benchOrder = 100;
+      for (const player of teamBBench) {
+        playersToAdd.push({
+          match_id: matchId,
+          team_id: teamBId,
+          player_name: player.name,
+          player_role: player.role,
+          is_captain: player.isCaptain,
+          is_vice_captain: player.isViceCaptain,
+          is_wicket_keeper: player.isWicketKeeper,
+          batting_order: benchOrder++,
+          is_bench: true,
+        });
+      }
+    } else {
+      // No explicit Playing XI - save ALL as bench (full squad without Playing XI determined)
+      console.log(`[sync-rapidapi-playing-xi] No explicit Playing XI category - saving all as squad (bench)`);
+      
+      benchOrder = 1;
+      for (const player of teamABench) {
+        playersToAdd.push({
+          match_id: matchId,
+          team_id: teamAId,
+          player_name: player.name,
+          player_role: player.role,
+          is_captain: player.isCaptain,
+          is_vice_captain: player.isViceCaptain,
+          is_wicket_keeper: player.isWicketKeeper,
+          batting_order: benchOrder++,
+          is_bench: true,
+        });
+      }
+
+      benchOrder = 1;
+      for (const player of teamBBench) {
+        playersToAdd.push({
+          match_id: matchId,
+          team_id: teamBId,
+          player_name: player.name,
+          player_role: player.role,
+          is_captain: player.isCaptain,
+          is_vice_captain: player.isViceCaptain,
+          is_wicket_keeper: player.isWicketKeeper,
+          batting_order: benchOrder++,
+          is_bench: true,
+        });
+      }
     }
 
-    // Add Team B Playing XI
-    battingOrder = 1;
-    for (const player of teamBPlayers.slice(0, 11)) {
-      playersToAdd.push({
-        match_id: matchId,
-        team_id: teamBId,
-        player_name: player.name,
-        player_role: player.role,
-        is_captain: player.isCaptain,
-        is_vice_captain: player.isViceCaptain,
-        is_wicket_keeper: player.isWicketKeeper,
-        batting_order: battingOrder++,
-        is_bench: false,
-      });
-    }
-
-    // Add Team B Bench (from explicit bench data, or remaining players if no explicit data)
-    benchOrder = 100;
-    const teamBBenchPlayers = hasExplicitBenchData ? teamBBench : teamBPlayers.slice(11);
-    for (const player of teamBBenchPlayers) {
-      playersToAdd.push({
-        match_id: matchId,
-        team_id: teamBId,
-        player_name: player.name,
-        player_role: player.role,
-        is_captain: player.isCaptain,
-        is_vice_captain: player.isViceCaptain,
-        is_wicket_keeper: player.isWicketKeeper,
-        batting_order: benchOrder++,
-        is_bench: true,
-      });
-    }
-
-    // Count bench players
-    const benchCount = playersToAdd.filter(p => p.is_bench).length;
+    // Count players
     const playingCount = playersToAdd.filter(p => !p.is_bench).length;
-    console.log(`[sync-rapidapi-playing-xi] Players: ${playingCount} playing, ${benchCount} bench`);
+    const benchCount = playersToAdd.filter(p => p.is_bench).length;
+    console.log(`[sync-rapidapi-playing-xi] Players to add: ${playingCount} playing, ${benchCount} bench`);
 
     // Insert players
     if (playersToAdd.length > 0) {
