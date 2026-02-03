@@ -80,18 +80,111 @@ Deno.serve(async (req) => {
     if (!cbMatchId) {
       const { data: matchData } = await supabase
         .from('matches')
-        .select('cricbuzz_match_id')
+        .select('cricbuzz_match_id, match_date')
         .eq('id', matchId)
         .single();
       
       cbMatchId = matchData?.cricbuzz_match_id;
     }
 
+    // If still no Cricbuzz match ID, try to find it via search
     if (!cbMatchId) {
-      console.log(`[sync-rapidapi-playing-xi] No Cricbuzz match ID found`);
+      console.log(`[sync-rapidapi-playing-xi] No Cricbuzz match ID, searching for match: ${teamAName} vs ${teamBName}`);
+      
+      // Try to find match in recent/live matches
+      const searchEndpoints = [
+        '/matches/v1/recent',
+        '/matches/v1/live',
+      ];
+      
+      const normalizeTeam = (name: string) => (name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const teamANorm = normalizeTeam(teamAName);
+      const teamBNorm = normalizeTeam(teamBName);
+      const teamAShortNorm = normalizeTeam(teamAShortName);
+      const teamBShortNorm = normalizeTeam(teamBShortName);
+      
+      for (const endpoint of searchEndpoints) {
+        if (cbMatchId) break;
+        
+        const searchUrl = `https://${cricbuzzHost}${endpoint}`;
+        console.log(`[sync-rapidapi-playing-xi] Searching: ${searchUrl}`);
+        
+        try {
+          const response = await fetch(searchUrl, {
+            method: 'GET',
+            headers: {
+              'X-RapidAPI-Key': settings.rapidapi_key,
+              'X-RapidAPI-Host': cricbuzzHost,
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            
+            // Parse response to find matching match
+            const typeMatches = data.typeMatches || [];
+            for (const typeMatch of typeMatches) {
+              if (cbMatchId) break;
+              
+              const seriesMatches = typeMatch.seriesMatches || [];
+              for (const series of seriesMatches) {
+                if (cbMatchId) break;
+                
+                const seriesAdWrapper = series.seriesAdWrapper || series;
+                const matches = seriesAdWrapper.matches || [];
+                
+                for (const match of matches) {
+                  const matchInfo = match.matchInfo || match;
+                  const team1 = matchInfo.team1 || {};
+                  const team2 = matchInfo.team2 || {};
+                  
+                  const team1Name = normalizeTeam(team1.teamName || team1.name || '');
+                  const team1Short = normalizeTeam(team1.teamSName || team1.shortName || '');
+                  const team2Name = normalizeTeam(team2.teamName || team2.name || '');
+                  const team2Short = normalizeTeam(team2.teamSName || team2.shortName || '');
+                  
+                  // Check if teams match
+                  const team1Matches = team1Name.includes(teamANorm) || teamANorm.includes(team1Name) ||
+                                       team1Short === teamAShortNorm || team1Name.includes(teamBNorm) || 
+                                       teamBNorm.includes(team1Name) || team1Short === teamBShortNorm;
+                  
+                  const team2Matches = team2Name.includes(teamANorm) || teamANorm.includes(team2Name) ||
+                                       team2Short === teamAShortNorm || team2Name.includes(teamBNorm) || 
+                                       teamBNorm.includes(team2Name) || team2Short === teamBShortNorm;
+                  
+                  if (team1Matches && team2Matches) {
+                    cbMatchId = matchInfo.matchId?.toString() || match.matchId?.toString();
+                    console.log(`[sync-rapidapi-playing-xi] Found match: ${cbMatchId} - ${team1.teamName} vs ${team2.teamName}`);
+                    
+                    // Save the cricbuzz_match_id to the database for future use
+                    if (cbMatchId) {
+                      await supabase
+                        .from('matches')
+                        .update({ cricbuzz_match_id: cbMatchId })
+                        .eq('id', matchId);
+                      console.log(`[sync-rapidapi-playing-xi] Saved Cricbuzz match ID: ${cbMatchId}`);
+                    }
+                    break;
+                  }
+                }
+              }
+            }
+          }
+        } catch (error) {
+          console.error(`[sync-rapidapi-playing-xi] Search error:`, error);
+        }
+      }
+    }
+
+    if (!cbMatchId) {
+      console.log(`[sync-rapidapi-playing-xi] Could not find Cricbuzz match ID`);
       return new Response(
-        JSON.stringify({ success: false, error: 'Cricbuzz match ID is required. Set it in match settings first.' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          success: false, 
+          error: 'Match not found in Cricbuzz. Make sure the match is live/recent, or manually set Cricbuzz Match ID in match settings.',
+          playersAdded: 0
+        }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
