@@ -23,6 +23,7 @@ import AdsTxt from "./pages/AdsTxt";
 import Sitemap from "./pages/Sitemap";
 import NotFound from "./pages/NotFound";
 import MaintenancePage from "./pages/MaintenancePage";
+import ScrollToTop from "./components/ScrollToTop";
 
 // Maintenance mode wrapper - shows maintenance page for non-admin users
 const MaintenanceWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -156,6 +157,7 @@ const App = () => (
             <Sonner />
             <CustomCodeInjector />
             <BrowserRouter>
+              <ScrollToTop />
               <GoogleAnalyticsProvider>
                 <MaintenanceWrapper>
                 <Routes>
