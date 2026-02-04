@@ -202,9 +202,17 @@ const ApiCricketLiveScore = ({
               const innings = Array.from(inningsSet);
 
               // Build team data with scores - use innings data directly
+              // Helper to get display name - use prop names instead of API names
+              const getDisplayTeamName = (apiTeamName: string): string => {
+                if (teamsMatch(apiTeamName, teamAName)) return teamAName;
+                if (teamsMatch(apiTeamName, teamBName)) return teamBName;
+                return apiTeamName; // Fallback to API name if no match
+              };
+
               const getTeamData = () => {
                 const teamsWithData: Array<{
                   name: string;
+                  displayName: string;
                   label: string;
                   score: string;
                   overs: string | null;
@@ -216,7 +224,13 @@ const ApiCricketLiveScore = ({
                 // First add teams from innings data (have detailed scorecard)
                 if (innings.length > 0) {
                   innings.forEach((inning) => {
-                    const teamName = inning.replace(/ \d+ INN$/i, '').trim();
+                    const apiTeamName = inning.replace(/ \d+ INN$/i, '').trim();
+                    const displayName = getDisplayTeamName(apiTeamName);
+                    
+                    // Skip if we already have this team (avoid duplicates)
+                    if (teamsWithData.some(t => teamsMatch(t.name, apiTeamName) || t.displayName === displayName)) {
+                      return;
+                    }
                     
                     // Calculate score and overs from batsmen/bowlers for this innings
                     const inningsBatsmen = scoreData.batsmen?.filter(b => b.innings === inning) || [];
@@ -225,7 +239,7 @@ const ApiCricketLiveScore = ({
                     // Find extras for this innings - contains API total and extras breakdown
                     const inningsExtras = scoreData.extras?.find(e => 
                       e.innings === inning || 
-                      (e.team && teamName.toLowerCase().includes(e.team.toLowerCase().split(' ')[0]))
+                      (e.team && apiTeamName.toLowerCase().includes(e.team.toLowerCase().split(' ')[0]))
                     ) as any;
                     
                     const wickets = inningsBatsmen.filter(b => b.how_out && b.how_out.toLowerCase() !== 'not out').length;
@@ -258,7 +272,8 @@ const ApiCricketLiveScore = ({
                       : null;
                     
                     teamsWithData.push({
-                      name: teamName,
+                      name: apiTeamName,
+                      displayName: displayName,
                       label: inning.match(/\d+ INN/)?.[0] || 'Innings',
                       score: `${totalRuns}/${wickets}`,
                       overs: oversStr,
@@ -271,15 +286,15 @@ const ApiCricketLiveScore = ({
                 
                 // Now add teams from summary data that don't have detailed data
                 // This ensures both teams are shown even if one has no batsmen/bowlers data
-                const addTeamFromSummary = (apiTeamName: string, apiScore: string, apiOvers: string | null) => {
-                  const normalizedApiName = normalizeTeamName(apiTeamName);
+                const addTeamFromSummary = (apiTeamName: string, apiScore: string, apiOvers: string | null, propTeamName: string) => {
                   const alreadyExists = teamsWithData.some(t => 
-                    teamsMatch(t.name, apiTeamName) || normalizeTeamName(t.name) === normalizedApiName
+                    teamsMatch(t.name, apiTeamName) || teamsMatch(t.displayName, propTeamName)
                   );
                   
                   if (!alreadyExists && apiScore) {
                     teamsWithData.push({
                       name: apiTeamName,
+                      displayName: propTeamName,
                       label: 'Summary',
                       score: cleanScore(apiScore),
                       overs: parseScoreOvers(apiScore) || apiOvers,
@@ -292,10 +307,10 @@ const ApiCricketLiveScore = ({
                 
                 // Add teams from homeTeam/awayTeam if they don't have scorecard data
                 if (scoreData?.homeTeam && scoreData?.homeScore) {
-                  addTeamFromSummary(scoreData.homeTeam, scoreData.homeScore, scoreData.homeOvers);
+                  addTeamFromSummary(scoreData.homeTeam, scoreData.homeScore, scoreData.homeOvers, teamAName);
                 }
                 if (scoreData?.awayTeam && scoreData?.awayScore) {
-                  addTeamFromSummary(scoreData.awayTeam, scoreData.awayScore, scoreData.awayOvers);
+                  addTeamFromSummary(scoreData.awayTeam, scoreData.awayScore, scoreData.awayOvers, teamBName);
                 }
                 
                 return teamsWithData;
@@ -310,7 +325,7 @@ const ApiCricketLiveScore = ({
                   <TabsList className="grid w-full h-10" style={{ gridTemplateColumns: `repeat(${teams.length}, 1fr)` }}>
                     {teams.map((team, idx) => (
                       <TabsTrigger key={idx} value={`team-${idx}`} className="text-xs px-2">
-                        <span className="truncate">{team.name}</span>
+                        <span className="truncate">{team.displayName}</span>
                       </TabsTrigger>
                     ))}
                   </TabsList>
