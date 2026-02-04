@@ -64,36 +64,50 @@ const ApiCricketLiveScore = ({
     return oversMatch ? oversMatch[1] : null;
   };
 
-  // Normalize team name for matching
+  // Normalize team name for matching - removes common suffixes and normalizes
   const normalizeTeamName = (name: string): string => {
-    return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
+    return (name || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, '')
+      // Normalize common variations: "under-19s", "under 19s", "u19", "u-19" -> "u19"
+      .replace(/under\s*19s?/g, 'u19')
+      .replace(/u\s*19s?/g, 'u19')
+      .replace(/\s+/g, ' ')
+      .trim();
   };
 
-  // Check if two team names match - STRICT matching requiring BOTH first AND last words
-  // e.g., "Melbourne Stars" should NOT match "Melbourne Renegades"
-  // Also prevents short codes like "SYL", "CHA" from incorrectly matching
+  // Check if two team names match - handles variations like "Afghanistan Under-19s" vs "Afghanistan U19"
   const teamsMatch = (name1: string, name2: string): boolean => {
     const n1 = normalizeTeamName(name1);
     const n2 = normalizeTeamName(name2);
     
     if (!n1 || !n2) return false;
     
-    // Exact match
+    // Exact match after normalization
     if (n1 === n2) return true;
     
     const words1 = n1.split(' ').filter(w => w.length > 0);
     const words2 = n2.split(' ').filter(w => w.length > 0);
     
     // If either is a short code (3 chars or less, single word), DON'T match
-    // Short codes like "SYL", "CHA", "MI" are too ambiguous for reliable matching
     if ((words1.length === 1 && n1.length <= 3) || (words2.length === 1 && n2.length <= 3)) {
       return false;
     }
     
-    // Get first and last words
+    // Get first word - this is usually the country/team name
     const firstWord1 = words1[0];
-    const lastWord1 = words1[words1.length - 1];
     const firstWord2 = words2[0];
+    
+    // If first words match and both contain the same suffix (u19, etc.), treat as same team
+    if (firstWord1 === firstWord2) {
+      const hasU19_1 = n1.includes('u19');
+      const hasU19_2 = n2.includes('u19');
+      // If both have u19, they're the same team
+      if (hasU19_1 && hasU19_2) return true;
+    }
+    
+    // Get last words
+    const lastWord1 = words1[words1.length - 1];
     const lastWord2 = words2[words2.length - 1];
     
     // If both have 2+ words, BOTH first AND last words must match
@@ -102,7 +116,6 @@ const ApiCricketLiveScore = ({
     }
     
     // If one is single word (4+ chars), check if it matches either first or last word of the other
-    // The single word must be at least 4 characters to be reliable
     if (words1.length === 1 && n1.length >= 4) {
       return firstWord2 === words1[0] || lastWord2 === words1[0];
     }
