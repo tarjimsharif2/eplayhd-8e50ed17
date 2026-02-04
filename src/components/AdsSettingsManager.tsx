@@ -6,16 +6,69 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Save, Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Save, Loader2, Plus, Trash2, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useSiteSettings, useUpdateSiteSettings, SiteSettings } from "@/hooks/useSiteSettings";
+import { useSiteSettings, useUpdateSiteSettings } from "@/hooks/useSiteSettings";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
-interface MatchPageAdPositions {
+interface AdPositions {
   before_player: boolean;
   after_player: boolean;
   sidebar: boolean;
   below_info: boolean;
 }
+
+interface TournamentAdPositions {
+  before_matches: boolean;
+  after_matches: boolean;
+  sidebar: boolean;
+  before_points_table: boolean;
+  after_points_table: boolean;
+}
+
+interface AdCodeSlot {
+  id: string;
+  name: string;
+  code: string;
+  enabled: boolean;
+}
+
+interface MultipleAdCodes {
+  header: AdCodeSlot[];
+  sidebar: AdCodeSlot[];
+  footer: AdCodeSlot[];
+  in_article: AdCodeSlot[];
+  popup: AdCodeSlot[];
+  match_before_player: AdCodeSlot[];
+  match_after_player: AdCodeSlot[];
+  match_sidebar: AdCodeSlot[];
+  match_below_info: AdCodeSlot[];
+  tournament_before_matches: AdCodeSlot[];
+  tournament_after_matches: AdCodeSlot[];
+  tournament_sidebar: AdCodeSlot[];
+  tournament_before_points: AdCodeSlot[];
+  tournament_after_points: AdCodeSlot[];
+}
+
+const generateId = () => Math.random().toString(36).substr(2, 9);
+
+const defaultMultipleAdCodes: MultipleAdCodes = {
+  header: [],
+  sidebar: [],
+  footer: [],
+  in_article: [],
+  popup: [],
+  match_before_player: [],
+  match_after_player: [],
+  match_sidebar: [],
+  match_below_info: [],
+  tournament_before_matches: [],
+  tournament_after_matches: [],
+  tournament_sidebar: [],
+  tournament_before_points: [],
+  tournament_after_points: [],
+};
 
 const AdsSettingsManager = () => {
   const { toast } = useToast();
@@ -36,8 +89,18 @@ const AdsSettingsManager = () => {
       after_player: true,
       sidebar: true,
       below_info: true,
-    } as MatchPageAdPositions,
+    } as AdPositions,
+    tournament_page_ad_positions: {
+      before_matches: true,
+      after_matches: true,
+      sidebar: true,
+      before_points_table: true,
+      after_points_table: true,
+    } as TournamentAdPositions,
+    multiple_ad_codes: defaultMultipleAdCodes,
   });
+
+  const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     if (siteSettings) {
@@ -57,6 +120,14 @@ const AdsSettingsManager = () => {
           sidebar: true,
           below_info: true,
         },
+        tournament_page_ad_positions: settings.tournament_page_ad_positions || {
+          before_matches: true,
+          after_matches: true,
+          sidebar: true,
+          before_points_table: true,
+          after_points_table: true,
+        },
+        multiple_ad_codes: settings.multiple_ad_codes || defaultMultipleAdCodes,
       });
     }
   }, [siteSettings]);
@@ -83,6 +154,8 @@ const AdsSettingsManager = () => {
         popup_ad_code: form.popup_ad_code || null,
         ads_txt_content: form.ads_txt_content || null,
         match_page_ad_positions: form.match_page_ad_positions,
+        tournament_page_ad_positions: form.tournament_page_ad_positions,
+        multiple_ad_codes: form.multiple_ad_codes,
       } as any);
       
       toast({ title: "Success", description: "Ads settings saved successfully" });
@@ -95,7 +168,7 @@ const AdsSettingsManager = () => {
     }
   };
 
-  const updateAdPosition = (key: keyof MatchPageAdPositions, value: boolean) => {
+  const updateMatchAdPosition = (key: keyof AdPositions, value: boolean) => {
     setForm({
       ...form,
       match_page_ad_positions: {
@@ -103,6 +176,141 @@ const AdsSettingsManager = () => {
         [key]: value,
       },
     });
+  };
+
+  const updateTournamentAdPosition = (key: keyof TournamentAdPositions, value: boolean) => {
+    setForm({
+      ...form,
+      tournament_page_ad_positions: {
+        ...form.tournament_page_ad_positions,
+        [key]: value,
+      },
+    });
+  };
+
+  const addAdSlot = (position: keyof MultipleAdCodes) => {
+    const newSlot: AdCodeSlot = {
+      id: generateId(),
+      name: `Ad Slot ${(form.multiple_ad_codes[position]?.length || 0) + 1}`,
+      code: '',
+      enabled: true,
+    };
+    setForm({
+      ...form,
+      multiple_ad_codes: {
+        ...form.multiple_ad_codes,
+        [position]: [...(form.multiple_ad_codes[position] || []), newSlot],
+      },
+    });
+  };
+
+  const updateAdSlot = (position: keyof MultipleAdCodes, slotId: string, updates: Partial<AdCodeSlot>) => {
+    setForm({
+      ...form,
+      multiple_ad_codes: {
+        ...form.multiple_ad_codes,
+        [position]: form.multiple_ad_codes[position].map((slot) =>
+          slot.id === slotId ? { ...slot, ...updates } : slot
+        ),
+      },
+    });
+  };
+
+  const removeAdSlot = (position: keyof MultipleAdCodes, slotId: string) => {
+    setForm({
+      ...form,
+      multiple_ad_codes: {
+        ...form.multiple_ad_codes,
+        [position]: form.multiple_ad_codes[position].filter((slot) => slot.id !== slotId),
+      },
+    });
+  };
+
+  const toggleSection = (section: string) => {
+    setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
+  };
+
+  const renderAdSlots = (position: keyof MultipleAdCodes, label: string) => {
+    const slots = form.multiple_ad_codes[position] || [];
+    const isExpanded = expandedSections[position];
+
+    return (
+      <Collapsible open={isExpanded} onOpenChange={() => toggleSection(position)}>
+        <div className="border rounded-lg p-4 space-y-3">
+          <CollapsibleTrigger asChild>
+            <div className="flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-2">
+                <h4 className="font-medium">{label}</h4>
+                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  {slots.length} slot{slots.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    addAdSlot(position);
+                    setExpandedSections((prev) => ({ ...prev, [position]: true }));
+                  }}
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Slot
+                </Button>
+                {isExpanded ? (
+                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+          </CollapsibleTrigger>
+
+          <CollapsibleContent className="space-y-3">
+            {slots.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No ad slots configured. Click "Add Slot" to add an ad code.
+              </p>
+            ) : (
+              slots.map((slot, index) => (
+                <div key={slot.id} className="border border-border/50 rounded-lg p-3 space-y-2 bg-muted/30">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      value={slot.name}
+                      onChange={(e) => updateAdSlot(position, slot.id, { name: e.target.value })}
+                      placeholder={`Slot ${index + 1} name`}
+                      className="flex-1 h-8"
+                    />
+                    <div className="flex items-center gap-2">
+                      <Switch
+                        checked={slot.enabled}
+                        onCheckedChange={(checked) => updateAdSlot(position, slot.id, { enabled: checked })}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                        onClick={() => removeAdSlot(position, slot.id)}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                  <Textarea
+                    value={slot.code}
+                    onChange={(e) => updateAdSlot(position, slot.id, { code: e.target.value })}
+                    placeholder="Paste your ad code here (HTML/JavaScript)..."
+                    rows={4}
+                    className="font-mono text-xs"
+                  />
+                </div>
+              ))
+            )}
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
+    );
   };
 
   if (isLoading) {
@@ -115,6 +323,7 @@ const AdsSettingsManager = () => {
 
   return (
     <div className="space-y-6">
+      {/* General Settings */}
       <Card>
         <CardHeader>
           <CardTitle>General Ad Settings</CardTitle>
@@ -145,132 +354,263 @@ const AdsSettingsManager = () => {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Match Page Ad Positions</CardTitle>
-          <CardDescription>Select where ads should appear on match streaming pages</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid gap-4">
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="before_player"
-                checked={form.match_page_ad_positions.before_player}
-                onCheckedChange={(checked) => updateAdPosition('before_player', !!checked)}
-              />
-              <div>
-                <Label htmlFor="before_player" className="cursor-pointer">Before Player</Label>
-                <p className="text-sm text-muted-foreground">Display ad above the video player</p>
+      {/* Page-specific Settings Tabs */}
+      <Tabs defaultValue="global" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="global">Global Ads</TabsTrigger>
+          <TabsTrigger value="match">Match Page</TabsTrigger>
+          <TabsTrigger value="tournament">Tournament Page</TabsTrigger>
+        </TabsList>
+
+        {/* Global Ads Tab */}
+        <TabsContent value="global" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Global Ad Slots</CardTitle>
+              <CardDescription>These ads appear across all pages (header, footer, sidebar)</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {renderAdSlots('header', 'Header Ads')}
+              {renderAdSlots('sidebar', 'Sidebar Ads')}
+              {renderAdSlots('footer', 'Footer Ads')}
+              {renderAdSlots('in_article', 'In-Article Ads')}
+              {renderAdSlots('popup', 'Popup Ads')}
+            </CardContent>
+          </Card>
+
+          {/* Legacy single ad codes (for backward compatibility) */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Legacy Ad Codes (Single)</CardTitle>
+              <CardDescription>Fallback ad codes if no multiple slots are configured</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="header_ad_code">Header Ad Code</Label>
+                <Textarea
+                  id="header_ad_code"
+                  value={form.header_ad_code}
+                  onChange={(e) => setForm({ ...form, header_ad_code: e.target.value })}
+                  placeholder="Paste your header ad code here..."
+                  rows={3}
+                  className="font-mono text-xs"
+                />
               </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="after_player"
-                checked={form.match_page_ad_positions.after_player}
-                onCheckedChange={(checked) => updateAdPosition('after_player', !!checked)}
-              />
-              <div>
-                <Label htmlFor="after_player" className="cursor-pointer">After Player</Label>
-                <p className="text-sm text-muted-foreground">Display ad below the video player</p>
+
+              <div className="space-y-2">
+                <Label htmlFor="sidebar_ad_code">Sidebar Ad Code</Label>
+                <Textarea
+                  id="sidebar_ad_code"
+                  value={form.sidebar_ad_code}
+                  onChange={(e) => setForm({ ...form, sidebar_ad_code: e.target.value })}
+                  placeholder="Paste your sidebar ad code here..."
+                  rows={3}
+                  className="font-mono text-xs"
+                />
               </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="sidebar"
-                checked={form.match_page_ad_positions.sidebar}
-                onCheckedChange={(checked) => updateAdPosition('sidebar', !!checked)}
-              />
-              <div>
-                <Label htmlFor="sidebar" className="cursor-pointer">Sidebar</Label>
-                <p className="text-sm text-muted-foreground">Display ad in the sidebar (desktop)</p>
+
+              <div className="space-y-2">
+                <Label htmlFor="footer_ad_code">Footer Ad Code</Label>
+                <Textarea
+                  id="footer_ad_code"
+                  value={form.footer_ad_code}
+                  onChange={(e) => setForm({ ...form, footer_ad_code: e.target.value })}
+                  placeholder="Paste your footer ad code here..."
+                  rows={3}
+                  className="font-mono text-xs"
+                />
               </div>
-            </div>
-            
-            <div className="flex items-center space-x-3">
-              <Checkbox
-                id="below_info"
-                checked={form.match_page_ad_positions.below_info}
-                onCheckedChange={(checked) => updateAdPosition('below_info', !!checked)}
-              />
-              <div>
-                <Label htmlFor="below_info" className="cursor-pointer">Below Match Info</Label>
-                <p className="text-sm text-muted-foreground">Display ad after match information section</p>
+
+              <div className="space-y-2">
+                <Label htmlFor="in_article_ad_code">In-Article Ad Code</Label>
+                <Textarea
+                  id="in_article_ad_code"
+                  value={form.in_article_ad_code}
+                  onChange={(e) => setForm({ ...form, in_article_ad_code: e.target.value })}
+                  placeholder="Paste your in-article ad code here..."
+                  rows={3}
+                  className="font-mono text-xs"
+                />
               </div>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Ad Code Slots</CardTitle>
-          <CardDescription>Paste your ad code for each position</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="header_ad_code">Header Ad Code</Label>
-            <Textarea
-              id="header_ad_code"
-              value={form.header_ad_code}
-              onChange={(e) => setForm({ ...form, header_ad_code: e.target.value })}
-              placeholder="Paste your header ad code here..."
-              rows={4}
-              className="font-mono text-sm"
-            />
-          </div>
+              <div className="space-y-2">
+                <Label htmlFor="popup_ad_code">Popup Ad Code</Label>
+                <Textarea
+                  id="popup_ad_code"
+                  value={form.popup_ad_code}
+                  onChange={(e) => setForm({ ...form, popup_ad_code: e.target.value })}
+                  placeholder="Paste your popup ad code here..."
+                  rows={3}
+                  className="font-mono text-xs"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="space-y-2">
-            <Label htmlFor="sidebar_ad_code">Sidebar Ad Code</Label>
-            <Textarea
-              id="sidebar_ad_code"
-              value={form.sidebar_ad_code}
-              onChange={(e) => setForm({ ...form, sidebar_ad_code: e.target.value })}
-              placeholder="Paste your sidebar ad code here..."
-              rows={4}
-              className="font-mono text-sm"
-            />
-          </div>
+        {/* Match Page Tab */}
+        <TabsContent value="match" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Match Page Ad Positions</CardTitle>
+              <CardDescription>Select where ads should appear on match streaming pages</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4">
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="before_player"
+                    checked={form.match_page_ad_positions.before_player}
+                    onCheckedChange={(checked) => updateMatchAdPosition('before_player', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="before_player" className="cursor-pointer">Before Player</Label>
+                    <p className="text-sm text-muted-foreground">Display ad above the video player</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="after_player"
+                    checked={form.match_page_ad_positions.after_player}
+                    onCheckedChange={(checked) => updateMatchAdPosition('after_player', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="after_player" className="cursor-pointer">After Player</Label>
+                    <p className="text-sm text-muted-foreground">Display ad below the video player</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="match_sidebar"
+                    checked={form.match_page_ad_positions.sidebar}
+                    onCheckedChange={(checked) => updateMatchAdPosition('sidebar', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="match_sidebar" className="cursor-pointer">Sidebar</Label>
+                    <p className="text-sm text-muted-foreground">Display ad in the sidebar (desktop)</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="below_info"
+                    checked={form.match_page_ad_positions.below_info}
+                    onCheckedChange={(checked) => updateMatchAdPosition('below_info', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="below_info" className="cursor-pointer">Below Match Info</Label>
+                    <p className="text-sm text-muted-foreground">Display ad after match information section</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="footer_ad_code">Footer Ad Code</Label>
-            <Textarea
-              id="footer_ad_code"
-              value={form.footer_ad_code}
-              onChange={(e) => setForm({ ...form, footer_ad_code: e.target.value })}
-              placeholder="Paste your footer ad code here..."
-              rows={4}
-              className="font-mono text-sm"
-            />
-          </div>
+          <Card>
+            <CardHeader>
+              <CardTitle>Match Page Ad Codes</CardTitle>
+              <CardDescription>Configure multiple ad codes for each match page position</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {renderAdSlots('match_before_player', 'Before Player Ads')}
+              {renderAdSlots('match_after_player', 'After Player Ads')}
+              {renderAdSlots('match_sidebar', 'Sidebar Ads (Match)')}
+              {renderAdSlots('match_below_info', 'Below Match Info Ads')}
+            </CardContent>
+          </Card>
+        </TabsContent>
 
-          <div className="space-y-2">
-            <Label htmlFor="in_article_ad_code">In-Article Ad Code</Label>
-            <Textarea
-              id="in_article_ad_code"
-              value={form.in_article_ad_code}
-              onChange={(e) => setForm({ ...form, in_article_ad_code: e.target.value })}
-              placeholder="Paste your in-article ad code here..."
-              rows={4}
-              className="font-mono text-sm"
-            />
-          </div>
+        {/* Tournament Page Tab */}
+        <TabsContent value="tournament" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Tournament Page Ad Positions</CardTitle>
+              <CardDescription>Select where ads should appear on tournament pages</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4">
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="before_matches"
+                    checked={form.tournament_page_ad_positions.before_matches}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('before_matches', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="before_matches" className="cursor-pointer">Before Matches</Label>
+                    <p className="text-sm text-muted-foreground">Display ad above the match list</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="after_matches"
+                    checked={form.tournament_page_ad_positions.after_matches}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('after_matches', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="after_matches" className="cursor-pointer">After Matches</Label>
+                    <p className="text-sm text-muted-foreground">Display ad below the match list</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="tournament_sidebar"
+                    checked={form.tournament_page_ad_positions.sidebar}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('sidebar', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="tournament_sidebar" className="cursor-pointer">Sidebar</Label>
+                    <p className="text-sm text-muted-foreground">Display ad in the sidebar (desktop)</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="before_points_table"
+                    checked={form.tournament_page_ad_positions.before_points_table}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('before_points_table', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="before_points_table" className="cursor-pointer">Before Points Table</Label>
+                    <p className="text-sm text-muted-foreground">Display ad above the points table</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="after_points_table"
+                    checked={form.tournament_page_ad_positions.after_points_table}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('after_points_table', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="after_points_table" className="cursor-pointer">After Points Table</Label>
+                    <p className="text-sm text-muted-foreground">Display ad below the points table</p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="popup_ad_code">Popup Ad Code</Label>
-            <Textarea
-              id="popup_ad_code"
-              value={form.popup_ad_code}
-              onChange={(e) => setForm({ ...form, popup_ad_code: e.target.value })}
-              placeholder="Paste your popup ad code here..."
-              rows={4}
-              className="font-mono text-sm"
-            />
-          </div>
-        </CardContent>
-      </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Tournament Page Ad Codes</CardTitle>
+              <CardDescription>Configure multiple ad codes for each tournament page position</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {renderAdSlots('tournament_before_matches', 'Before Matches Ads')}
+              {renderAdSlots('tournament_after_matches', 'After Matches Ads')}
+              {renderAdSlots('tournament_sidebar', 'Sidebar Ads (Tournament)')}
+              {renderAdSlots('tournament_before_points', 'Before Points Table Ads')}
+              {renderAdSlots('tournament_after_points', 'After Points Table Ads')}
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
 
+      {/* Ads.txt */}
       <Card>
         <CardHeader>
           <CardTitle>Ads.txt Content</CardTitle>
