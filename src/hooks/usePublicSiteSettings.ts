@@ -58,6 +58,22 @@ export interface PublicSiteSettings {
   // Homepage settings
   homepage_completed_days: number | null;
   homepage_channels_limit: number | null;
+  // Page-specific ad positions
+  match_page_ad_positions: {
+    before_player: boolean;
+    after_player: boolean;
+    sidebar: boolean;
+    below_info: boolean;
+  } | null;
+  tournament_page_ad_positions: {
+    before_matches: boolean;
+    after_matches: boolean;
+    sidebar: boolean;
+    before_points_table: boolean;
+    after_points_table: boolean;
+  } | null;
+  // Multiple ad codes
+  multiple_ad_codes: Record<string, any[]> | null;
 }
 
 export const usePublicSiteSettings = () => {

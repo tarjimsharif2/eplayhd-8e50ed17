@@ -4,6 +4,7 @@ import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import SEOHead from '@/components/SEOHead';
 import AdSlot from '@/components/AdSlot';
+import MultiAdSlot from '@/components/MultiAdSlot';
 import MatchCard from '@/components/MatchCard';
 import PointsTable from '@/components/PointsTable';
 import { Button } from '@/components/ui/button';
@@ -13,6 +14,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { Tournament, Match } from '@/hooks/useSportsData';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
+import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 import { useRealtimeLiveMatches } from '@/hooks/useRealtimeMatch';
 import { Trophy, Calendar, Loader2, Radio, Users } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -25,6 +27,19 @@ const TournamentPage = () => {
   const [loading, setLoading] = useState(true);
   
   const { data: siteSettings } = useSiteSettings();
+  const { data: publicSettings } = usePublicSiteSettings();
+  
+  // Get tournament ad positions
+  const tournamentAdPositions = useMemo(() => {
+    const positions = (publicSettings as any)?.tournament_page_ad_positions;
+    return {
+      before_matches: positions?.before_matches !== false,
+      after_matches: positions?.after_matches !== false,
+      sidebar: positions?.sidebar !== false,
+      before_points_table: positions?.before_points_table !== false,
+      after_points_table: positions?.after_points_table !== false,
+    };
+  }, [publicSettings]);
   
   // Subscribe to real-time match updates
   useRealtimeLiveMatches();
@@ -328,8 +343,10 @@ const TournamentPage = () => {
           {/* Participating Teams - Before Matches position */}
           {teamsPosition === 'before_matches' && <ParticipatingTeamsSection />}
 
-          {/* In-Article Ad - Before Matches */}
-          <AdSlot position="in_article" className="my-4" />
+          {/* Tournament Ad - Before Matches */}
+          {tournamentAdPositions.before_matches && (
+            <MultiAdSlot position="tournament_before_matches" fallbackPosition="in_article" className="my-4" />
+          )}
 
           {/* Match Tabs */}
           <motion.div
@@ -424,18 +441,32 @@ const TournamentPage = () => {
           {/* Participating Teams - After Matches position */}
           {teamsPosition === 'after_matches' && <ParticipatingTeamsSection />}
 
-          {/* In-Article Ad - After Matches */}
-          <AdSlot position="in_article" className="my-6" />
+          {/* Tournament Ad - After Matches */}
+          {tournamentAdPositions.after_matches && (
+            <MultiAdSlot position="tournament_after_matches" fallbackPosition="in_article" className="my-6" />
+          )}
 
-          {/* Sidebar Ad - Desktop Only */}
-          <div className="hidden lg:block my-6">
-            <AdSlot position="sidebar" className="sticky top-4" />
-          </div>
+          {/* Tournament Sidebar Ad - Desktop Only */}
+          {tournamentAdPositions.sidebar && (
+            <div className="hidden lg:block my-6">
+              <MultiAdSlot position="tournament_sidebar" fallbackPosition="sidebar" className="sticky top-4" />
+            </div>
+          )}
+
+          {/* Tournament Ad - Before Points Table */}
+          {tournamentAdPositions.before_points_table && (
+            <MultiAdSlot position="tournament_before_points" className="my-4" />
+          )}
 
           {/* Points Table */}
           <div className="mt-6 mb-8">
             <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
           </div>
+
+          {/* Tournament Ad - After Points Table */}
+          {tournamentAdPositions.after_points_table && (
+            <MultiAdSlot position="tournament_after_points" className="my-4" />
+          )}
 
           {/* Participating Teams - After Points Table position */}
           {teamsPosition === 'after_points_table' && <ParticipatingTeamsSection />}
