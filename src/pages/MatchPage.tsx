@@ -366,8 +366,13 @@ const MatchPage = () => {
             />
           )}
 
-          {/* In-Article Ad */}
-          <AdSlot position="in_article" className="mb-6 mt-6" />
+          {/* In-Article Ad - After Scoreboard */}
+          <AdSlot position="in_article" className="my-6" />
+
+          {/* Sidebar Ad - Desktop Only */}
+          <div className="hidden lg:block my-6">
+            <AdSlot position="sidebar" className="sticky top-4" />
+          </div>
 
           {/* Match Header Card - Show here ONLY if no Points Table exists */}
           {!hasPointsTable && (
@@ -520,6 +525,8 @@ const MatchPage = () => {
             </motion.div>
           )}
 
+          {/* In-Article Ad - After Match Header */}
+          <AdSlot position="in_article" className="my-6" />
 
           {/* Points Table Section */}
           {tournament?.id && (
@@ -527,6 +534,11 @@ const MatchPage = () => {
               <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
             </div>
           )}
+
+          {/* Sidebar Ad - After Points Table */}
+          <div className="hidden lg:block my-6">
+            <AdSlot position="sidebar" className="sticky top-4" />
+          </div>
 
           {/* Match Header Card - Show AFTER Points Table if Points Table exists */}
           {hasPointsTable && (

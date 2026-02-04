@@ -328,6 +328,9 @@ const TournamentPage = () => {
           {/* Participating Teams - Before Matches position */}
           {teamsPosition === 'before_matches' && <ParticipatingTeamsSection />}
 
+          {/* In-Article Ad - Before Matches */}
+          <AdSlot position="in_article" className="my-4" />
+
           {/* Match Tabs */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -421,7 +424,13 @@ const TournamentPage = () => {
           {/* Participating Teams - After Matches position */}
           {teamsPosition === 'after_matches' && <ParticipatingTeamsSection />}
 
-          <AdSlot position="in_article" className="my-4" />
+          {/* In-Article Ad - After Matches */}
+          <AdSlot position="in_article" className="my-6" />
+
+          {/* Sidebar Ad - Desktop Only */}
+          <div className="hidden lg:block my-6">
+            <AdSlot position="sidebar" className="sticky top-4" />
+          </div>
 
           {/* Points Table */}
           <div className="mt-6 mb-8">
