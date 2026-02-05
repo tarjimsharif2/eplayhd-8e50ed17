@@ -1043,6 +1043,7 @@ export type Database = {
           maintenance_subtitle: string | null
           maintenance_title: string | null
           match_page_ad_positions: Json | null
+          multiple_ad_codes: Json | null
           og_image_url: string | null
           popup_ad_code: string | null
           rapidapi_enabled: boolean | null
@@ -1106,6 +1107,7 @@ export type Database = {
           maintenance_subtitle?: string | null
           maintenance_title?: string | null
           match_page_ad_positions?: Json | null
+          multiple_ad_codes?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
@@ -1169,6 +1171,7 @@ export type Database = {
           maintenance_subtitle?: string | null
           maintenance_title?: string | null
           match_page_ad_positions?: Json | null
+          multiple_ad_codes?: Json | null
           og_image_url?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
