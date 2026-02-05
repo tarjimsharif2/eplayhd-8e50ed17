@@ -3,8 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 
 interface ParsedToss {
   winner: string;
+  winnerId?: string;
   decision: 'bat' | 'bowl';
   rawText: string;
+  source: 'api' | 'manual';
 }
 
 interface UseMatchTossOptions {
@@ -13,7 +15,7 @@ interface UseMatchTossOptions {
 }
 
 // Parse toss string like "Delhi Capitals Women, elected to bowl first"
-const parseToss = (tossText: string): ParsedToss | null => {
+const parseToss = (tossText: string): Omit<ParsedToss, 'source'> | null => {
   if (!tossText) return null;
   
   // Pattern: "TeamName, elected to bat/bowl first"
@@ -42,12 +44,32 @@ const parseToss = (tossText: string): ParsedToss | null => {
 
 export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) => {
   const [tossRaw, setTossRaw] = useState<string | null>(null);
+  const [manualToss, setManualToss] = useState<{ winnerId: string | null; winnerName: string | null; decision: string | null } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const parsedToss = useMemo(() => {
-    if (!tossRaw) return null;
-    return parseToss(tossRaw);
-  }, [tossRaw]);
+  // Determine which toss to use: manual takes precedence if set
+  const parsedToss = useMemo((): ParsedToss | null => {
+    // Manual toss takes precedence
+    if (manualToss?.winnerId && manualToss?.decision && manualToss?.winnerName) {
+      return {
+        winner: manualToss.winnerName,
+        winnerId: manualToss.winnerId,
+        decision: manualToss.decision as 'bat' | 'bowl',
+        rawText: `${manualToss.winnerName}, elected to ${manualToss.decision} first`,
+        source: 'manual',
+      };
+    }
+    
+    // Fall back to API toss
+    if (tossRaw) {
+      const parsed = parseToss(tossRaw);
+      if (parsed) {
+        return { ...parsed, source: 'api' };
+      }
+    }
+    
+    return null;
+  }, [tossRaw, manualToss]);
 
   useEffect(() => {
     if (!enabled || !matchId) return;
@@ -55,14 +77,34 @@ export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) =
     const fetchToss = async () => {
       setIsLoading(true);
       try {
-        const { data, error } = await supabase
-          .from('match_api_scores')
-          .select('toss')
-          .eq('match_id', matchId)
-          .maybeSingle();
+        // Fetch both API toss and manual toss data
+        const [apiResult, matchResult] = await Promise.all([
+          supabase
+            .from('match_api_scores')
+            .select('toss')
+            .eq('match_id', matchId)
+            .maybeSingle(),
+          supabase
+            .from('matches')
+            .select('toss_winner_id, toss_decision, team_a:teams!matches_team_a_id_fkey(id, name, short_name), team_b:teams!matches_team_b_id_fkey(id, name, short_name)')
+            .eq('id', matchId)
+            .single()
+        ]);
 
-        if (!error && data?.toss) {
-          setTossRaw(data.toss);
+        if (!apiResult.error && apiResult.data?.toss) {
+          setTossRaw(apiResult.data.toss);
+        }
+
+        if (!matchResult.error && matchResult.data) {
+          const { toss_winner_id, toss_decision, team_a, team_b } = matchResult.data;
+          if (toss_winner_id && toss_decision) {
+            const winnerTeam = (team_a as any)?.id === toss_winner_id ? team_a : team_b;
+            setManualToss({
+              winnerId: toss_winner_id,
+              winnerName: (winnerTeam as any)?.short_name || (winnerTeam as any)?.name || null,
+              decision: toss_decision,
+            });
+          }
         }
       } catch (err) {
         console.error('Error fetching toss:', err);
@@ -73,9 +115,9 @@ export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) =
 
     fetchToss();
 
-    // Subscribe to realtime updates
-    const channel = supabase
-      .channel(`match-toss-${matchId}`)
+    // Subscribe to realtime updates for both tables
+    const apiChannel = supabase
+      .channel(`match-toss-api-${matchId}`)
       .on(
         'postgres_changes',
         {
@@ -92,10 +134,50 @@ export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) =
       )
       .subscribe();
 
+    const matchChannel = supabase
+      .channel(`match-toss-manual-${matchId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'matches',
+          filter: `id=eq.${matchId}`,
+        },
+        async (payload: any) => {
+          if (payload.new?.toss_winner_id && payload.new?.toss_decision) {
+            // Fetch team name for the winner
+            const { data } = await supabase
+              .from('teams')
+              .select('id, name, short_name')
+              .eq('id', payload.new.toss_winner_id)
+              .single();
+            
+            if (data) {
+              setManualToss({
+                winnerId: payload.new.toss_winner_id,
+                winnerName: data.short_name || data.name,
+                decision: payload.new.toss_decision,
+              });
+            }
+          } else if (!payload.new?.toss_winner_id) {
+            setManualToss(null);
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(apiChannel);
+      supabase.removeChannel(matchChannel);
     };
   }, [matchId, enabled]);
 
-  return { toss: tossRaw, parsedToss, isLoading };
+  return { 
+    toss: parsedToss?.rawText || tossRaw, 
+    parsedToss, 
+    isLoading,
+    hasManualToss: !!manualToss?.winnerId,
+    hasApiToss: !!tossRaw,
+  };
 };

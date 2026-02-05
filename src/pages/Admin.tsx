@@ -35,6 +35,7 @@ import StreamingServersManager from "@/components/StreamingServersManager";
 import InningsManager from "@/components/InningsManager";
 import PlayingXIManager from "@/components/PlayingXIManager";
 import FootballPlayingXIManager from "@/components/FootballPlayingXIManager";
+import ManualTossManager from "@/components/ManualTossManager";
 import PointsTableManager from "@/components/PointsTableManager";
 import { Textarea } from "@/components/ui/textarea";
 import SearchableSelect from "@/components/SearchableSelect";
@@ -2951,19 +2952,31 @@ const Admin = () => {
                   </DialogTitle>
                 </DialogHeader>
                 {selectedMatchForPlayingXI && selectedMatchForPlayingXI.team_a && selectedMatchForPlayingXI.team_b && (
-                  selectedMatchForPlayingXI.sport?.name?.toLowerCase() === 'football' ? (
-                    <FootballPlayingXIManager
-                      matchId={selectedMatchForPlayingXI.id}
-                      teamA={selectedMatchForPlayingXI.team_a}
-                      teamB={selectedMatchForPlayingXI.team_b}
-                    />
-                  ) : (
-                    <PlayingXIManager
-                      matchId={selectedMatchForPlayingXI.id}
-                      teamA={selectedMatchForPlayingXI.team_a}
-                      teamB={selectedMatchForPlayingXI.team_b}
-                    />
-                  )
+                  <div className="space-y-6">
+                    {/* Manual Toss Manager - Only for Cricket */}
+                    {selectedMatchForPlayingXI.sport?.name?.toLowerCase() !== 'football' && (
+                      <ManualTossManager
+                        matchId={selectedMatchForPlayingXI.id}
+                        teamA={selectedMatchForPlayingXI.team_a}
+                        teamB={selectedMatchForPlayingXI.team_b}
+                      />
+                    )}
+
+                    {/* Playing XI / Lineup Manager */}
+                    {selectedMatchForPlayingXI.sport?.name?.toLowerCase() === 'football' ? (
+                      <FootballPlayingXIManager
+                        matchId={selectedMatchForPlayingXI.id}
+                        teamA={selectedMatchForPlayingXI.team_a}
+                        teamB={selectedMatchForPlayingXI.team_b}
+                      />
+                    ) : (
+                      <PlayingXIManager
+                        matchId={selectedMatchForPlayingXI.id}
+                        teamA={selectedMatchForPlayingXI.team_a}
+                        teamB={selectedMatchForPlayingXI.team_b}
+                      />
+                    )}
+                  </div>
                 )}
               </DialogContent>
             </Dialog>

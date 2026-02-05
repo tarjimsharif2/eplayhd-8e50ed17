@@ -729,6 +729,8 @@ export type Database = {
           team_a_id: string
           team_b_id: string
           test_day: number | null
+          toss_decision: string | null
+          toss_winner_id: string | null
           tournament_id: string | null
           updated_at: string
           venue: string | null
@@ -776,6 +778,8 @@ export type Database = {
           team_a_id: string
           team_b_id: string
           test_day?: number | null
+          toss_decision?: string | null
+          toss_winner_id?: string | null
           tournament_id?: string | null
           updated_at?: string
           venue?: string | null
@@ -823,6 +827,8 @@ export type Database = {
           team_a_id?: string
           team_b_id?: string
           test_day?: number | null
+          toss_decision?: string | null
+          toss_winner_id?: string | null
           tournament_id?: string | null
           updated_at?: string
           venue?: string | null
@@ -845,6 +851,13 @@ export type Database = {
           {
             foreignKeyName: "matches_team_b_id_fkey"
             columns: ["team_b_id"]
+            isOneToOne: false
+            referencedRelation: "teams"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "matches_toss_winner_id_fkey"
+            columns: ["toss_winner_id"]
             isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
