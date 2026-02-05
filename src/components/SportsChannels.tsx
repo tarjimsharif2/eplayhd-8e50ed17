@@ -46,42 +46,42 @@ const SportsChannels = () => {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
         {displayedChannels.map((channel, index) => (
           <motion.div
             key={channel.id}
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: index * 0.02 }}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: index * 0.03 }}
           >
             <Link to={`/channel/${channel.slug || channel.id}`}>
-              <div className="group flex items-center gap-3 px-4 py-2.5 rounded-full bg-card border border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-all duration-200">
+              <div className="group relative flex flex-col items-center p-4 rounded-xl bg-card/50 border border-border/30 hover:border-primary/40 hover:bg-card transition-all duration-300">
                 {/* Channel Logo */}
                 <div 
-                  className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border border-border/30"
+                  className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-border/20 group-hover:border-primary/30 transition-colors shadow-md"
                   style={{ backgroundColor: channel.logo_background_color || '#1a1a2e' }}
                 >
                   {channel.logo_url ? (
                     <img 
                       src={channel.logo_url} 
                       alt={channel.name} 
-                      className="w-8 h-8 object-contain"
+                      className="w-9 h-9 object-contain"
                     />
                   ) : (
-                    <Tv className="w-6 h-6 text-muted-foreground" />
+                    <Tv className="w-7 h-7 text-muted-foreground" />
                   )}
                 </div>
 
-                {/* Channel Name & Watch */}
-                <div className="flex flex-col">
-                  <span className="font-medium text-sm group-hover:text-primary transition-colors whitespace-nowrap">
-                    {channel.name}
-                  </span>
-                  <span className="flex items-center gap-1 text-[9px] font-medium text-red-500 animate-pulse">
-                    <span className="w-1 h-1 bg-red-500 rounded-full" />
-                    Watch
-                  </span>
-                </div>
+                {/* Channel Name */}
+                <span className="mt-3 font-medium text-sm text-center group-hover:text-primary transition-colors line-clamp-1">
+                  {channel.name}
+                </span>
+                
+                {/* Watch Badge */}
+                <span className="mt-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-red-500">
+                  <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                  Watch Live
+                </span>
               </div>
             </Link>
           </motion.div>
