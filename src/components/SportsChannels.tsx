@@ -73,7 +73,7 @@ const SportsChannels = () => {
                 </div>
 
                 {/* Channel Name */}
-                <span className="mt-2 font-semibold text-[13px] text-center group-hover:text-primary transition-colors line-clamp-1">
+                <span className="mt-2 font-semibold text-[15px] text-center group-hover:text-primary transition-colors line-clamp-1">
                   {channel.name}
                 </span>
                 
