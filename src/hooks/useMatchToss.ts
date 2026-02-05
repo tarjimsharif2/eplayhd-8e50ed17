@@ -101,7 +101,7 @@ export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) =
             const winnerTeam = (team_a as any)?.id === toss_winner_id ? team_a : team_b;
             setManualToss({
               winnerId: toss_winner_id,
-              winnerName: (winnerTeam as any)?.short_name || (winnerTeam as any)?.name || null,
+              winnerName: (winnerTeam as any)?.name || (winnerTeam as any)?.short_name || null,
               decision: toss_decision,
             });
           }
@@ -156,7 +156,7 @@ export const useMatchToss = ({ matchId, enabled = true }: UseMatchTossOptions) =
             if (data) {
               setManualToss({
                 winnerId: payload.new.toss_winner_id,
-                winnerName: data.short_name || data.name,
+                winnerName: data.name || data.short_name,
                 decision: payload.new.toss_decision,
               });
             }
