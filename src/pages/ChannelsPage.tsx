@@ -83,7 +83,7 @@ const ChannelsPage = () => {
               <p>No channels found for "{searchQuery}"</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-8 gap-2">
               {filteredChannels.map((channel, index) => (
                 <motion.div
                   key={channel.id}
@@ -92,17 +92,17 @@ const ChannelsPage = () => {
                   transition={{ delay: index * 0.02 }}
                 >
                   <Link to={`/channel/${channel.slug || channel.id}`}>
-                    <div className="group relative flex flex-col items-center p-4 rounded-xl bg-card/50 border border-border/30 hover:border-primary/40 hover:bg-card transition-all duration-300">
+                    <div className="group relative flex flex-col items-center p-2.5 rounded-lg bg-card/50 border border-border/30 hover:border-primary/40 hover:bg-card transition-all duration-300">
                       {/* Channel Logo */}
                       <div 
-                        className="w-14 h-14 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-border/20 group-hover:border-primary/30 transition-colors shadow-md"
+                        className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-border/20 group-hover:border-primary/30 transition-colors shadow-md"
                         style={{ backgroundColor: channel.logo_background_color || '#1a1a2e' }}
                       >
                         {channel.logo_url ? (
                           <img 
                             src={channel.logo_url} 
                             alt={channel.name} 
-                            className="w-9 h-9 object-contain"
+                            className="w-8 h-8 object-contain"
                           />
                         ) : (
                           <Tv className="w-6 h-6 text-muted-foreground" />
@@ -110,13 +110,13 @@ const ChannelsPage = () => {
                       </div>
 
                       {/* Channel Name */}
-                      <span className="mt-3 font-medium text-sm text-center group-hover:text-primary transition-colors line-clamp-1">
+                      <span className="mt-2 font-medium text-xs text-center group-hover:text-primary transition-colors line-clamp-1">
                         {channel.name}
                       </span>
                       
                       {/* Watch Badge */}
-                      <span className="mt-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-red-500">
-                        <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                      <span className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-red-500">
+                        <span className="w-1 h-1 bg-red-500 rounded-full animate-pulse" />
                         Watch Live
                       </span>
                     </div>
