@@ -1067,6 +1067,7 @@ export type Database = {
           smtp_user: string | null
           social_links: Json | null
           telegram_link: string | null
+          tournament_page_ad_positions: Json | null
           twitter_handle: string | null
           updated_at: string
         }
@@ -1131,6 +1132,7 @@ export type Database = {
           smtp_user?: string | null
           social_links?: Json | null
           telegram_link?: string | null
+          tournament_page_ad_positions?: Json | null
           twitter_handle?: string | null
           updated_at?: string
         }
@@ -1195,6 +1197,7 @@ export type Database = {
           smtp_user?: string | null
           social_links?: Json | null
           telegram_link?: string | null
+          tournament_page_ad_positions?: Json | null
           twitter_handle?: string | null
           updated_at?: string
         }
