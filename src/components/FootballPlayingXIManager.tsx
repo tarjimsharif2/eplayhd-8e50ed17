@@ -24,6 +24,7 @@ interface Player {
   is_captain: boolean;
   is_vice_captain: boolean;
   is_wicket_keeper: boolean;
+  is_bench: boolean;
   batting_order: number | null;
 }
 
@@ -32,6 +33,8 @@ interface FootballPlayingXIManagerProps {
   teamA: Team;
   teamB: Team;
 }
+
+type PlayerCategory = 'starting_xi' | 'bench' | 'squad';
 
 // Hooks for Playing XI management
 const usePlayingXI = (matchId: string | undefined) => {
@@ -163,17 +166,29 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [activeTeam, setActiveTeam] = useState<string>(teamA.id);
   const [editingPlayer, setEditingPlayer] = useState<Player | null>(null);
+  const [addCategory, setAddCategory] = useState<PlayerCategory>('starting_xi');
+  const [bulkAddCategory, setBulkAddCategory] = useState<PlayerCategory>('squad');
   const [form, setForm] = useState({
     player_name: '',
     player_role: '',
     is_captain: false,
     is_vice_captain: false,
     jersey_number: null as number | null,
+    is_bench: false,
   });
   const [bulkText, setBulkText] = useState('');
 
   const teamAPlayers = players?.filter(p => p.team_id === teamA.id) || [];
   const teamBPlayers = players?.filter(p => p.team_id === teamB.id) || [];
+  
+  // Separate Starting XI, Bench, and Full Squad
+  const getStartingXI = (teamPlayers: Player[]) => teamPlayers.filter(p => !p.is_bench);
+  const getBenchPlayers = (teamPlayers: Player[]) => teamPlayers.filter(p => p.is_bench);
+  
+  const teamAStartingXI = getStartingXI(teamAPlayers);
+  const teamABench = getBenchPlayers(teamAPlayers);
+  const teamBStartingXI = getStartingXI(teamBPlayers);
+  const teamBBench = getBenchPlayers(teamBPlayers);
 
   const resetForm = () => {
     setEditingPlayer(null);
@@ -183,10 +198,12 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
       is_captain: false,
       is_vice_captain: false,
       jersey_number: null,
+      is_bench: false,
     });
+    setAddCategory('starting_xi');
   };
 
-  const handleOpenDialog = (player?: Player) => {
+  const handleOpenDialog = (player?: Player, category: PlayerCategory = 'starting_xi') => {
     if (player) {
       setEditingPlayer(player);
       setActiveTeam(player.team_id);
@@ -196,16 +213,19 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
         is_captain: player.is_captain,
         is_vice_captain: player.is_vice_captain,
         jersey_number: player.batting_order,
+        is_bench: player.is_bench || false,
       });
     } else {
       resetForm();
+      setAddCategory(category);
     }
     setDialogOpen(true);
   };
 
-  const handleOpenBulkDialog = (teamId: string) => {
+  const handleOpenBulkDialog = (teamId: string, category: PlayerCategory = 'squad') => {
     setActiveTeam(teamId);
     setBulkText('');
+    setBulkAddCategory(category);
     setBulkDialogOpen(true);
   };
 
@@ -213,6 +233,18 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
     if (!form.player_name.trim()) {
       toast({ title: "Error", description: "Player name is required", variant: "destructive" });
       return;
+    }
+
+    // Determine is_bench based on category (for new players)
+    const isBench = editingPlayer ? form.is_bench : (addCategory === 'bench' || addCategory === 'squad');
+    
+    // For Starting XI, check limit (11 players max)
+    if (!editingPlayer && addCategory === 'starting_xi') {
+      const currentStartingXI = activeTeam === teamA.id ? teamAStartingXI : teamBStartingXI;
+      if (currentStartingXI.length >= 11) {
+        toast({ title: "Error", description: "Starting XI is full (11 players)", variant: "destructive" });
+        return;
+      }
     }
 
     try {
@@ -225,6 +257,7 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
           is_captain: form.is_captain,
           is_vice_captain: form.is_vice_captain,
           is_wicket_keeper: false,
+          is_bench: form.is_bench,
           batting_order: form.jersey_number,
         });
         toast({ title: "Player updated successfully" });
@@ -237,6 +270,7 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
           is_captain: form.is_captain,
           is_vice_captain: form.is_vice_captain,
           is_wicket_keeper: false,
+          is_bench: isBench,
           batting_order: form.jersey_number,
         });
         toast({ title: "Player added successfully" });
@@ -256,17 +290,22 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
       return;
     }
 
-    const currentTeamPlayers = activeTeam === teamA.id ? teamAPlayers : teamBPlayers;
-    const availableSlots = 11 - currentTeamPlayers.length;
-
-    if (lines.length > availableSlots) {
-      toast({ 
-        title: "Error", 
-        description: `Only ${availableSlots} slots available. You entered ${lines.length} players.`, 
-        variant: "destructive" 
-      });
-      return;
+    // Check Starting XI limit if adding to Starting XI
+    if (bulkAddCategory === 'starting_xi') {
+      const currentStartingXI = activeTeam === teamA.id ? teamAStartingXI : teamBStartingXI;
+      const availableSlots = 11 - currentStartingXI.length;
+      if (lines.length > availableSlots) {
+        toast({ 
+          title: "Error", 
+          description: `Only ${availableSlots} slots available in Starting XI. You entered ${lines.length} players.`, 
+          variant: "destructive" 
+        });
+        return;
+      }
     }
+
+    // Determine is_bench based on category
+    const isBench = bulkAddCategory === 'bench' || bulkAddCategory === 'squad';
 
     const playersToAdd: Omit<Player, 'id'>[] = lines.map((name) => {
       // Parse player name with optional markers: (C), (VC), and jersey number
@@ -306,15 +345,31 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
         is_captain: isCaptain,
         is_vice_captain: isViceCaptain,
         is_wicket_keeper: false,
+        is_bench: isBench,
         batting_order: jerseyNumber,
       };
     });
 
     try {
       await bulkCreatePlayers.mutateAsync(playersToAdd);
-      toast({ title: `${playersToAdd.length} players added successfully` });
+      const categoryLabel = bulkAddCategory === 'starting_xi' ? 'Starting XI' : bulkAddCategory === 'bench' ? 'Bench' : 'Squad';
+      toast({ title: `${playersToAdd.length} players added to ${categoryLabel}` });
       setBulkDialogOpen(false);
       setBulkText('');
+    } catch (error: any) {
+      toast({ title: "Error", description: error.message, variant: "destructive" });
+    }
+  };
+  
+  // Move player between Starting XI and Bench
+  const handleMovePlayer = async (player: Player, toBench: boolean) => {
+    try {
+      await updatePlayer.mutateAsync({
+        id: player.id,
+        match_id: matchId,
+        is_bench: toBench,
+      });
+      toast({ title: `Player moved to ${toBench ? 'Bench' : 'Starting XI'}` });
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -329,7 +384,7 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
     }
   };
 
-  const renderPlayerCard = (player: Player) => (
+  const renderPlayerCard = (player: Player, showMoveAction: boolean = true) => (
     <Card key={player.id} className="hover:border-primary/30 transition-colors">
       <CardContent className="p-3">
         <div className="flex items-center justify-between">
@@ -351,6 +406,17 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
             )}
           </div>
           <div className="flex items-center gap-1">
+            {showMoveAction && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 text-xs px-2"
+                onClick={() => handleMovePlayer(player, !player.is_bench)}
+                disabled={!player.is_bench && (player.team_id === teamA.id ? teamAStartingXI : teamBStartingXI).length >= 11}
+              >
+                {player.is_bench ? '→ XI' : '→ Bench'}
+              </Button>
+            )}
             <Button
               size="icon"
               variant="ghost"
@@ -373,53 +439,113 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
     </Card>
   );
 
-  const renderTeamSection = (team: Team, teamPlayers: Player[]) => (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-2">
-          {team.logo_url && (
-            <img src={team.logo_url} alt={team.name} className="w-6 h-6 object-contain" />
-          )}
-          <h4 className="font-medium text-sm">{team.name}</h4>
-          <Badge variant="secondary" className="text-[10px]">
-            {teamPlayers.length}/11
-          </Badge>
-        </div>
-        {teamPlayers.length < 11 && (
-          <div className="flex gap-2">
-            <Button 
-              size="sm" 
-              variant="outline" 
-              onClick={() => {
-                setActiveTeam(team.id);
-                handleOpenDialog();
-              }}
-            >
-              <Plus className="w-3 h-3 mr-1" />
-              Add
-            </Button>
-            <Button 
-              size="sm" 
-              variant="secondary" 
-              onClick={() => handleOpenBulkDialog(team.id)}
-            >
-              <Upload className="w-3 h-3 mr-1" />
-              Bulk Add
-            </Button>
+  const renderTeamSection = (team: Team, allPlayers: Player[]) => {
+    const startingXI = getStartingXI(allPlayers);
+    const benchPlayers = getBenchPlayers(allPlayers);
+    
+    return (
+      <div className="space-y-6">
+        {/* Starting XI Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium text-sm text-primary">⚽ Starting XI</h4>
+              <Badge variant="default" className="text-[10px]">
+                {startingXI.length}/11
+              </Badge>
+            </div>
+            {startingXI.length < 11 && (
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={() => {
+                    setActiveTeam(team.id);
+                    handleOpenDialog(undefined, 'starting_xi');
+                  }}
+                >
+                  <Plus className="w-3 h-3 mr-1" />
+                  Add to XI
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="secondary" 
+                  onClick={() => handleOpenBulkDialog(team.id, 'starting_xi')}
+                >
+                  <Upload className="w-3 h-3 mr-1" />
+                  Bulk
+                </Button>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      {teamPlayers.length > 0 ? (
-        <div className="space-y-2">
-          {teamPlayers.map(renderPlayerCard)}
+          {startingXI.length > 0 ? (
+            <div className="space-y-2">
+              {startingXI.map(p => renderPlayerCard(p))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-3 border border-dashed rounded-lg">
+              No starting players added
+            </p>
+          )}
         </div>
-      ) : (
-        <p className="text-sm text-muted-foreground text-center py-4 border border-dashed rounded-lg">
-          No players added yet
-        </p>
-      )}
-    </div>
-  );
+        
+        {/* Bench / Substitutes Section */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <h4 className="font-medium text-sm text-muted-foreground">🪑 Bench / Substitutes</h4>
+              <Badge variant="secondary" className="text-[10px]">
+                {benchPlayers.length}
+              </Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={() => {
+                  setActiveTeam(team.id);
+                  handleOpenDialog(undefined, 'bench');
+                }}
+              >
+                <Plus className="w-3 h-3 mr-1" />
+                Add to Bench
+              </Button>
+              <Button 
+                size="sm" 
+                variant="ghost" 
+                onClick={() => handleOpenBulkDialog(team.id, 'bench')}
+              >
+                <Upload className="w-3 h-3 mr-1" />
+                Bulk
+              </Button>
+            </div>
+          </div>
+          {benchPlayers.length > 0 ? (
+            <div className="space-y-2">
+              {benchPlayers.map(p => renderPlayerCard(p))}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-3 border border-dashed rounded-lg">
+              No bench players added
+            </p>
+          )}
+        </div>
+        
+        {/* Full Squad Bulk Add */}
+        <div className="pt-2 border-t">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            className="w-full"
+            onClick={() => handleOpenBulkDialog(team.id, 'squad')}
+          >
+            <Upload className="w-3 h-3 mr-2" />
+            Bulk Add Full Squad (as Bench)
+          </Button>
+        </div>
+      </div>
+    );
+  };
 
   if (isLoading) {
     return (
@@ -521,6 +647,42 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
                 />
               </div>
             </div>
+            
+            {editingPlayer && (
+              <div className="flex items-center justify-between rounded-lg border p-3 mt-4">
+                <Label className="text-sm">Bench Player</Label>
+                <Switch
+                  checked={form.is_bench}
+                  onCheckedChange={(checked) => setForm({ ...form, is_bench: checked })}
+                />
+              </div>
+            )}
+            
+            {!editingPlayer && (
+              <div className="space-y-2 pt-2">
+                <Label className="text-sm">Add to:</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={addCategory === 'starting_xi' ? 'default' : 'outline'}
+                    onClick={() => setAddCategory('starting_xi')}
+                    className="flex-1"
+                  >
+                    Starting XI
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={addCategory === 'bench' ? 'default' : 'outline'}
+                    onClick={() => setAddCategory('bench')}
+                    className="flex-1"
+                  >
+                    Bench
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
@@ -547,6 +709,39 @@ const FootballPlayingXIManager = ({ matchId, teamA, teamB }: FootballPlayingXIMa
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label className="text-sm">Add to:</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bulkAddCategory === 'starting_xi' ? 'default' : 'outline'}
+                  onClick={() => setBulkAddCategory('starting_xi')}
+                  className="flex-1"
+                >
+                  Starting XI
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bulkAddCategory === 'bench' ? 'default' : 'outline'}
+                  onClick={() => setBulkAddCategory('bench')}
+                  className="flex-1"
+                >
+                  Bench
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bulkAddCategory === 'squad' ? 'default' : 'outline'}
+                  onClick={() => setBulkAddCategory('squad')}
+                  className="flex-1"
+                >
+                  Full Squad
+                </Button>
+              </div>
+            </div>
+            
             <div className="space-y-2">
               <Label>Player Names (one per line)</Label>
               <Textarea
