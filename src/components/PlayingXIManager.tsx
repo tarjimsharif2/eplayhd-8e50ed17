@@ -198,8 +198,10 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     is_wicket_keeper: false,
     batting_order: null as number | null,
     change_status: '' as string,
+    is_bench: true, // Default to bench/squad, not playing XI
   });
   const [bulkText, setBulkText] = useState('');
+  const [bulkAddType, setBulkAddType] = useState<'playing_xi' | 'bench' | 'squad'>('squad');
 
   // Fetch previous matches with same teams
   const { data: previousMatches, isLoading: loadingPreviousMatches } = useQuery({
@@ -422,10 +424,11 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
       is_wicket_keeper: false,
       batting_order: null,
       change_status: '',
+      is_bench: true, // Default to bench/squad
     });
   };
 
-  const handleOpenDialog = (player?: Player) => {
+  const handleOpenDialog = (player?: Player, addToBench: boolean = true) => {
     if (player) {
       setEditingPlayer(player);
       setActiveTeam(player.team_id);
@@ -437,9 +440,11 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         is_wicket_keeper: player.is_wicket_keeper,
         batting_order: player.batting_order,
         change_status: player.change_status || '',
+        is_bench: player.is_bench ?? true,
       });
     } else {
       resetForm();
+      setForm(prev => ({ ...prev, is_bench: addToBench }));
     }
     setDialogOpen(true);
   };
@@ -569,6 +574,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
           is_vice_captain: form.is_vice_captain,
           is_wicket_keeper: form.is_wicket_keeper,
           batting_order: form.batting_order,
+          is_bench: form.is_bench,
         });
         toast({ title: "Player updated successfully" });
       } else {
@@ -581,8 +587,9 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
           is_vice_captain: form.is_vice_captain,
           is_wicket_keeper: form.is_wicket_keeper,
           batting_order: form.batting_order,
+          is_bench: form.is_bench,
         });
-        toast({ title: "Player added successfully" });
+        toast({ title: form.is_bench ? "Player added to Squad" : "Player added to Playing XI" });
       }
       setDialogOpen(false);
       resetForm();
@@ -600,15 +607,19 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
     }
 
     const currentTeamPlayers = activeTeam === teamA.id ? teamAPlayers : teamBPlayers;
-    const availableSlots = 11 - currentTeamPlayers.length;
-
-    if (lines.length > availableSlots) {
-      toast({ 
-        title: "Error", 
-        description: `Only ${availableSlots} slots available. You entered ${lines.length} players.`, 
-        variant: "destructive" 
-      });
-      return;
+    const currentPlayingXI = currentTeamPlayers.filter(p => !p.is_bench).length;
+    
+    // For Playing XI mode, check if we have space
+    if (bulkAddType === 'playing_xi') {
+      const availableSlots = 11 - currentPlayingXI;
+      if (lines.length > availableSlots) {
+        toast({ 
+          title: "Error", 
+          description: `Only ${availableSlots} Playing XI slots available. You entered ${lines.length} players.`, 
+          variant: "destructive" 
+        });
+        return;
+      }
     }
 
     const playersToAdd: Omit<Player, 'id'>[] = lines.map((name, index) => {
@@ -640,14 +651,17 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
         is_vice_captain: isViceCaptain,
         is_wicket_keeper: isWicketKeeper,
         batting_order: currentTeamPlayers.length + index + 1,
+        is_bench: bulkAddType !== 'playing_xi', // If playing_xi, is_bench = false; else true
       };
     });
 
     try {
       await bulkCreatePlayers.mutateAsync(playersToAdd);
-      toast({ title: `${playersToAdd.length} players added successfully` });
+      const typeLabel = bulkAddType === 'playing_xi' ? 'Playing XI' : 'Squad/Bench';
+      toast({ title: `${playersToAdd.length} players added to ${typeLabel}` });
       setBulkDialogOpen(false);
       setBulkText('');
+      setBulkAddType('squad');
     } catch (error: any) {
       toast({ title: "Error", description: error.message, variant: "destructive" });
     }
@@ -1198,6 +1212,33 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Add to Playing XI or Squad selection */}
+            {!editingPlayer && (
+              <div className="space-y-2">
+                <Label>Add to</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={!form.is_bench ? "default" : "outline"}
+                    onClick={() => setForm({ ...form, is_bench: false })}
+                    className="flex-1"
+                  >
+                    Playing XI
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={form.is_bench ? "default" : "outline"}
+                    onClick={() => setForm({ ...form, is_bench: true })}
+                    className="flex-1"
+                  >
+                    Full Squad / Bench
+                  </Button>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Player Name *</Label>
               <Input
@@ -1276,6 +1317,20 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
                 <Label htmlFor="is_wk" className="text-sm">WK</Label>
               </div>
             </div>
+
+            {/* Edit mode: Toggle Playing XI / Bench */}
+            {editingPlayer && (
+              <div className="flex items-center space-x-2 pt-2 border-t">
+                <Switch
+                  id="is_bench_edit"
+                  checked={!form.is_bench}
+                  onCheckedChange={(checked) => setForm({ ...form, is_bench: !checked })}
+                />
+                <Label htmlFor="is_bench_edit" className="text-sm">
+                  {form.is_bench ? 'In Bench/Squad' : 'In Playing XI'}
+                </Label>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -1295,7 +1350,13 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
       </Dialog>
 
       {/* Bulk Add Dialog */}
-      <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
+      <Dialog open={bulkDialogOpen} onOpenChange={(open) => {
+        setBulkDialogOpen(open);
+        if (!open) {
+          setBulkAddType('squad');
+          setBulkText('');
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -1303,13 +1364,43 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Add type selection */}
+            <div className="space-y-2">
+              <Label>Add to</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bulkAddType === 'playing_xi' ? "default" : "outline"}
+                  onClick={() => setBulkAddType('playing_xi')}
+                  className="flex-1"
+                >
+                  Playing XI
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={bulkAddType === 'squad' ? "default" : "outline"}
+                  onClick={() => setBulkAddType('squad')}
+                  className="flex-1"
+                >
+                  Full Squad / Bench
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {bulkAddType === 'playing_xi' 
+                  ? 'Players will be added directly to Playing XI (max 11)' 
+                  : 'Players will be added to the squad (can be moved to XI later)'}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label>Player Names (one per line)</Label>
               <Textarea
                 placeholder={`Virat Kohli (C)\nRohit Sharma (VC)\nRishabh Pant (WK)\nJasprit Bumrah\n...`}
                 value={bulkText}
                 onChange={(e) => setBulkText(e.target.value)}
-                rows={11}
+                rows={10}
                 className="font-mono text-sm"
               />
               <p className="text-xs text-muted-foreground">
@@ -1328,7 +1419,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId }: PlayingXIM
               {bulkCreatePlayers.isPending && (
                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
               )}
-              Add Players
+              Add to {bulkAddType === 'playing_xi' ? 'Playing XI' : 'Squad'}
             </Button>
           </DialogFooter>
         </DialogContent>
