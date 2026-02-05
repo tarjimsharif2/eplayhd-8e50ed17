@@ -1,4 +1,4 @@
-import { useEffect, useRef, useMemo, forwardRef } from 'react';
+import { useEffect, useRef, useMemo, forwardRef, useState } from 'react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { trackAdImpression } from '@/hooks/useGoogleAnalytics';
 
@@ -12,6 +12,7 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   const containerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
+  const [hasContent, setHasContent] = useState(false);
 
   const adCode = useMemo(() => {
     if (!settings?.ads_enabled) return null;
@@ -96,6 +97,7 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
+    setHasContent(false);
   }, [position]);
 
   // Don't render anything if no ad code
@@ -110,7 +112,6 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
       }}
       className={`ad-slot ad-slot-${position} ${className}`}
       style={{
-        minHeight: position === 'sidebar' ? '250px' : position === 'in_article' ? '100px' : '90px',
         width: '100%',
         overflow: 'visible',
         display: 'block',

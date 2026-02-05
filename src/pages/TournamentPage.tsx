@@ -38,6 +38,11 @@ const TournamentPage = () => {
       sidebar: positions?.sidebar !== false,
       before_points_table: positions?.before_points_table !== false,
       after_points_table: positions?.after_points_table !== false,
+      before_teams: positions?.before_teams !== false,
+      after_teams: positions?.after_teams !== false,
+      before_about: positions?.before_about !== false,
+      after_about: positions?.after_about !== false,
+      between_sections: positions?.between_sections !== false,
     };
   }, [publicSettings]);
   
@@ -341,7 +346,19 @@ const TournamentPage = () => {
           </motion.div>
 
           {/* Participating Teams - Before Matches position */}
-          {teamsPosition === 'before_matches' && <ParticipatingTeamsSection />}
+          {teamsPosition === 'before_matches' && (
+            <>
+              {/* Ad - Before Teams */}
+              {tournamentAdPositions.before_teams && (
+                <MultiAdSlot position="tournament_before_teams" className="my-4" />
+              )}
+              <ParticipatingTeamsSection />
+              {/* Ad - After Teams */}
+              {tournamentAdPositions.after_teams && (
+                <MultiAdSlot position="tournament_after_teams" className="my-4" />
+              )}
+            </>
+          )}
 
           {/* Tournament Ad - Before Matches */}
           {tournamentAdPositions.before_matches && (
@@ -439,7 +456,17 @@ const TournamentPage = () => {
           </motion.div>
 
           {/* Participating Teams - After Matches position */}
-          {teamsPosition === 'after_matches' && <ParticipatingTeamsSection />}
+          {teamsPosition === 'after_matches' && (
+            <>
+              {tournamentAdPositions.before_teams && (
+                <MultiAdSlot position="tournament_before_teams" className="my-4" />
+              )}
+              <ParticipatingTeamsSection />
+              {tournamentAdPositions.after_teams && (
+                <MultiAdSlot position="tournament_after_teams" className="my-4" />
+              )}
+            </>
+          )}
 
           {/* Tournament Ad - After Matches */}
           {tournamentAdPositions.after_matches && (
@@ -451,6 +478,11 @@ const TournamentPage = () => {
             <div className="hidden lg:block my-6">
               <MultiAdSlot position="tournament_sidebar" fallbackPosition="sidebar" className="sticky top-4" />
             </div>
+          )}
+
+          {/* Ad - Between Sections */}
+          {tournamentAdPositions.between_sections && (
+            <MultiAdSlot position="tournament_between_sections" className="my-4" />
           )}
 
           {/* Tournament Ad - Before Points Table */}
@@ -469,10 +501,35 @@ const TournamentPage = () => {
           )}
 
           {/* Participating Teams - After Points Table position */}
-          {teamsPosition === 'after_points_table' && <ParticipatingTeamsSection />}
+          {teamsPosition === 'after_points_table' && (
+            <>
+              {tournamentAdPositions.before_teams && (
+                <MultiAdSlot position="tournament_before_teams" className="my-4" />
+              )}
+              <ParticipatingTeamsSection />
+              {tournamentAdPositions.after_teams && (
+                <MultiAdSlot position="tournament_after_teams" className="my-4" />
+              )}
+            </>
+          )}
 
           {/* Participating Teams - Before About position */}
-          {teamsPosition === 'before_about' && <ParticipatingTeamsSection />}
+          {teamsPosition === 'before_about' && (
+            <>
+              {tournamentAdPositions.before_teams && (
+                <MultiAdSlot position="tournament_before_teams" className="my-4" />
+              )}
+              <ParticipatingTeamsSection />
+              {tournamentAdPositions.after_teams && (
+                <MultiAdSlot position="tournament_after_teams" className="my-4" />
+              )}
+            </>
+          )}
+
+          {/* Ad - Before About */}
+          {tournamentAdPositions.before_about && tournament.description && (
+            <MultiAdSlot position="tournament_before_about" className="my-4" />
+          )}
 
           {/* Tournament Description */}
           {tournament.description && (
@@ -506,8 +563,23 @@ const TournamentPage = () => {
             </motion.div>
           )}
 
+          {/* Ad - After About */}
+          {tournamentAdPositions.after_about && tournament.description && (
+            <MultiAdSlot position="tournament_after_about" className="my-4" />
+          )}
+
           {/* Participating Teams - After About position */}
-          {teamsPosition === 'after_about' && <ParticipatingTeamsSection />}
+          {teamsPosition === 'after_about' && (
+            <>
+              {tournamentAdPositions.before_teams && (
+                <MultiAdSlot position="tournament_before_teams" className="my-4" />
+              )}
+              <ParticipatingTeamsSection />
+              {tournamentAdPositions.after_teams && (
+                <MultiAdSlot position="tournament_after_teams" className="my-4" />
+              )}
+            </>
+          )}
         </div>
       </main>
 

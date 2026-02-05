@@ -1,4 +1,5 @@
 import { useEffect, useRef, useMemo } from 'react';
+import { useState } from 'react';
 import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 import { trackAdImpression } from '@/hooks/useGoogleAnalytics';
 
@@ -19,11 +20,22 @@ interface MultipleAdCodes {
   match_after_player: AdCodeSlot[];
   match_sidebar: AdCodeSlot[];
   match_below_info: AdCodeSlot[];
+  match_after_servers: AdCodeSlot[];
+  match_after_score: AdCodeSlot[];
+  match_before_scoreboard: AdCodeSlot[];
+  match_after_scoreboard: AdCodeSlot[];
+  match_before_playingxi: AdCodeSlot[];
+  match_after_playingxi: AdCodeSlot[];
   tournament_before_matches: AdCodeSlot[];
   tournament_after_matches: AdCodeSlot[];
   tournament_sidebar: AdCodeSlot[];
   tournament_before_points: AdCodeSlot[];
   tournament_after_points: AdCodeSlot[];
+  tournament_before_teams: AdCodeSlot[];
+  tournament_after_teams: AdCodeSlot[];
+  tournament_before_about: AdCodeSlot[];
+  tournament_after_about: AdCodeSlot[];
+  tournament_between_sections: AdCodeSlot[];
 }
 
 interface MultiAdSlotProps {
@@ -37,6 +49,7 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
   const containerRef = useRef<HTMLDivElement>(null);
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
+  const [hasContent, setHasContent] = useState(false);
 
   // Get ad slots for this position
   const adSlots = useMemo(() => {
@@ -143,6 +156,7 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
     // Cleanup on unmount
     return () => {
       hasExecuted.current = false;
+      setHasContent(false);
     };
   }, [adSlots, legacyAdCode, position]);
 
@@ -150,6 +164,7 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
+    setHasContent(false);
   }, [position]);
 
   // Don't render anything if no ad codes
@@ -160,7 +175,6 @@ const MultiAdSlot = ({ position, className = '', fallbackPosition }: MultiAdSlot
       ref={containerRef}
       className={`multi-ad-slot multi-ad-slot-${position} ${className}`}
       style={{
-        minHeight: position.includes('sidebar') ? '250px' : '100px',
         width: '100%',
         overflow: 'visible',
         display: 'block',

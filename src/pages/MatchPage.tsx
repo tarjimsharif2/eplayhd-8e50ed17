@@ -1,10 +1,11 @@
 import { useParams } from 'react-router-dom';
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useMemo } from 'react';
 import Header from '@/components/Header';
 import Footer from '@/components/Footer';
 import VideoPlayer from '@/components/VideoPlayer';
 import SEOHead from '@/components/SEOHead';
 import AdSlot from '@/components/AdSlot';
+import MultiAdSlot from '@/components/MultiAdSlot';
 import PlayingXI from '@/components/PlayingXI';
 import PointsTable from '@/components/PointsTable';
 import ManualScoreCard from '@/components/ManualScoreCard';
@@ -17,6 +18,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { useStreamingServers, StreamingServer } from '@/hooks/useStreamingServers';
 import { useMarkServerNotWorking, useMarkServerWorking } from '@/hooks/useStreamServerStatus';
+import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,10 +36,28 @@ const MatchPage = () => {
   const [hasPointsTable, setHasPointsTable] = useState(false);
   
   const { data: siteSettings } = useSiteSettings();
+  const { data: publicSettings } = usePublicSiteSettings();
   const { data: servers, isLoading: serversLoading } = useStreamingServers(match?.id || '');
   const markNotWorking = useMarkServerNotWorking();
   const markWorking = useMarkServerWorking();
   
+  // Get match page ad positions
+  const matchAdPositions = useMemo(() => {
+    const positions = (publicSettings as any)?.match_page_ad_positions;
+    return {
+      before_player: positions?.before_player !== false,
+      after_player: positions?.after_player !== false,
+      sidebar: positions?.sidebar !== false,
+      below_info: positions?.below_info !== false,
+      after_servers: positions?.after_servers !== false,
+      after_score: positions?.after_score !== false,
+      before_scoreboard: positions?.before_scoreboard !== false,
+      after_scoreboard: positions?.after_scoreboard !== false,
+      before_playingxi: positions?.before_playingxi !== false,
+      after_playingxi: positions?.after_playingxi !== false,
+    };
+  }, [publicSettings]);
+
   // Real-time updates for match and innings
   const { realtimeMatch } = useRealtimeMatch(match?.id);
 
@@ -299,8 +319,18 @@ const MatchPage = () => {
             </motion.div>
           )}
 
+          {/* Ad - After Servers */}
+          {matchAdPositions.after_servers && (
+            <MultiAdSlot position="match_after_servers" className="my-4" />
+          )}
+
           {/* Sponsor Notice - Before Scoreboard */}
           <SponsorNotice position="before_scoreboard" matchId={match.id} />
+
+          {/* Ad - Before Scoreboard */}
+          {matchAdPositions.before_scoreboard && (
+            <MultiAdSlot position="match_before_scoreboard" className="my-4" />
+          )}
 
           {/* Live Score from API Cricket or ESPN - Now positioned under server selection */}
           {((match as any)?.score_source === 'api_cricket' || (match as any)?.score_source === 'espn' || match?.api_score_enabled) && match.team_a && match.team_b && (
@@ -313,6 +343,11 @@ const MatchPage = () => {
               matchId={match.id}
               matchStatus={match.status}
             />
+          )}
+
+          {/* Ad - After Score */}
+          {matchAdPositions.after_score && (
+            <MultiAdSlot position="match_after_score" className="my-4" />
           )}
 
           {/* Football Match Details - Lineups, Goals, Substitutions */}
@@ -330,9 +365,14 @@ const MatchPage = () => {
             />
           )}
 
+          {/* Ad - Before Playing XI */}
+          {matchAdPositions.before_playingxi && (
+            <MultiAdSlot position="match_before_playingxi" className="my-4" />
+          )}
+
           {/* Playing XI Section - For non-football matches (only if show_playing_xi is enabled) */}
           {!isFootball && teamA && teamB && (match as any).show_playing_xi && (
-            <div className="mb-6">
+            <>
               <PlayingXI
                 matchId={match.id}
                 teamAId={teamA.id}
@@ -342,7 +382,11 @@ const MatchPage = () => {
                 teamALogo={teamA.logo_url}
                 teamBLogo={teamB.logo_url}
               />
-            </div>
+              {/* Ad - After Playing XI */}
+              {matchAdPositions.after_playingxi && (
+                <MultiAdSlot position="match_after_playingxi" className="my-4" />
+              )}
+            </>
           )}
 
           {/* Score Card - Shows innings data (always shown for cricket) */}
@@ -366,13 +410,17 @@ const MatchPage = () => {
             />
           )}
 
-          {/* In-Article Ad - After Scoreboard */}
-          <AdSlot position="in_article" className="my-6" />
+          {/* Ad - After Scoreboard */}
+          {matchAdPositions.after_scoreboard && (
+            <MultiAdSlot position="match_after_scoreboard" className="my-4" />
+          )}
 
           {/* Sidebar Ad - Desktop Only */}
-          <div className="hidden lg:block my-6">
-            <AdSlot position="sidebar" className="sticky top-4" />
-          </div>
+          {matchAdPositions.sidebar && (
+            <div className="hidden lg:block my-6">
+              <MultiAdSlot position="match_sidebar" fallbackPosition="sidebar" className="sticky top-4" />
+            </div>
+          )}
 
           {/* Match Header Card - Show here ONLY if no Points Table exists */}
           {!hasPointsTable && (

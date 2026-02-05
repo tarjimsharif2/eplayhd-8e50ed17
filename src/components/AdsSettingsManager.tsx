@@ -17,6 +17,12 @@ interface AdPositions {
   after_player: boolean;
   sidebar: boolean;
   below_info: boolean;
+  after_servers: boolean;
+  after_score: boolean;
+  before_scoreboard: boolean;
+  after_scoreboard: boolean;
+  before_playingxi: boolean;
+  after_playingxi: boolean;
 }
 
 interface TournamentAdPositions {
@@ -25,6 +31,11 @@ interface TournamentAdPositions {
   sidebar: boolean;
   before_points_table: boolean;
   after_points_table: boolean;
+  before_teams: boolean;
+  after_teams: boolean;
+  before_about: boolean;
+  after_about: boolean;
+  between_sections: boolean;
 }
 
 interface AdCodeSlot {
@@ -44,11 +55,22 @@ interface MultipleAdCodes {
   match_after_player: AdCodeSlot[];
   match_sidebar: AdCodeSlot[];
   match_below_info: AdCodeSlot[];
+  match_after_servers: AdCodeSlot[];
+  match_after_score: AdCodeSlot[];
+  match_before_scoreboard: AdCodeSlot[];
+  match_after_scoreboard: AdCodeSlot[];
+  match_before_playingxi: AdCodeSlot[];
+  match_after_playingxi: AdCodeSlot[];
   tournament_before_matches: AdCodeSlot[];
   tournament_after_matches: AdCodeSlot[];
   tournament_sidebar: AdCodeSlot[];
   tournament_before_points: AdCodeSlot[];
   tournament_after_points: AdCodeSlot[];
+  tournament_before_teams: AdCodeSlot[];
+  tournament_after_teams: AdCodeSlot[];
+  tournament_before_about: AdCodeSlot[];
+  tournament_after_about: AdCodeSlot[];
+  tournament_between_sections: AdCodeSlot[];
 }
 
 const generateId = () => Math.random().toString(36).substr(2, 9);
@@ -63,11 +85,22 @@ const defaultMultipleAdCodes: MultipleAdCodes = {
   match_after_player: [],
   match_sidebar: [],
   match_below_info: [],
+  match_after_servers: [],
+  match_after_score: [],
+  match_before_scoreboard: [],
+  match_after_scoreboard: [],
+  match_before_playingxi: [],
+  match_after_playingxi: [],
   tournament_before_matches: [],
   tournament_after_matches: [],
   tournament_sidebar: [],
   tournament_before_points: [],
   tournament_after_points: [],
+  tournament_before_teams: [],
+  tournament_after_teams: [],
+  tournament_before_about: [],
+  tournament_after_about: [],
+  tournament_between_sections: [],
 };
 
 const AdsSettingsManager = () => {
@@ -89,6 +122,12 @@ const AdsSettingsManager = () => {
       after_player: true,
       sidebar: true,
       below_info: true,
+      after_servers: true,
+      after_score: true,
+      before_scoreboard: true,
+      after_scoreboard: true,
+      before_playingxi: true,
+      after_playingxi: true,
     } as AdPositions,
     tournament_page_ad_positions: {
       before_matches: true,
@@ -96,6 +135,11 @@ const AdsSettingsManager = () => {
       sidebar: true,
       before_points_table: true,
       after_points_table: true,
+      before_teams: true,
+      after_teams: true,
+      before_about: true,
+      after_about: true,
+      between_sections: true,
     } as TournamentAdPositions,
     multiple_ad_codes: defaultMultipleAdCodes,
   });
@@ -119,6 +163,12 @@ const AdsSettingsManager = () => {
           after_player: true,
           sidebar: true,
           below_info: true,
+          after_servers: true,
+          after_score: true,
+          before_scoreboard: true,
+          after_scoreboard: true,
+          before_playingxi: true,
+          after_playingxi: true,
         },
         tournament_page_ad_positions: settings.tournament_page_ad_positions || {
           before_matches: true,
@@ -126,6 +176,11 @@ const AdsSettingsManager = () => {
           sidebar: true,
           before_points_table: true,
           after_points_table: true,
+          before_teams: true,
+          after_teams: true,
+          before_about: true,
+          after_about: true,
+          between_sections: true,
         },
         multiple_ad_codes: settings.multiple_ad_codes || defaultMultipleAdCodes,
       });
@@ -504,6 +559,78 @@ const AdsSettingsManager = () => {
                     <p className="text-sm text-muted-foreground">Display ad after match information section</p>
                   </div>
                 </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="after_servers"
+                    checked={form.match_page_ad_positions.after_servers}
+                    onCheckedChange={(checked) => updateMatchAdPosition('after_servers', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="after_servers" className="cursor-pointer">After Servers</Label>
+                    <p className="text-sm text-muted-foreground">Display ad after server selection buttons</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="after_score"
+                    checked={form.match_page_ad_positions.after_score}
+                    onCheckedChange={(checked) => updateMatchAdPosition('after_score', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="after_score" className="cursor-pointer">After Live Score</Label>
+                    <p className="text-sm text-muted-foreground">Display ad after live score section</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="before_scoreboard"
+                    checked={form.match_page_ad_positions.before_scoreboard}
+                    onCheckedChange={(checked) => updateMatchAdPosition('before_scoreboard', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="before_scoreboard" className="cursor-pointer">Before Scoreboard</Label>
+                    <p className="text-sm text-muted-foreground">Display ad before full scoreboard</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="after_scoreboard"
+                    checked={form.match_page_ad_positions.after_scoreboard}
+                    onCheckedChange={(checked) => updateMatchAdPosition('after_scoreboard', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="after_scoreboard" className="cursor-pointer">After Scoreboard</Label>
+                    <p className="text-sm text-muted-foreground">Display ad after full scoreboard</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="before_playingxi"
+                    checked={form.match_page_ad_positions.before_playingxi}
+                    onCheckedChange={(checked) => updateMatchAdPosition('before_playingxi', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="before_playingxi" className="cursor-pointer">Before Playing XI</Label>
+                    <p className="text-sm text-muted-foreground">Display ad before playing XI section</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="after_playingxi"
+                    checked={form.match_page_ad_positions.after_playingxi}
+                    onCheckedChange={(checked) => updateMatchAdPosition('after_playingxi', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="after_playingxi" className="cursor-pointer">After Playing XI</Label>
+                    <p className="text-sm text-muted-foreground">Display ad after playing XI section</p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -518,6 +645,12 @@ const AdsSettingsManager = () => {
               {renderAdSlots('match_after_player', 'After Player Ads')}
               {renderAdSlots('match_sidebar', 'Sidebar Ads (Match)')}
               {renderAdSlots('match_below_info', 'Below Match Info Ads')}
+              {renderAdSlots('match_after_servers', 'After Servers Ads')}
+              {renderAdSlots('match_after_score', 'After Live Score Ads')}
+              {renderAdSlots('match_before_scoreboard', 'Before Scoreboard Ads')}
+              {renderAdSlots('match_after_scoreboard', 'After Scoreboard Ads')}
+              {renderAdSlots('match_before_playingxi', 'Before Playing XI Ads')}
+              {renderAdSlots('match_after_playingxi', 'After Playing XI Ads')}
             </CardContent>
           </Card>
         </TabsContent>
@@ -590,6 +723,66 @@ const AdsSettingsManager = () => {
                     <p className="text-sm text-muted-foreground">Display ad below the points table</p>
                   </div>
                 </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="before_teams"
+                    checked={form.tournament_page_ad_positions.before_teams}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('before_teams', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="before_teams" className="cursor-pointer">Before Teams</Label>
+                    <p className="text-sm text-muted-foreground">Display ad before participating teams</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="after_teams"
+                    checked={form.tournament_page_ad_positions.after_teams}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('after_teams', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="after_teams" className="cursor-pointer">After Teams</Label>
+                    <p className="text-sm text-muted-foreground">Display ad after participating teams</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="before_about"
+                    checked={form.tournament_page_ad_positions.before_about}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('before_about', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="before_about" className="cursor-pointer">Before About</Label>
+                    <p className="text-sm text-muted-foreground">Display ad before about tournament</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="after_about"
+                    checked={form.tournament_page_ad_positions.after_about}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('after_about', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="after_about" className="cursor-pointer">After About</Label>
+                    <p className="text-sm text-muted-foreground">Display ad after about tournament</p>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-3">
+                  <Checkbox
+                    id="between_sections"
+                    checked={form.tournament_page_ad_positions.between_sections}
+                    onCheckedChange={(checked) => updateTournamentAdPosition('between_sections', !!checked)}
+                  />
+                  <div>
+                    <Label htmlFor="between_sections" className="cursor-pointer">Between Sections</Label>
+                    <p className="text-sm text-muted-foreground">Display ads between major sections</p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -605,6 +798,11 @@ const AdsSettingsManager = () => {
               {renderAdSlots('tournament_sidebar', 'Sidebar Ads (Tournament)')}
               {renderAdSlots('tournament_before_points', 'Before Points Table Ads')}
               {renderAdSlots('tournament_after_points', 'After Points Table Ads')}
+              {renderAdSlots('tournament_before_teams', 'Before Teams Ads')}
+              {renderAdSlots('tournament_after_teams', 'After Teams Ads')}
+              {renderAdSlots('tournament_before_about', 'Before About Ads')}
+              {renderAdSlots('tournament_after_about', 'After About Ads')}
+              {renderAdSlots('tournament_between_sections', 'Between Sections Ads')}
             </CardContent>
           </Card>
         </TabsContent>
