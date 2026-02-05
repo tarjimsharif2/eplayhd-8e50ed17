@@ -115,9 +115,9 @@ const ChannelsPage = () => {
                       </span>
                       
                       {/* Watch Badge */}
-                      <span className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-red-500">
-                        <span className="w-1 h-1 bg-red-500 rounded-full animate-pulse" />
-                        Watch Live
+                      <span className="mt-1 flex items-center gap-1 text-[9px] font-semibold text-red-500 animate-pulse">
+                        <span className="w-1 h-1 bg-red-500 rounded-full" />
+                        Watch
                       </span>
                     </div>
                   </Link>
