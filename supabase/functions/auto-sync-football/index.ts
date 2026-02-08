@@ -361,16 +361,16 @@ serve(async (req) => {
 
         // Sync lineup data
         if (lineupTeamA?.length || lineupTeamB?.length) {
-          // Count existing players per team to detect incomplete syncs
+          // Count existing players per team to detect incomplete syncs or missing images
           const { data: existingTeamAPlayers } = await supabase
             .from('match_playing_xi')
-            .select('id')
+            .select('id, player_image')
             .eq('match_id', dbMatch.id)
             .eq('team_id', teamAId);
           
           const { data: existingTeamBPlayers } = await supabase
             .from('match_playing_xi')
-            .select('id')
+            .select('id, player_image')
             .eq('match_id', dbMatch.id)
             .eq('team_id', teamBId);
           
@@ -379,22 +379,29 @@ serve(async (req) => {
           const newTeamACount = lineupTeamA?.length || 0;
           const newTeamBCount = lineupTeamB?.length || 0;
           
-          // Re-sync if: no data exists, OR existing data is incomplete and new data has more players
-          const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || (existingTeamACount < 11 && newTeamACount > existingTeamACount));
-          const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || (existingTeamBCount < 11 && newTeamBCount > existingTeamBCount));
+          // Check if existing players are missing images but new data has them
+          const teamAMissingImages = existingTeamACount > 0 && (existingTeamAPlayers || []).filter(p => !p.player_image).length > existingTeamACount / 2;
+          const teamBMissingImages = existingTeamBCount > 0 && (existingTeamBPlayers || []).filter(p => !p.player_image).length > existingTeamBCount / 2;
+          const newTeamAHasImages = (lineupTeamA || []).some(p => !!p.playerImage);
+          const newTeamBHasImages = (lineupTeamB || []).some(p => !!p.playerImage);
+          
+          // Re-sync if: no data exists, OR existing data is incomplete, OR missing images but new data has them
+          const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || (existingTeamACount < 11 && newTeamACount > existingTeamACount) || (teamAMissingImages && newTeamAHasImages));
+          const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || (existingTeamBCount < 11 && newTeamBCount > existingTeamBCount) || (teamBMissingImages && newTeamBHasImages));
           
           if (needsTeamASync || needsTeamBSync) {
+            console.log(`[auto-sync-football] Lineup sync needed for ${teamAName} vs ${teamBName}: TeamA=${needsTeamASync} (missing imgs: ${teamAMissingImages}, new has imgs: ${newTeamAHasImages}), TeamB=${needsTeamBSync} (missing imgs: ${teamBMissingImages}, new has imgs: ${newTeamBHasImages})`);
             const lineupInserts = [];
             
             if (needsTeamASync && lineupTeamA) {
-              // Delete existing incomplete data for this team
+              // Delete existing data for this team before re-inserting
               if (existingTeamACount > 0) {
                 await supabase
                   .from('match_playing_xi')
                   .delete()
                   .eq('match_id', dbMatch.id)
                   .eq('team_id', teamAId);
-                console.log(`[auto-sync-football] Deleted ${existingTeamACount} incomplete players for ${teamAName}, replacing with ${newTeamACount}`);
+                console.log(`[auto-sync-football] Deleted ${existingTeamACount} players for ${teamAName}, replacing with ${newTeamACount} (image re-sync: ${teamAMissingImages && newTeamAHasImages})`);
               }
               
               for (let i = 0; i < lineupTeamA.length; i++) {
@@ -413,14 +420,14 @@ serve(async (req) => {
             }
             
             if (needsTeamBSync && lineupTeamB) {
-              // Delete existing incomplete data for this team
+              // Delete existing data for this team before re-inserting
               if (existingTeamBCount > 0) {
                 await supabase
                   .from('match_playing_xi')
                   .delete()
                   .eq('match_id', dbMatch.id)
                   .eq('team_id', teamBId);
-                console.log(`[auto-sync-football] Deleted ${existingTeamBCount} incomplete players for ${teamBName}, replacing with ${newTeamBCount}`);
+                console.log(`[auto-sync-football] Deleted ${existingTeamBCount} players for ${teamBName}, replacing with ${newTeamBCount} (image re-sync: ${teamBMissingImages && newTeamBHasImages})`);
               }
               
               for (let i = 0; i < lineupTeamB.length; i++) {
