@@ -7,7 +7,7 @@ import { MapPin, Clock, Star, Calendar } from "lucide-react";
 import TossCoin from "@/components/TossCoin";
 import InningsDisplay from "@/components/InningsDisplay";
 import FlipClock from "@/components/FlipClock";
-import FootballTimer from "@/components/FootballTimer";
+
 import { useMatchToss } from "@/hooks/useMatchToss";
 import { formatOvers } from "@/lib/utils";
 
@@ -143,10 +143,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
   const displayStatus = effectiveStatus || match.status;
   const [countdown, setCountdown] = useState<string | null>(null);
   const [localTime, setLocalTime] = useState<string>("");
-  const [displayMinute, setDisplayMinute] = useState<number>(0);
-  const [displaySeconds, setDisplaySeconds] = useState<number>(0);
   const [timezone, setTimezone] = useState<string>("");
-  const minuteReceivedAt = useRef<number>(Date.now());
 
   // Get date label (Today/Tomorrow/Date)
   const dateLabel = useMemo(() => getDateLabel(match.match_start_time, match.match_date), [match.match_start_time, match.match_date]);
@@ -177,39 +174,6 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
     setTimezone(tzAbbr);
   }, []);
 
-  // Live timer for football matches - purely DB-based
-  useEffect(() => {
-    if (displayStatus !== 'live' || !isFootball) return;
-
-    if (match.match_minute != null) {
-      // DB minute available: show it exactly, only cycle seconds 0-59
-      minuteReceivedAt.current = Date.now();
-      setDisplayMinute(match.match_minute);
-      setDisplaySeconds(0);
-
-      const interval = setInterval(() => {
-        const sinceSyncSec = Math.floor((Date.now() - minuteReceivedAt.current) / 1000);
-        // Show DB minute exactly - NO extra minute calculation
-        setDisplayMinute(match.match_minute!);
-        setDisplaySeconds(sinceSyncSec % 60);
-      }, 1000);
-
-      return () => clearInterval(interval);
-    } else if (match.match_start_time) {
-      // Fallback: no match_minute set yet, calculate from start time
-      const updateFromStartTime = () => {
-        const startTime = new Date(match.match_start_time!).getTime();
-        const elapsedSec = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
-        const elapsedMin = Math.floor(elapsedSec / 60);
-        setDisplayMinute(elapsedMin);
-        setDisplaySeconds(elapsedSec % 60);
-      };
-
-      updateFromStartTime();
-      const interval = setInterval(updateFromStartTime, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [displayStatus, isFootball, match.match_minute, match.match_start_time]);
 
   useEffect(() => {
     if (match.match_start_time) {
@@ -475,13 +439,12 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     {/* Score Separator with Match Status */}
                     <div className="flex flex-col items-center">
                       <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
-                      {/* Match time indicators for football */}
-                      {displayStatus === 'live' && (match.match_minute != null || match.match_start_time) && (
+                      {/* Live indicator for football */}
+                      {displayStatus === 'live' && (
                         <div className="flex flex-col items-center gap-0.5 mt-1">
-                          {displayMinute > 90 && (
-                            <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider">Extra Time</span>
-                          )}
-                          <FootballTimer minute={displayMinute} seconds={displaySeconds} />
+                          <Badge className="bg-red-500/20 text-red-500 border-red-500/30 text-[10px] px-2 py-0.5 font-bold animate-pulse">
+                            LIVE
+                          </Badge>
                         </div>
                       )}
                       {/* Full Time indicator for completed matches with match minute */}
