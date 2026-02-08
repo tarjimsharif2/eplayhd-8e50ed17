@@ -468,36 +468,48 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                           // Half Time (paused at 45)
                           if (minute === 45) {
                             return (
-                              <Badge className="mt-1 bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px] px-2 py-0.5 font-bold">
-                                HT
-                              </Badge>
+                              <div className="flex flex-col items-center gap-0.5 mt-1">
+                                <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px] px-2 py-0.5 font-bold">
+                                  HT
+                                </Badge>
+                                <FootballTimer minute={minute} seconds={matchSeconds} />
+                              </div>
                             );
                           }
                           
                           // Full Time pause (90 minutes)
                           if (minute === 90) {
                             return (
-                              <Badge className="mt-1 bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5 font-bold">
-                                FT
-                              </Badge>
+                              <div className="flex flex-col items-center gap-0.5 mt-1">
+                                <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5 font-bold">
+                                  FT
+                                </Badge>
+                                <FootballTimer minute={minute} seconds={matchSeconds} />
+                              </div>
                             );
                           }
                           
                           // Extra Time Half Time (105 minutes)
                           if (minute === 105) {
                             return (
-                              <Badge className="mt-1 bg-orange-500/20 text-orange-500 border-orange-500/30 text-[10px] px-2 py-0.5 font-bold">
-                                ET HT
-                              </Badge>
+                              <div className="flex flex-col items-center gap-0.5 mt-1">
+                                <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 text-[10px] px-2 py-0.5 font-bold">
+                                  ET HT
+                                </Badge>
+                                <FootballTimer minute={minute} seconds={matchSeconds} />
+                              </div>
                             );
                           }
                           
                           // After Extra Time (120+ minutes)
                           if (minute >= 120) {
                             return (
-                              <Badge className="mt-1 bg-purple-500/20 text-purple-500 border-purple-500/30 text-[10px] px-2 py-0.5 font-bold">
-                                AET
-                              </Badge>
+                              <div className="flex flex-col items-center gap-0.5 mt-1">
+                                <Badge className="bg-purple-500/20 text-purple-500 border-purple-500/30 text-[10px] px-2 py-0.5 font-bold">
+                                  AET
+                                </Badge>
+                                <FootballTimer minute={minute} seconds={matchSeconds} />
+                              </div>
                             );
                           }
                           
