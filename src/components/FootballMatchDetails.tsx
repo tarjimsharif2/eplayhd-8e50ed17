@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Goal, ArrowRightLeft, Shirt, Clock, User } from 'lucide-react';
+import { Users, Goal, ArrowRightLeft, Shirt, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Team, GoalEvent } from '@/hooks/useSportsData';
+import FootballTimer from '@/components/FootballTimer';
 
 const PlayerAvatar = ({ player }: { player: Player }) => {
   const [imgError, setImgError] = useState(false);
@@ -132,6 +133,25 @@ const getPositionColor = (position: string | null): string => {
 const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB, scoreA, scoreB, matchMinute, matchStatus }: FootballMatchDetailsProps) => {
   const { data: players, isLoading: playersLoading } = usePlayingXI(matchId);
   const { data: substitutions, isLoading: subsLoading } = useSubstitutions(matchId);
+
+  // Local seconds counter for football timer
+  const [footballSeconds, setFootballSeconds] = useState(0);
+  const prevMinuteRef = useRef(matchMinute);
+
+  useEffect(() => {
+    if (matchStatus !== 'live' || matchMinute == null) return;
+
+    if (prevMinuteRef.current !== matchMinute) {
+      setFootballSeconds(0);
+      prevMinuteRef.current = matchMinute;
+    }
+
+    const interval = setInterval(() => {
+      setFootballSeconds(prev => (prev >= 59 ? 59 : prev + 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [matchStatus, matchMinute]);
 
   const teamAPlayers = players?.filter(p => p.team_id === teamA.id) || [];
   const teamBPlayers = players?.filter(p => p.team_id === teamB.id) || [];
@@ -301,13 +321,9 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB, s
             {/* Compact Score Display */}
             {(scoreA || scoreB) && (
               <div className="flex items-center gap-2">
-                {matchStatus === 'live' && matchMinute && (
-                  <div className="flex items-center gap-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2.5 py-1 rounded-full">
-                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                    <Clock className="w-3 h-3" />
-                    <span className="text-xs font-bold tabular-nums">{matchMinute}'</span>
-                  </div>
-                )}
+            {matchStatus === 'live' && matchMinute != null && (
+              <FootballTimer minute={matchMinute} seconds={footballSeconds} />
+            )}
                 {matchStatus === 'completed' && (
                   <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-[10px]">FT</Badge>
                 )}
