@@ -82,12 +82,6 @@ Deno.serve(async (req) => {
     const updates: { id: string; from: number; to: number | null; paused?: boolean; autoResumed?: boolean }[] = [];
 
     for (const match of matches) {
-      // Skip matches managed by auto-sync-football (ESPN provides the minute)
-      if (match.auto_sync_enabled) {
-        console.log(`[increment-football-timer] Skipping match ${match.id} — auto_sync_enabled, managed by ESPN sync`);
-        updates.push({ id: match.id, from: match.match_minute ?? 0, to: null, paused: true });
-        continue;
-      }
       
       const currentMinute = match.match_minute ?? 0;
       
