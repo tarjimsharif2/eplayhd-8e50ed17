@@ -1,16 +1,54 @@
 import { useActiveBanners, Banner } from "@/hooks/useSportsData";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Play, Clock, Radio } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play, Clock, Radio, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+
+// Hook to check which tournaments have live matches
+const useTournamentLiveStatus = (tournamentIds: string[]) => {
+  return useQuery({
+    queryKey: ['tournament-live-status', tournamentIds],
+    queryFn: async () => {
+      if (tournamentIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from('matches')
+        .select('tournament_id')
+        .in('tournament_id', tournamentIds)
+        .eq('status', 'live')
+        .eq('is_active', true);
+      
+      if (error) throw error;
+      
+      const liveMap: Record<string, boolean> = {};
+      tournamentIds.forEach(id => { liveMap[id] = false; });
+      data?.forEach(m => {
+        if (m.tournament_id) liveMap[m.tournament_id] = true;
+      });
+      return liveMap;
+    },
+    enabled: tournamentIds.length > 0,
+    refetchInterval: 30000, // Refresh every 30s for live detection
+  });
+};
 
 const BannerSlider = () => {
   const { data: banners, isLoading } = useActiveBanners();
   const { data: siteSettings } = usePublicSiteSettings();
   const [currentIndex, setCurrentIndex] = useState(0);
   const navigate = useNavigate();
+
+  // Collect tournament IDs from banners
+  const tournamentIds = (banners || [])
+    .filter(b => b.banner_type === 'tournament' && b.tournament_id)
+    .map(b => b.tournament_id!)
+    .filter((id, idx, arr) => arr.indexOf(id) === idx);
+
+  const { data: tournamentLiveMap } = useTournamentLiveStatus(tournamentIds);
 
   // Get slider duration from settings (default 6 seconds)
   const sliderDuration = ((siteSettings as any)?.slider_duration_seconds || 6) * 1000;
@@ -38,7 +76,6 @@ const BannerSlider = () => {
   };
 
   const handleClick = (banner: Banner) => {
-    // Priority 1: Use match/tournament slug if available
     if (banner.banner_type === 'match' && banner.match?.slug) {
       navigate(`/match/${banner.match.slug}`);
       return;
@@ -49,9 +86,7 @@ const BannerSlider = () => {
       return;
     }
     
-    // Priority 2: Use link_url for internal or external navigation
     if (banner.link_url) {
-      // Check if it's an internal link (starts with /)
       if (banner.link_url.startsWith('/')) {
         navigate(banner.link_url);
       } else {
@@ -60,28 +95,39 @@ const BannerSlider = () => {
     }
   };
 
-  // Check if match is live
-  const isMatchLive = (banner: Banner): boolean => {
-    return banner.banner_type === 'match' && banner.match?.status === 'live';
+  // Check if banner has live content (match or tournament with live matches)
+  const isBannerLive = (banner: Banner): boolean => {
+    if (banner.banner_type === 'match' && banner.match?.status === 'live') {
+      return true;
+    }
+    if (banner.banner_type === 'tournament' && banner.tournament_id && tournamentLiveMap) {
+      return !!tournamentLiveMap[banner.tournament_id];
+    }
+    return false;
   };
 
-  // Auto-determine badge based on match status (overrides manual badge for match banners)
+  // Auto-determine badge based on status
   const getAutoBadge = (banner: Banner): Banner['badge_type'] => {
-    // For match banners, use match status to determine badge
+    // For match banners
     if (banner.banner_type === 'match' && banner.match) {
       const matchStatus = banner.match.status;
-      // For live matches, show "Watch Now" as the action badge (LIVE indicator shown separately at top)
       if (matchStatus === 'live') return 'watch_now';
       if (matchStatus === 'upcoming') return 'upcoming';
-      if (matchStatus === 'completed') return 'watch_now'; // Show "Watch Now" for completed matches (highlights)
+      if (matchStatus === 'completed') return 'watch_now';
       return 'watch_now';
     }
     
-    // For tournament/custom banners, use manual badge
+    // For tournament banners - check live status
+    if (banner.banner_type === 'tournament' && banner.tournament_id && tournamentLiveMap) {
+      if (tournamentLiveMap[banner.tournament_id]) return 'watch_now';
+      return 'upcoming';
+    }
+    
+    // For custom banners, use manual badge
     return banner.badge_type || 'none';
   };
 
-  const getBadgeContent = (badge: Banner['badge_type']) => {
+  const getBadgeContent = (badge: Banner['badge_type'], isLive: boolean) => {
     switch (badge) {
       case 'live':
         return (
@@ -92,17 +138,38 @@ const BannerSlider = () => {
         );
       case 'upcoming':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-background text-foreground px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg border border-border">
+          <motion.span
+            initial={{ opacity: 0, y: 5 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-primary/20 to-accent/20 backdrop-blur-md border border-primary/30 text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-lg"
+          >
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-40"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+            </span>
             <Clock className="w-3.5 h-3.5" />
             Upcoming
-          </span>
+          </motion.span>
         );
       case 'watch_now':
         return (
-          <span className="inline-flex items-center gap-1.5 bg-primary text-primary-foreground px-3 py-1.5 rounded-full text-sm font-semibold shadow-lg">
-            <Play className="w-3.5 h-3.5 fill-current" />
+          <motion.span
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            whileHover={{ scale: 1.05 }}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold shadow-xl transition-all ${
+              isLive
+                ? 'bg-gradient-to-r from-destructive to-destructive/80 text-destructive-foreground shadow-destructive/30'
+                : 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground shadow-primary/30'
+            }`}
+          >
+            {isLive ? (
+              <Zap className="w-4 h-4 fill-current" />
+            ) : (
+              <Play className="w-3.5 h-3.5 fill-current" />
+            )}
             Watch Now
-          </span>
+          </motion.span>
         );
       default:
         return null;
@@ -120,13 +187,14 @@ const BannerSlider = () => {
     }
     
     if (banner.banner_type === 'tournament' && banner.tournament) {
-      return `${banner.tournament.sport} • Series`;
+      return `${banner.tournament.sport} • ${banner.tournament.season || 'Series'}`;
     }
     
     return null;
   };
 
   const currentBanner = banners[currentIndex];
+  const currentIsLive = isBannerLive(currentBanner);
 
   return (
     <div className="relative w-full overflow-hidden rounded-2xl premium-shadow-lg">
@@ -140,19 +208,19 @@ const BannerSlider = () => {
           onClick={() => handleClick(currentBanner)}
           className="relative aspect-[16/9] cursor-pointer group"
         >
-          {/* Background Image - object-cover fills container, aspect-16/9 is balanced for most images */}
+          {/* Background Image */}
           <img
             src={currentBanner.image_url}
             alt={currentBanner.title}
             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
           />
           
-          {/* Gradient Overlays - subtle for text readability */}
+          {/* Gradient Overlays */}
           <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent" />
           <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-transparent" />
           
-          {/* LIVE Indicator - Top left for live matches */}
-          {isMatchLive(currentBanner) && (
+          {/* LIVE Indicator - Top left for live banners */}
+          {currentIsLive && (
             <motion.div
               initial={{ opacity: 0, scale: 0.8 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -191,7 +259,7 @@ const BannerSlider = () => {
                 </p>
               )}
               
-              {/* Badge Button - Auto badge for match banners */}
+              {/* Badge Button */}
               {(() => {
                 const autoBadge = getAutoBadge(currentBanner);
                 return autoBadge && autoBadge !== 'none' ? (
@@ -200,7 +268,7 @@ const BannerSlider = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.4 }}
                   >
-                    {getBadgeContent(autoBadge)}
+                    {getBadgeContent(autoBadge, currentIsLive)}
                   </motion.div>
                 ) : null;
               })()}
@@ -244,7 +312,7 @@ const BannerSlider = () => {
         </motion.div>
       </AnimatePresence>
 
-      {/* Navigation Arrows - positioned at top to avoid text overlap */}
+      {/* Navigation Arrows */}
       {banners.length > 1 && (
         <>
           <button
