@@ -302,10 +302,10 @@ const FootballMatchDetails = ({ matchId, teamA, teamB, goalsTeamA, goalsTeamB, s
             {(scoreA || scoreB) && (
               <div className="flex items-center gap-2">
                 {matchStatus === 'live' && matchMinute && (
-                  <div className="flex items-center gap-1 bg-red-500/20 text-red-400 px-2 py-1 rounded-md">
+                  <div className="flex items-center gap-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2.5 py-1 rounded-full">
                     <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
                     <Clock className="w-3 h-3" />
-                    <span className="text-xs font-bold">{matchMinute}'</span>
+                    <span className="text-xs font-bold tabular-nums">{matchMinute}'</span>
                   </div>
                 )}
                 {matchStatus === 'completed' && (
