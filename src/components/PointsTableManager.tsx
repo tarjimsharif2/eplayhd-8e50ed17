@@ -75,6 +75,7 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
           team:teams(*)
         `)
         .eq('tournament_id', tournament.id)
+        .order('group_name')
         .order('position');
       
       if (error) throw error;
@@ -385,9 +386,13 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
               </tr>
             </thead>
             <tbody>
-              {entries.map((entry) => (
+              {entries.map((entry, index) => {
+                // Calculate position within group
+                const groupEntries = entries.filter(e => (e.group_name || '') === (entry.group_name || ''));
+                const groupPosition = groupEntries.indexOf(entry) + 1;
+                return (
                 <tr key={entry.id} className="border-b border-border/50 hover:bg-muted/30">
-                  <td className="py-2 px-2 font-medium">{entry.position}</td>
+                  <td className="py-2 px-2 font-medium">{entry.position || groupPosition}</td>
                   <td className="py-2 px-2">
                     <div className="flex items-center gap-2">
                       {entry.team?.logo_url && (
@@ -421,7 +426,8 @@ const PointsTableManager = ({ tournament, teams }: PointsTableManagerProps) => {
                     </div>
                   </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
         </div>
