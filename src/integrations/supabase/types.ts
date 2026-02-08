@@ -1730,6 +1730,7 @@ export type Database = {
           show_in_homepage: boolean | null
           show_in_menu: boolean | null
           show_participating_teams: boolean | null
+          show_points_table: boolean | null
           slug: string | null
           sport: string
           start_date: string | null
@@ -1758,6 +1759,7 @@ export type Database = {
           show_in_homepage?: boolean | null
           show_in_menu?: boolean | null
           show_participating_teams?: boolean | null
+          show_points_table?: boolean | null
           slug?: string | null
           sport?: string
           start_date?: string | null
@@ -1786,6 +1788,7 @@ export type Database = {
           show_in_homepage?: boolean | null
           show_in_menu?: boolean | null
           show_participating_teams?: boolean | null
+          show_points_table?: boolean | null
           slug?: string | null
           sport?: string
           start_date?: string | null

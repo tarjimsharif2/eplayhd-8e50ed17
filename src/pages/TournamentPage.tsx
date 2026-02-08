@@ -486,17 +486,19 @@ const TournamentPage = () => {
           )}
 
           {/* Tournament Ad - Before Points Table */}
-          {tournamentAdPositions.before_points_table && (
+          {(tournament as any).show_points_table !== false && tournamentAdPositions.before_points_table && (
             <MultiAdSlot position="tournament_before_points" className="my-4" />
           )}
 
           {/* Points Table */}
-          <div className="mt-6 mb-8">
-            <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
-          </div>
+          {(tournament as any).show_points_table !== false && (
+            <div className="mt-6 mb-8">
+              <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
+            </div>
+          )}
 
           {/* Tournament Ad - After Points Table */}
-          {tournamentAdPositions.after_points_table && (
+          {(tournament as any).show_points_table !== false && tournamentAdPositions.after_points_table && (
             <MultiAdSlot position="tournament_after_points" className="my-4" />
           )}
 

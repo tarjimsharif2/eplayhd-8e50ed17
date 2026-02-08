@@ -1,0 +1,1 @@
+ALTER TABLE public.tournaments ADD COLUMN show_points_table boolean DEFAULT true;
