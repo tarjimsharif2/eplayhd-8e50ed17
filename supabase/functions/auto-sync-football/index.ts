@@ -337,16 +337,42 @@ serve(async (req) => {
 
         // Sync lineup data
         if (lineupTeamA?.length || lineupTeamB?.length) {
-          const { data: existingLineup } = await supabase
+          // Count existing players per team to detect incomplete syncs
+          const { data: existingTeamAPlayers } = await supabase
             .from('match_playing_xi')
             .select('id')
             .eq('match_id', dbMatch.id)
-            .limit(1);
+            .eq('team_id', teamAId);
           
-          if (!existingLineup || existingLineup.length === 0) {
+          const { data: existingTeamBPlayers } = await supabase
+            .from('match_playing_xi')
+            .select('id')
+            .eq('match_id', dbMatch.id)
+            .eq('team_id', teamBId);
+          
+          const existingTeamACount = existingTeamAPlayers?.length || 0;
+          const existingTeamBCount = existingTeamBPlayers?.length || 0;
+          const newTeamACount = lineupTeamA?.length || 0;
+          const newTeamBCount = lineupTeamB?.length || 0;
+          
+          // Re-sync if: no data exists, OR existing data is incomplete and new data has more players
+          const needsTeamASync = newTeamACount > 0 && (existingTeamACount === 0 || (existingTeamACount < 11 && newTeamACount > existingTeamACount));
+          const needsTeamBSync = newTeamBCount > 0 && (existingTeamBCount === 0 || (existingTeamBCount < 11 && newTeamBCount > existingTeamBCount));
+          
+          if (needsTeamASync || needsTeamBSync) {
             const lineupInserts = [];
             
-            if (lineupTeamA) {
+            if (needsTeamASync && lineupTeamA) {
+              // Delete existing incomplete data for this team
+              if (existingTeamACount > 0) {
+                await supabase
+                  .from('match_playing_xi')
+                  .delete()
+                  .eq('match_id', dbMatch.id)
+                  .eq('team_id', teamAId);
+                console.log(`[auto-sync-football] Deleted ${existingTeamACount} incomplete players for ${teamAName}, replacing with ${newTeamACount}`);
+              }
+              
               for (let i = 0; i < lineupTeamA.length; i++) {
                 const player = lineupTeamA[i];
                 lineupInserts.push({
@@ -361,7 +387,17 @@ serve(async (req) => {
               }
             }
             
-            if (lineupTeamB) {
+            if (needsTeamBSync && lineupTeamB) {
+              // Delete existing incomplete data for this team
+              if (existingTeamBCount > 0) {
+                await supabase
+                  .from('match_playing_xi')
+                  .delete()
+                  .eq('match_id', dbMatch.id)
+                  .eq('team_id', teamBId);
+                console.log(`[auto-sync-football] Deleted ${existingTeamBCount} incomplete players for ${teamBName}, replacing with ${newTeamBCount}`);
+              }
+              
               for (let i = 0; i < lineupTeamB.length; i++) {
                 const player = lineupTeamB[i];
                 lineupInserts.push({
