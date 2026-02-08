@@ -1058,6 +1058,8 @@ export type Database = {
           match_page_ad_positions: Json | null
           multiple_ad_codes: Json | null
           og_image_url: string | null
+          points_table_auto_sync_enabled: boolean | null
+          points_table_sync_time: string | null
           popup_ad_code: string | null
           rapidapi_enabled: boolean | null
           rapidapi_endpoints: Json | null
@@ -1123,6 +1125,8 @@ export type Database = {
           match_page_ad_positions?: Json | null
           multiple_ad_codes?: Json | null
           og_image_url?: string | null
+          points_table_auto_sync_enabled?: boolean | null
+          points_table_sync_time?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
           rapidapi_endpoints?: Json | null
@@ -1188,6 +1192,8 @@ export type Database = {
           match_page_ad_positions?: Json | null
           multiple_ad_codes?: Json | null
           og_image_url?: string | null
+          points_table_auto_sync_enabled?: boolean | null
+          points_table_sync_time?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
           rapidapi_endpoints?: Json | null
@@ -1254,6 +1260,8 @@ export type Database = {
           match_page_ad_positions: Json | null
           multiple_ad_codes: Json | null
           og_image_url: string | null
+          points_table_auto_sync_enabled: boolean | null
+          points_table_sync_time: string | null
           popup_ad_code: string | null
           rapidapi_enabled: boolean | null
           rapidapi_endpoints: Json | null
@@ -1309,6 +1317,8 @@ export type Database = {
           match_page_ad_positions?: Json | null
           multiple_ad_codes?: Json | null
           og_image_url?: string | null
+          points_table_auto_sync_enabled?: boolean | null
+          points_table_sync_time?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
           rapidapi_endpoints?: Json | null
@@ -1364,6 +1374,8 @@ export type Database = {
           match_page_ad_positions?: Json | null
           multiple_ad_codes?: Json | null
           og_image_url?: string | null
+          points_table_auto_sync_enabled?: boolean | null
+          points_table_sync_time?: string | null
           popup_ad_code?: string | null
           rapidapi_enabled?: boolean | null
           rapidapi_endpoints?: Json | null

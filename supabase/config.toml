@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.sync-rapidapi-playing-xi]
 verify_jwt = false
+
+[functions.auto-sync-points-table]
+verify_jwt = false

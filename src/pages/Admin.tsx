@@ -42,7 +42,7 @@ import SearchableSelect from "@/components/SearchableSelect";
 import MultiSelectTeams from "@/components/MultiSelectTeams";
 
 import PasswordChangeDialog from "@/components/PasswordChangeDialog";
-import { Table, FileText, Megaphone } from "lucide-react";
+import { Table, FileText, Megaphone, Clock } from "lucide-react";
 import { useGoogleIndexing } from "@/hooks/useGoogleIndexing";
 import DynamicPagesManager from "@/components/DynamicPagesManager";
 import AdsSettingsManager from "@/components/AdsSettingsManager";
@@ -311,6 +311,9 @@ const Admin = () => {
     homepage_channels_limit: 8,
     // Admin slug
     admin_slug: 'admin',
+    // Points table auto sync
+    points_table_auto_sync_enabled: false,
+    points_table_sync_time: '03:00',
   });
   
   const [passwordDialogOpen, setPasswordDialogOpen] = useState(false);
@@ -360,6 +363,8 @@ const Admin = () => {
         homepage_completed_days: (siteSettings as any).homepage_completed_days || 2,
         homepage_channels_limit: (siteSettings as any).homepage_channels_limit || 8,
         admin_slug: (siteSettings as any).admin_slug || 'admin',
+        points_table_auto_sync_enabled: (siteSettings as any).points_table_auto_sync_enabled || false,
+        points_table_sync_time: (siteSettings as any).points_table_sync_time || '03:00',
       });
     }
   }, [siteSettings]);
@@ -1634,6 +1639,9 @@ const Admin = () => {
         homepage_completed_days: (siteSettingsForm as any).homepage_completed_days || 2,
         // Homepage channels limit
         homepage_channels_limit: (siteSettingsForm as any).homepage_channels_limit || 8,
+        // Points table auto sync
+        points_table_auto_sync_enabled: (siteSettingsForm as any).points_table_auto_sync_enabled || false,
+        points_table_sync_time: (siteSettingsForm as any).points_table_sync_time || '03:00',
       } as any);
       toast({ title: "Site settings updated successfully" });
     } catch (error: any) {
@@ -4145,6 +4153,40 @@ const Admin = () => {
                     <p className="text-xs text-muted-foreground">
                       <strong>Usage:</strong> Go to Tournament → Points Table → Click "Sync from API" → Enter Series ID from Cricbuzz URL
                     </p>
+                  </div>
+
+                  {/* Points Table Auto Sync Settings */}
+                  <div className="space-y-4 border-t pt-4">
+                    <h4 className="text-sm font-semibold flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-primary" />
+                      Daily Auto Sync
+                    </h4>
+                    
+                    <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                      <div className="space-y-0.5">
+                        <Label className="text-base font-medium">Enable Daily Auto Sync</Label>
+                        <p className="text-sm text-muted-foreground">Automatically sync points table for all active tournaments daily</p>
+                      </div>
+                      <Switch
+                        checked={(siteSettingsForm as any).points_table_auto_sync_enabled}
+                        onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, points_table_auto_sync_enabled: checked } as any)}
+                      />
+                    </div>
+
+                    {(siteSettingsForm as any).points_table_auto_sync_enabled && (
+                      <div className="space-y-2">
+                        <Label>Sync Time (UTC)</Label>
+                        <Input 
+                          type="time"
+                          value={(siteSettingsForm as any).points_table_sync_time || '03:00'}
+                          onChange={(e) => setSiteSettingsForm({ ...siteSettingsForm, points_table_sync_time: e.target.value } as any)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Points table will auto-sync daily at this time (UTC). Only active tournaments with Series ID will be synced.
+                          Currently set to: <strong>{(siteSettingsForm as any).points_table_sync_time || '03:00'} UTC</strong>
+                        </p>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex justify-end">
