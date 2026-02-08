@@ -1,7 +1,7 @@
 import { useActiveBanners, Banner } from "@/hooks/useSportsData";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, Play, Clock, Radio, Zap } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { ChevronLeft, ChevronRight, Play, Clock, Radio, Zap, Timer } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
@@ -32,8 +32,115 @@ const useTournamentLiveStatus = (tournamentIds: string[]) => {
       return liveMap;
     },
     enabled: tournamentIds.length > 0,
-    refetchInterval: 30000, // Refresh every 30s for live detection
+    refetchInterval: 30000,
   });
+};
+
+// Hook to get next upcoming match time for each tournament
+const useTournamentNextMatch = (tournamentIds: string[]) => {
+  return useQuery({
+    queryKey: ['tournament-next-match', tournamentIds],
+    queryFn: async () => {
+      if (tournamentIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from('matches')
+        .select('tournament_id, match_date, match_time, match_start_time')
+        .in('tournament_id', tournamentIds)
+        .eq('status', 'upcoming')
+        .eq('is_active', true)
+        .order('match_date', { ascending: true })
+        .order('match_time', { ascending: true });
+      
+      if (error) throw error;
+      
+      // For each tournament, find the earliest upcoming match
+      const nextMatchMap: Record<string, Date> = {};
+      data?.forEach(m => {
+        if (!m.tournament_id) return;
+        
+        let matchDate: Date | null = null;
+        if (m.match_start_time) {
+          matchDate = new Date(m.match_start_time);
+        } else if (m.match_date && m.match_time) {
+          matchDate = new Date(`${m.match_date}T${m.match_time}`);
+        }
+        
+        if (matchDate && !isNaN(matchDate.getTime())) {
+          if (!nextMatchMap[m.tournament_id] || matchDate < nextMatchMap[m.tournament_id]) {
+            nextMatchMap[m.tournament_id] = matchDate;
+          }
+        }
+      });
+      
+      return nextMatchMap;
+    },
+    enabled: tournamentIds.length > 0,
+    refetchInterval: 60000, // Refresh every minute
+  });
+};
+
+// Countdown hook
+const useCountdown = (targetDate: Date | null) => {
+  const [timeLeft, setTimeLeft] = useState<{ days: number; hours: number; minutes: number; seconds: number } | null>(null);
+
+  useEffect(() => {
+    if (!targetDate) { setTimeLeft(null); return; }
+
+    const calc = () => {
+      const now = new Date().getTime();
+      const diff = targetDate.getTime() - now;
+      if (diff <= 0) { setTimeLeft(null); return; }
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)),
+        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
+        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+      });
+    };
+    
+    calc();
+    const interval = setInterval(calc, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  return timeLeft;
+};
+
+// Countdown badge sub-component
+const CountdownBadge = ({ targetDate }: { targetDate: Date }) => {
+  const timeLeft = useCountdown(targetDate);
+
+  if (!timeLeft) return null;
+
+  const formatUnit = (val: number) => String(val).padStart(2, '0');
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 5 }}
+      animate={{ opacity: 1, y: 0 }}
+      className="inline-flex items-center gap-2 bg-gradient-to-r from-primary/15 to-accent/15 backdrop-blur-md border border-primary/30 text-primary px-3 py-2 sm:px-4 sm:py-2.5 rounded-xl shadow-lg"
+    >
+      <Timer className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+      <span className="text-[10px] sm:text-xs font-semibold tracking-wide uppercase text-primary/80">Starts In</span>
+      <div className="flex items-center gap-1">
+        {timeLeft.days > 0 && (
+          <span className="bg-primary/20 text-primary font-bold text-xs sm:text-sm px-1.5 py-0.5 rounded-md font-mono tabular-nums">
+            {timeLeft.days}d
+          </span>
+        )}
+        <span className="bg-primary/20 text-primary font-bold text-xs sm:text-sm px-1.5 py-0.5 rounded-md font-mono tabular-nums">
+          {formatUnit(timeLeft.hours)}h
+        </span>
+        <span className="bg-primary/20 text-primary font-bold text-xs sm:text-sm px-1.5 py-0.5 rounded-md font-mono tabular-nums">
+          {formatUnit(timeLeft.minutes)}m
+        </span>
+        <span className="bg-primary/20 text-primary font-bold text-xs sm:text-sm px-1.5 py-0.5 rounded-md font-mono tabular-nums">
+          {formatUnit(timeLeft.seconds)}s
+        </span>
+      </div>
+    </motion.div>
+  );
 };
 
 const BannerSlider = () => {
@@ -49,6 +156,7 @@ const BannerSlider = () => {
     .filter((id, idx, arr) => arr.indexOf(id) === idx);
 
   const { data: tournamentLiveMap } = useTournamentLiveStatus(tournamentIds);
+  const { data: tournamentNextMatchMap } = useTournamentNextMatch(tournamentIds);
 
   // Get slider duration from settings (default 6 seconds)
   const sliderDuration = ((siteSettings as any)?.slider_duration_seconds || 6) * 1000;
@@ -127,7 +235,21 @@ const BannerSlider = () => {
     return banner.badge_type || 'none';
   };
 
-  const getBadgeContent = (badge: Banner['badge_type'], isLive: boolean) => {
+  // Get the next match date for a banner's tournament
+  const getNextMatchDate = (banner: Banner): Date | null => {
+    if (banner.banner_type === 'tournament' && banner.tournament_id && tournamentNextMatchMap) {
+      return tournamentNextMatchMap[banner.tournament_id] || null;
+    }
+    if (banner.banner_type === 'match' && banner.match) {
+      if (banner.match.match_start_time) return new Date(banner.match.match_start_time);
+      if (banner.match.match_date && banner.match.match_time) {
+        return new Date(`${banner.match.match_date}T${banner.match.match_time}`);
+      }
+    }
+    return null;
+  };
+
+  const getBadgeContent = (badge: Banner['badge_type'], isLive: boolean, banner: Banner) => {
     switch (badge) {
       case 'live':
         return (
@@ -136,21 +258,22 @@ const BannerSlider = () => {
             LIVE
           </span>
         );
-      case 'upcoming':
+      case 'upcoming': {
+        const nextDate = getNextMatchDate(banner);
+        if (nextDate) {
+          return <CountdownBadge targetDate={nextDate} />;
+        }
         return (
           <motion.span
             initial={{ opacity: 0, y: 5 }}
             animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-primary/20 to-accent/20 backdrop-blur-md border border-primary/30 text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-lg"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-primary/15 to-accent/15 backdrop-blur-md border border-primary/30 text-primary px-4 py-2 rounded-xl text-sm font-semibold shadow-lg"
           >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-40"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
-            </span>
             <Clock className="w-3.5 h-3.5" />
-            Upcoming
+            Coming Soon
           </motion.span>
         );
+      }
       case 'watch_now':
         return (
           <motion.span
@@ -268,7 +391,7 @@ const BannerSlider = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.3, delay: 0.4 }}
                   >
-                    {getBadgeContent(autoBadge, currentIsLive)}
+                    {getBadgeContent(autoBadge, currentIsLive, currentBanner)}
                   </motion.div>
                 ) : null;
               })()}
