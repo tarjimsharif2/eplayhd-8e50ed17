@@ -1728,6 +1728,8 @@ export type Database = {
           logo_url: string | null
           name: string
           participating_teams_position: string | null
+          points_table_daily_sync_enabled: boolean | null
+          points_table_on_complete_sync_enabled: boolean | null
           points_table_sync_time: string | null
           season: string
           seo_description: string | null
@@ -1758,6 +1760,8 @@ export type Database = {
           logo_url?: string | null
           name: string
           participating_teams_position?: string | null
+          points_table_daily_sync_enabled?: boolean | null
+          points_table_on_complete_sync_enabled?: boolean | null
           points_table_sync_time?: string | null
           season: string
           seo_description?: string | null
@@ -1788,6 +1792,8 @@ export type Database = {
           logo_url?: string | null
           name?: string
           participating_teams_position?: string | null
+          points_table_daily_sync_enabled?: boolean | null
+          points_table_on_complete_sync_enabled?: boolean | null
           points_table_sync_time?: string | null
           season?: string
           seo_description?: string | null

@@ -70,10 +70,10 @@ Deno.serve(async (req) => {
 
     console.log('[auto-sync-points-table] Starting auto sync check...');
 
-    // Get settings
+    // Get RapidAPI settings (still needed for API key)
     const { data: siteSettings, error: settingsError } = await supabase
       .from('site_settings')
-      .select('points_table_auto_sync_enabled, points_table_sync_time, rapidapi_key, rapidapi_enabled, rapidapi_endpoints')
+      .select('rapidapi_key, rapidapi_enabled, rapidapi_endpoints')
       .limit(1)
       .maybeSingle();
 
@@ -84,38 +84,6 @@ Deno.serve(async (req) => {
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Check if auto sync is enabled
-    if (!siteSettings?.points_table_auto_sync_enabled) {
-      console.log('[auto-sync-points-table] Auto sync is disabled');
-      return new Response(
-        JSON.stringify({ success: true, message: 'Auto sync is disabled', skipped: true }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Check if it's the right time (compare HH:MM with configured time)
-    const syncTime = siteSettings.points_table_sync_time || '03:00';
-    const now = new Date();
-    const currentHour = now.getUTCHours().toString().padStart(2, '0');
-    const currentMinute = now.getUTCMinutes().toString().padStart(2, '0');
-    const currentTime = `${currentHour}:${currentMinute}`;
-
-    // Allow a 2-minute window for the cron to catch the right time
-    const [syncHour, syncMinute] = syncTime.split(':').map(Number);
-    const syncTotalMinutes = syncHour * 60 + syncMinute;
-    const currentTotalMinutes = parseInt(currentHour) * 60 + parseInt(currentMinute);
-    const diff = Math.abs(currentTotalMinutes - syncTotalMinutes);
-
-    if (diff > 2 && diff < (24 * 60 - 2)) {
-      console.log(`[auto-sync-points-table] Not sync time yet. Current: ${currentTime} UTC, Configured: ${syncTime} UTC`);
-      return new Response(
-        JSON.stringify({ success: true, message: `Not sync time. Current: ${currentTime} UTC, Target: ${syncTime} UTC`, skipped: true }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`[auto-sync-points-table] Sync time matched! Current: ${currentTime} UTC, Target: ${syncTime} UTC`);
 
     // Check RapidAPI configuration
     if (!siteSettings?.rapidapi_enabled || !siteSettings?.rapidapi_key) {
@@ -130,23 +98,70 @@ Deno.serve(async (req) => {
     const endpoints = siteSettings.rapidapi_endpoints || {};
     const cricbuzzHost = endpoints.cricbuzz_host || 'cricbuzz-cricket.p.rapidapi.com';
 
-    // Get all active tournaments with series_id
+    // Get all active tournaments with series_id that have daily sync enabled
     const { data: tournaments, error: tournamentError } = await supabase
       .from('tournaments')
-      .select('id, name, series_id')
+      .select('id, name, series_id, points_table_sync_time, points_table_daily_sync_enabled')
       .eq('is_active', true)
       .eq('is_completed', false)
+      .eq('points_table_daily_sync_enabled', true)
       .not('series_id', 'is', null);
 
     if (tournamentError || !tournaments || tournaments.length === 0) {
-      console.log('[auto-sync-points-table] No active tournaments with series_id found');
+      console.log('[auto-sync-points-table] No active tournaments with daily sync enabled');
       return new Response(
-        JSON.stringify({ success: true, message: 'No active tournaments with series_id to sync' }),
+        JSON.stringify({ success: true, message: 'No active tournaments with daily sync enabled' }),
         { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`[auto-sync-points-table] Found ${tournaments.length} active tournaments to sync`);
+    // Current UTC time for time-window check
+    const now = new Date();
+    const currentHour = now.getUTCHours();
+    const currentMinute = now.getUTCMinutes();
+    const currentTotalMinutes = currentHour * 60 + currentMinute;
+
+    // Filter tournaments by their individual sync time
+    const tournamentsToSync = tournaments.filter(t => {
+      const syncTimeRaw = t.points_table_sync_time;
+      if (!syncTimeRaw) return false;
+
+      // Parse sync time - may contain timezone offset like "03:00+06:00"
+      const timePart = syncTimeRaw.split(/[+-]/)[0]; // Get HH:MM part
+      const [syncHourStr, syncMinuteStr] = timePart.split(':');
+      let syncHour = parseInt(syncHourStr) || 0;
+      let syncMinute = parseInt(syncMinuteStr) || 0;
+
+      // If timezone offset exists, convert to UTC
+      const offsetMatch = syncTimeRaw.match(/([+-])(\d{2}):(\d{2})$/);
+      if (offsetMatch) {
+        const sign = offsetMatch[1] === '+' ? -1 : 1; // Reverse sign for UTC conversion
+        const offsetHours = parseInt(offsetMatch[2]) || 0;
+        const offsetMinutes = parseInt(offsetMatch[3]) || 0;
+        let totalMinutes = (syncHour * 60 + syncMinute) + sign * (offsetHours * 60 + offsetMinutes);
+        // Normalize to 0-1439 range
+        totalMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+        syncHour = Math.floor(totalMinutes / 60);
+        syncMinute = totalMinutes % 60;
+      }
+
+      const syncTotalMinutes = syncHour * 60 + syncMinute;
+      const diff = Math.abs(currentTotalMinutes - syncTotalMinutes);
+      
+      // Allow a 2-minute window
+      return diff <= 2 || diff >= (24 * 60 - 2);
+    });
+
+    if (tournamentsToSync.length === 0) {
+      const currentTime = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;
+      console.log(`[auto-sync-points-table] No tournaments matched sync time. Current UTC: ${currentTime}`);
+      return new Response(
+        JSON.stringify({ success: true, message: `No tournaments to sync at ${currentTime} UTC`, skipped: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`[auto-sync-points-table] ${tournamentsToSync.length} tournaments matched sync time`);
 
     // Get ALL teams
     const { data: teams, error: teamsError } = await supabase
@@ -164,7 +179,7 @@ Deno.serve(async (req) => {
     const results: Array<{ tournament: string; seriesId: string; updated: number; inserted: number; skipped: string[] }> = [];
 
     // Process each tournament
-    for (const tournament of tournaments) {
+    for (const tournament of tournamentsToSync) {
       const seriesId = tournament.series_id;
       if (!seriesId) continue;
 
@@ -271,7 +286,6 @@ Deno.serve(async (req) => {
         console.log(`[auto-sync-points-table] ${tournament.name}: Updated ${updatedCount}, Inserted ${insertedCount}, Skipped ${skippedTeams.length}`);
         
         // Auto-recalculate positions within each group after sync
-        // Get all entries for this tournament, grouped
         const { data: allEntries } = await supabase
           .from('tournament_points_table')
           .select('id, group_name, points, net_run_rate, won')
@@ -282,7 +296,6 @@ Deno.serve(async (req) => {
           .order('won', { ascending: false });
         
         if (allEntries && allEntries.length > 0) {
-          // Group entries by group_name and assign positions within each group
           const groups = new Map<string, typeof allEntries>();
           for (const entry of allEntries) {
             const key = entry.group_name || '__no_group__';

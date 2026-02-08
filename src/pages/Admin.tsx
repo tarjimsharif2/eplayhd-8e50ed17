@@ -3752,37 +3752,73 @@ const Admin = () => {
                               <CardTitle className="text-base">{tournament.name}</CardTitle>
                             </div>
                             <div className="flex items-center gap-4 flex-wrap">
-                              {/* Per-tournament sync time */}
+                              {/* Daily Auto Sync Toggle */}
                               <div className="flex items-center gap-2">
-                                <Clock className="w-4 h-4 text-muted-foreground" />
-                                <Input
-                                  type="time"
-                                  className="w-[120px] h-8 text-xs"
-                                  value={(tournament as any).points_table_sync_time?.split(/[+-]/)?.[0] || ''}
-                                  onChange={async (e) => {
-                                    const timeValue = e.target.value;
-                                    const offset = new Date().getTimezoneOffset();
-                                    const absOffset = Math.abs(offset);
-                                    const sign = offset <= 0 ? '+' : '-';
-                                    const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-                                    const mins = String(absOffset % 60).padStart(2, '0');
-                                    const tzString = `${sign}${hours}:${mins}`;
-                                    const fullTime = timeValue ? `${timeValue}${tzString}` : null;
-                                    
+                                <Switch
+                                  checked={(tournament as any).points_table_daily_sync_enabled || false}
+                                  onCheckedChange={async (checked) => {
                                     const { error } = await supabase
                                       .from('tournaments')
-                                      .update({ points_table_sync_time: fullTime } as any)
+                                      .update({ points_table_daily_sync_enabled: checked } as any)
                                       .eq('id', tournament.id);
-                                    
                                     if (!error) {
                                       queryClient.invalidateQueries({ queryKey: ['tournaments'] });
-                                      toast({ title: "Sync time updated", description: fullTime ? `Set to ${timeValue} (${Intl.DateTimeFormat().resolvedOptions().timeZone})` : 'Sync time cleared' });
+                                      toast({ title: checked ? "Daily sync enabled" : "Daily sync disabled" });
                                     }
                                   }}
                                 />
-                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                  {Intl.DateTimeFormat().resolvedOptions().timeZone}
-                                </span>
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">Daily Sync</span>
+                              </div>
+                              {/* Per-tournament sync time */}
+                              {(tournament as any).points_table_daily_sync_enabled && (
+                                <div className="flex items-center gap-2">
+                                  <Clock className="w-4 h-4 text-muted-foreground" />
+                                  <Input
+                                    type="time"
+                                    className="w-[120px] h-8 text-xs"
+                                    value={(tournament as any).points_table_sync_time?.split(/[+-]/)?.[0] || ''}
+                                    onChange={async (e) => {
+                                      const timeValue = e.target.value;
+                                      const offset = new Date().getTimezoneOffset();
+                                      const absOffset = Math.abs(offset);
+                                      const sign = offset <= 0 ? '+' : '-';
+                                      const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+                                      const mins = String(absOffset % 60).padStart(2, '0');
+                                      const tzString = `${sign}${hours}:${mins}`;
+                                      const fullTime = timeValue ? `${timeValue}${tzString}` : null;
+                                      
+                                      const { error } = await supabase
+                                        .from('tournaments')
+                                        .update({ points_table_sync_time: fullTime } as any)
+                                        .eq('id', tournament.id);
+                                      
+                                      if (!error) {
+                                        queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+                                        toast({ title: "Sync time updated", description: fullTime ? `Set to ${timeValue} (${Intl.DateTimeFormat().resolvedOptions().timeZone})` : 'Sync time cleared' });
+                                      }
+                                    }}
+                                  />
+                                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                    {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                                  </span>
+                                </div>
+                              )}
+                              {/* On Match Complete Sync Toggle */}
+                              <div className="flex items-center gap-2">
+                                <Switch
+                                  checked={(tournament as any).points_table_on_complete_sync_enabled || false}
+                                  onCheckedChange={async (checked) => {
+                                    const { error } = await supabase
+                                      .from('tournaments')
+                                      .update({ points_table_on_complete_sync_enabled: checked } as any)
+                                      .eq('id', tournament.id);
+                                    if (!error) {
+                                      queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+                                      toast({ title: checked ? "Match complete sync enabled" : "Match complete sync disabled" });
+                                    }
+                                  }}
+                                />
+                                <span className="text-xs text-muted-foreground whitespace-nowrap">On Complete</span>
                               </div>
                             </div>
                           </div>
