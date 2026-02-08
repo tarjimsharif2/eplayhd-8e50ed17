@@ -206,7 +206,7 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
     >
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         {/* Player image or default avatar */}
-        <div className={`w-10 h-10 rounded-full flex-shrink-0 overflow-hidden border border-border/30 ${
+        <div className={`w-11 h-11 rounded-full flex-shrink-0 overflow-hidden border border-border/30 ${
           isBench ? 'opacity-70' : ''
         }`}>
           {isValidPlayerImage(player.player_image) ? (
