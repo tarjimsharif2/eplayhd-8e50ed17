@@ -776,15 +776,44 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         functionName = 'sync-cricapi-playing-xi';
       }
       
-      // For CricAPI: auto-detect match ID from browser if not set
+      // For CricAPI: auto-detect match ID from browser if not set, and fetch squad data client-side
       let detectedCricapiId: string | undefined;
-      if (source === 'cricapi' && !cricapiMatchId) {
-        toast({ title: "Auto-detecting match...", description: "Searching CricAPI for this match..." });
-        detectedCricapiId = (await autoDetectCricapiMatchId()) || undefined;
-        if (!detectedCricapiId) {
-          throw new Error(`Could not find ${teamA.name} vs ${teamB.name} on CricAPI. The match may not be listed yet. Please set the CricAPI Match ID manually.`);
+      let clientSquadData: any = undefined;
+      if (source === 'cricapi') {
+        let effectiveCricapiId = cricapiMatchId;
+        
+        if (!effectiveCricapiId) {
+          toast({ title: "Auto-detecting match...", description: "Searching CricAPI for this match..." });
+          detectedCricapiId = (await autoDetectCricapiMatchId()) || undefined;
+          if (!detectedCricapiId) {
+            throw new Error(`Could not find ${teamA.name} vs ${teamB.name} on CricAPI. The match may not be listed yet. Please set the CricAPI Match ID manually.`);
+          }
+          effectiveCricapiId = detectedCricapiId;
+          toast({ title: "Match found!", description: `CricAPI Match ID: ${detectedCricapiId}` });
         }
-        toast({ title: "Match found!", description: `CricAPI Match ID: ${detectedCricapiId}` });
+
+        // Fetch squad data from browser (CricAPI blocks edge function IPs)
+        toast({ title: "Fetching squad...", description: "Loading player data from CricAPI..." });
+        const { data: settings } = await supabase
+          .from('site_settings')
+          .select('cricket_api_key')
+          .limit(1)
+          .maybeSingle();
+
+        if (!settings?.cricket_api_key) {
+          throw new Error('CricAPI key not configured. Please add your API key in Settings → API Keys → CricAPI.');
+        }
+
+        const squadUrl = `https://api.cricapi.com/v1/match_squad?apikey=${settings.cricket_api_key}&id=${effectiveCricapiId}`;
+        const squadRes = await fetch(squadUrl);
+        if (!squadRes.ok) {
+          throw new Error(`CricAPI returned status ${squadRes.status}`);
+        }
+        clientSquadData = await squadRes.json();
+        if (clientSquadData.status !== 'success' || !clientSquadData.data || clientSquadData.data.length < 2) {
+          throw new Error(`CricAPI returned: ${clientSquadData.status}. Teams found: ${clientSquadData.data?.length || 0}. Need at least 2 teams.`);
+        }
+        console.log(`[CricAPI Client] Squad fetched: ${clientSquadData.data.length} teams, info:`, clientSquadData.info);
       }
 
       const response = await supabase.functions.invoke(functionName, {
@@ -792,6 +821,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
           matchId,
           cricbuzzMatchId,
           cricapiMatchId: detectedCricapiId || cricapiMatchId,
+          clientSquadData: source === 'cricapi' ? clientSquadData : undefined,
           teamAId: teamA.id,
           teamBId: teamB.id,
           teamAName: teamA.name,

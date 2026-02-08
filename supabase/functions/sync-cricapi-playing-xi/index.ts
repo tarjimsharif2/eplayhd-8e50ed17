@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { matchId, teamAId, teamBId, teamAName, teamAShortName, teamBName, teamBShortName, cricapiMatchId: providedCricapiId } = await req.json();
+    const { matchId, teamAId, teamBId, teamAName, teamAShortName, teamBName, teamBShortName, cricapiMatchId: providedCricapiId, clientSquadData } = await req.json();
 
     if (!matchId) {
       return new Response(JSON.stringify({ success: false, error: 'matchId required' }), {
@@ -182,27 +182,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[CricAPI Squad] Fetching squad for match ${matchId}`);
-
-    // Get the CricAPI key from site_settings
-    const { data: settings, error: settingsError } = await supabase
-      .from('site_settings')
-      .select('cricket_api_key')
-      .limit(1)
-      .maybeSingle();
-
-    if (settingsError || !settings?.cricket_api_key) {
-      console.error('[CricAPI Squad] API key not configured:', settingsError);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'CricAPI key not configured. Please add your API key in Settings → API Keys → CricAPI.' 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const apiKey = settings.cricket_api_key;
+    console.log(`[CricAPI Squad] Processing squad for match ${matchId}`);
 
     // Get the match to find cricapi_match_id
     const { data: match, error: matchError } = await supabase
@@ -219,20 +199,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Use: 1) provided ID from client, 2) saved ID from DB, 3) error
     let cricapiMatchId = providedCricapiId || match.cricapi_match_id;
     let autoDetected = false;
-
-    if (!cricapiMatchId) {
-      console.error('[CricAPI Squad] No CricAPI match ID available');
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'CricAPI Match ID not found. Auto-detection from the API could not connect. Please set the CricAPI Match ID manually on the match settings.' 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
 
     // Save the provided match ID if it's new
     if (providedCricapiId && providedCricapiId !== match.cricapi_match_id) {
@@ -249,24 +217,48 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Fetch squad from CricAPI
-    const apiUrl = `https://api.cricapi.com/v1/match_squad?apikey=${apiKey}&id=${cricapiMatchId}`;
-    console.log(`[CricAPI Squad] Fetching from: ${apiUrl.replace(apiKey, '***')}`);
+    // Use client-provided squad data (browser fetches it since CricAPI blocks edge function IPs)
+    let apiData: CricApiResponse;
+    
+    if (clientSquadData) {
+      console.log('[CricAPI Squad] Using client-provided squad data');
+      apiData = clientSquadData as CricApiResponse;
+    } else {
+      // Fallback: try fetching from edge function (may fail if IP is blocked)
+      const { data: settings } = await supabase
+        .from('site_settings')
+        .select('cricket_api_key')
+        .limit(1)
+        .maybeSingle();
 
-    const response = await fetchWithRetry(apiUrl);
-    if (!response.ok) {
-      console.error(`[CricAPI Squad] API returned ${response.status}`);
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: `CricAPI returned status ${response.status}` 
-      }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      if (!settings?.cricket_api_key || !cricapiMatchId) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: 'CricAPI key or match ID not available. Squad data must be provided from client.' 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const apiUrl = `https://api.cricapi.com/v1/match_squad?apikey=${settings.cricket_api_key}&id=${cricapiMatchId}`;
+      console.log(`[CricAPI Squad] Fallback: fetching from API`);
+
+      const response = await fetchWithRetry(apiUrl);
+      if (!response.ok) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: `CricAPI returned status ${response.status}` 
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      apiData = await response.json();
     }
 
-    const apiData: CricApiResponse = await response.json();
-    console.log(`[CricAPI Squad] Response status: ${apiData.status}, teams: ${apiData.data?.length || 0}`);
+    console.log(`[CricAPI Squad] Data status: ${apiData.status}, teams: ${apiData.data?.length || 0}`);
 
     if (apiData.status !== 'success' || !apiData.data || apiData.data.length < 2) {
       return new Response(JSON.stringify({ 
