@@ -179,6 +179,22 @@ function findMatchInList(
   return null;
 }
 
+// Fetch with retry logic for transient network errors
+async function fetchWithRetry(url: string, maxRetries = 3): Promise<Response> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const res = await fetch(url);
+      return res;
+    } catch (err) {
+      console.warn(`[CricAPI] Fetch attempt ${attempt}/${maxRetries} failed: ${err.message}`);
+      if (attempt === maxRetries) throw err;
+      // Wait before retry: 1s, 2s, 3s
+      await new Promise(r => setTimeout(r, attempt * 1000));
+    }
+  }
+  throw new Error('All fetch retries exhausted');
+}
+
 // Auto-detect CricAPI match ID - tries currentMatches first, then upcoming matches
 async function autoDetectMatchId(
   apiKey: string,
@@ -191,55 +207,52 @@ async function autoDetectMatchId(
     console.log(`[CricAPI Auto] Searching for match: ${teamAName} vs ${teamBName}`);
     
     // Step 1: Try currentMatches first (live/recent)
-    const currentRes = await fetch(`https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}`);
-    if (currentRes.ok) {
-      const currentData: CricApiMatchesResponse = await currentRes.json();
-      if (currentData.status === 'success' && currentData.data && currentData.data.length > 0) {
-        console.log(`[CricAPI Auto] Checking ${currentData.data.length} current matches...`);
-        const found = findMatchInList(currentData.data, teamAName, teamAShortName, teamBName, teamBShortName);
-        if (found) {
-          console.log(`[CricAPI Auto] Found in currentMatches: "${found.matchName}" (ID: ${found.matchId})`);
-          return { matchId: found.matchId, matchName: found.matchName, error: null };
+    try {
+      const currentRes = await fetchWithRetry(`https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}`);
+      if (currentRes.ok) {
+        const currentData: CricApiMatchesResponse = await currentRes.json();
+        if (currentData.status === 'success' && currentData.data && currentData.data.length > 0) {
+          console.log(`[CricAPI Auto] Checking ${currentData.data.length} current matches...`);
+          const found = findMatchInList(currentData.data, teamAName, teamAShortName, teamBName, teamBShortName);
+          if (found) {
+            console.log(`[CricAPI Auto] Found in currentMatches: "${found.matchName}" (ID: ${found.matchId})`);
+            return { matchId: found.matchId, matchName: found.matchName, error: null };
+          }
+          console.log('[CricAPI Auto] Not found in currentMatches, trying upcoming matches...');
         }
-        console.log('[CricAPI Auto] Not found in currentMatches, trying upcoming matches...');
       }
+    } catch (e) {
+      console.warn(`[CricAPI Auto] currentMatches failed after retries: ${e.message}, trying matches list...`);
     }
 
     // Step 2: Fallback to matches list (includes upcoming)
-    const matchesRes = await fetch(`https://api.cricapi.com/v1/matches?apikey=${apiKey}&offset=0`);
-    if (matchesRes.ok) {
-      const matchesData: CricApiMatchesResponse = await matchesRes.json();
-      if (matchesData.status === 'success' && matchesData.data && matchesData.data.length > 0) {
-        console.log(`[CricAPI Auto] Checking ${matchesData.data.length} all matches...`);
-        const found = findMatchInList(matchesData.data, teamAName, teamAShortName, teamBName, teamBShortName);
-        if (found) {
-          console.log(`[CricAPI Auto] Found in matches list: "${found.matchName}" (ID: ${found.matchId})`);
-          return { matchId: found.matchId, matchName: found.matchName, error: null };
+    try {
+      const matchesRes = await fetchWithRetry(`https://api.cricapi.com/v1/matches?apikey=${apiKey}&offset=0`);
+      if (matchesRes.ok) {
+        const matchesData: CricApiMatchesResponse = await matchesRes.json();
+        if (matchesData.status === 'success' && matchesData.data && matchesData.data.length > 0) {
+          console.log(`[CricAPI Auto] Checking ${matchesData.data.length} all matches...`);
+          const found = findMatchInList(matchesData.data, teamAName, teamAShortName, teamBName, teamBShortName);
+          if (found) {
+            console.log(`[CricAPI Auto] Found in matches list: "${found.matchName}" (ID: ${found.matchId})`);
+            return { matchId: found.matchId, matchName: found.matchName, error: null };
+          }
         }
       }
+    } catch (e) {
+      console.warn(`[CricAPI Auto] matches list failed after retries: ${e.message}`);
     }
-
-    // Log what was available for debugging
-    const debugInfo: string[] = [];
-    try {
-      const currentRes2 = await fetch(`https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}`);
-      const d = await currentRes2.json();
-      if (d.data) debugInfo.push(...d.data.map((m: any) => m.teams?.join(' vs ') || m.name));
-    } catch {}
-    
-    console.log(`[CricAPI Auto] No match found. Available: ${debugInfo.join(', ')}`);
     
     return { 
       matchId: null, 
       matchName: null, 
-      error: `Could not find ${teamAName} vs ${teamBName} in current or upcoming matches.${debugInfo.length > 0 ? ' Available: ' + debugInfo.slice(0, 5).join(', ') : ''}` 
+      error: `Could not find ${teamAName} vs ${teamBName} in current or upcoming matches. Please try again or set the CricAPI Match ID manually.` 
     };
   } catch (err) {
     console.error('[CricAPI Auto] Error:', err);
-    return { matchId: null, matchName: null, error: `Auto-detect failed: ${err.message}` };
+    return { matchId: null, matchName: null, error: `Auto-detect failed: ${err.message}. Please try again.` };
   }
 }
-
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -335,7 +348,7 @@ Deno.serve(async (req) => {
     const apiUrl = `https://api.cricapi.com/v1/match_squad?apikey=${apiKey}&id=${cricapiMatchId}`;
     console.log(`[CricAPI Squad] Fetching from: ${apiUrl.replace(apiKey, '***')}`);
 
-    const response = await fetch(apiUrl);
+    const response = await fetchWithRetry(apiUrl);
     if (!response.ok) {
       console.error(`[CricAPI Squad] API returned ${response.status}`);
       return new Response(JSON.stringify({ 
