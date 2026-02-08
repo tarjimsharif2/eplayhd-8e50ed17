@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, ChevronDown, ArrowUpDown, Wand2, Save, Check, History, UserPlus, UserMinus, User, Image } from "lucide-react";
+import CricApiMatchBrowser from "@/components/CricApiMatchBrowser";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from "@/hooks/useSportsData";
@@ -187,6 +188,10 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
   
   // Pending changes state - tracks local is_bench changes before saving
   const [pendingChanges, setPendingChanges] = useState<Record<string, boolean>>({});
+
+  // CricAPI Match Browser state
+  const [cricapiBrowserOpen, setCricapiBrowserOpen] = useState(false);
+  const [pendingCricapiSource, setPendingCricapiSource] = useState<{ forceRefresh: boolean } | null>(null);
   
   // Touch swap state for mobile
   const [selectedForSwap, setSelectedForSwap] = useState<Player | null>(null);
@@ -799,7 +804,11 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
           toast({ title: "Auto-detecting match...", description: "Searching CricAPI for this match..." });
           detectedCricapiId = (await autoDetectCricapiMatchId()) || undefined;
           if (!detectedCricapiId) {
-            throw new Error(`Could not find ${teamA.name} vs ${teamB.name} on CricAPI. The match may not be listed yet. Please set the CricAPI Match ID manually.`);
+            // Open the CricAPI Match Browser for manual selection
+            setPendingCricapiSource({ forceRefresh: players && players.length > 0 ? true : false });
+            setCricapiBrowserOpen(true);
+            setFetchingSquad(false);
+            return; // Exit - will resume after user selects a match
           }
           effectiveCricapiId = detectedCricapiId;
           toast({ title: "Match found!", description: `CricAPI Match ID: ${detectedCricapiId}` });
@@ -895,6 +904,91 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
     } catch (err: any) {
       console.error('Fetch squad error:', err);
       toast({ title: "Error", description: err.message || 'Failed to fetch squad', variant: "destructive" });
+    } finally {
+      setFetchingSquad(false);
+    }
+  };
+
+  // Handle match selection from CricAPI browser
+  const handleCricApiMatchSelected = async (selectedMatchId: string, matchName: string) => {
+    toast({ title: "ম্যাচ সিলেক্ট হয়েছে!", description: matchName });
+    
+    // Save the cricapi match ID to the match record
+    try {
+      await supabase
+        .from('matches')
+        .update({ cricapi_match_id: selectedMatchId })
+        .eq('id', matchId);
+    } catch (e) {
+      console.warn('Could not save cricapi_match_id:', e);
+    }
+
+    // Now fetch squad with this match ID
+    const forceRefresh = pendingCricapiSource?.forceRefresh || false;
+    setPendingCricapiSource(null);
+    
+    setFetchingSquad(true);
+    try {
+      if (forceRefresh && players && players.length > 0) {
+        await supabase
+          .from('match_playing_xi')
+          .delete()
+          .eq('match_id', matchId);
+      }
+
+      // Fetch squad data from browser
+      const { data: settings } = await supabase
+        .from('site_settings')
+        .select('cricket_api_key')
+        .limit(1)
+        .maybeSingle();
+
+      if (!settings?.cricket_api_key) {
+        throw new Error('CricAPI key not configured');
+      }
+
+      toast({ title: "Fetching squad...", description: "Loading player data from CricAPI..." });
+      const squadUrl = `https://api.cricapi.com/v1/match_squad?apikey=${settings.cricket_api_key}&id=${selectedMatchId}`;
+      const squadRes = await fetch(squadUrl);
+      if (!squadRes.ok) throw new Error(`CricAPI returned status ${squadRes.status}`);
+      
+      const clientSquadData = await squadRes.json();
+      if (clientSquadData.status !== 'success' || !clientSquadData.data || clientSquadData.data.length < 2) {
+        throw new Error(`Squad data not available yet. Teams found: ${clientSquadData.data?.length || 0}`);
+      }
+
+      const response = await supabase.functions.invoke('sync-cricapi-playing-xi', {
+        body: {
+          matchId,
+          cricapiMatchId: selectedMatchId,
+          clientSquadData,
+          teamAId: teamA.id,
+          teamBId: teamB.id,
+          teamAName: teamA.name,
+          teamAShortName: teamA.short_name,
+          teamBName: teamB.name,
+          teamBShortName: teamB.short_name,
+        },
+      });
+
+      if (response.error) throw new Error(response.error.message);
+      
+      const result = response.data;
+      if (!result.success) {
+        toast({ 
+          title: result.alreadyExists ? "Already synced" : "Squad sync issue", 
+          description: result.error || result.message,
+          variant: result.alreadyExists ? "default" : "destructive"
+        });
+      } else {
+        toast({ 
+          title: "Squad synced!", 
+          description: `${result.totalPlayers || 0} players added (${result.teamA?.length || 0} + ${result.teamB?.length || 0})`
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['playing_xi', matchId] });
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
     } finally {
       setFetchingSquad(false);
     }
@@ -1774,6 +1868,18 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* CricAPI Match Browser */}
+      <CricApiMatchBrowser
+        open={cricapiBrowserOpen}
+        onClose={() => {
+          setCricapiBrowserOpen(false);
+          setPendingCricapiSource(null);
+        }}
+        onSelectMatch={handleCricApiMatchSelected}
+        teamAName={teamA.name}
+        teamBName={teamB.name}
+      />
     </div>
   );
 };
