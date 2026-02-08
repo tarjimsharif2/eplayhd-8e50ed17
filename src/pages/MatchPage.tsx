@@ -23,7 +23,7 @@ import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { useRealtimeMatch } from '@/hooks/useRealtimeMatch';
 import { supabase } from '@/integrations/supabase/client';
 import { Match, GoalEvent } from '@/hooks/useSportsData';
-import { MapPin, Clock, Calendar, Tv, Server, Loader2, Radio } from 'lucide-react';
+import { MapPin, Clock, Calendar, Tv, Server, Loader2, Radio, Trophy, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 const MatchPage = () => {
@@ -365,6 +365,27 @@ const MatchPage = () => {
             />
           )}
 
+          {/* View Points Table Button - before Playing XI */}
+          {hasPointsTable && tournament?.id && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.15 }}
+              className="my-4"
+            >
+              <button
+                onClick={() => {
+                  document.getElementById('points-table-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-colors group"
+              >
+                <Trophy className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-primary">View Points Table</span>
+                <ChevronDown className="w-4 h-4 text-primary group-hover:translate-y-0.5 transition-transform" />
+              </button>
+            </motion.div>
+          )}
+
           {/* Ad - Before Playing XI */}
           {matchAdPositions.before_playingxi && (
             <MultiAdSlot position="match_before_playingxi" className="my-4" />
@@ -578,7 +599,7 @@ const MatchPage = () => {
 
           {/* Points Table Section */}
           {tournament?.id && (
-            <div className="mt-6">
+            <div id="points-table-section" className="mt-6 scroll-mt-4">
               <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} syncTime={(tournament as any).points_table_sync_time} />
             </div>
           )}
