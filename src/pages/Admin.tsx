@@ -3731,12 +3731,11 @@ const Admin = () => {
 
               {tournamentsLoading || teamsLoading ? (
                 <div className="text-center py-8"><Loader2 className="w-8 h-8 animate-spin mx-auto text-primary" /></div>
-              ) : tournaments && tournaments.filter(t => !t.is_completed).length > 0 ? (
+              ) : tournaments && tournaments.filter(t => !t.is_completed && (t as any).show_points_table !== false).length > 0 ? (
                 <div className="space-y-6">
-                  {tournaments.filter(t => !t.is_completed).map((tournament) => {
-                    const isVisible = (tournament as any).show_points_table !== false;
+                  {tournaments.filter(t => !t.is_completed && (t as any).show_points_table !== false).map((tournament) => {
                     return (
-                      <Card key={tournament.id} className={!isVisible ? 'opacity-60' : ''}>
+                      <Card key={tournament.id}>
                         <CardHeader className="pb-2">
                           <div className="flex items-center justify-between flex-wrap gap-3">
                             <div className="flex items-center gap-3">
@@ -3778,35 +3777,15 @@ const Admin = () => {
                                   {Intl.DateTimeFormat().resolvedOptions().timeZone}
                                 </span>
                               </div>
-                              {/* Show/hide toggle */}
-                              <div className="flex items-center gap-2">
-                                <Label className="text-xs text-muted-foreground whitespace-nowrap">Show</Label>
-                                <Switch
-                                  checked={isVisible}
-                                  onCheckedChange={async (checked) => {
-                                    const { error } = await supabase
-                                      .from('tournaments')
-                                      .update({ show_points_table: checked } as any)
-                                      .eq('id', tournament.id);
-                                    
-                                    if (!error) {
-                                      queryClient.invalidateQueries({ queryKey: ['tournaments'] });
-                                      toast({ title: checked ? "Points table visible" : "Points table hidden" });
-                                    }
-                                  }}
-                                />
-                              </div>
                             </div>
                           </div>
                         </CardHeader>
-                        {isVisible && (
-                          <CardContent className="pt-2 pb-6 px-6">
-                            <PointsTableManager 
-                              tournament={tournament} 
-                              teams={teams || []} 
-                            />
-                          </CardContent>
-                        )}
+                        <CardContent className="pt-2 pb-6 px-6">
+                          <PointsTableManager 
+                            tournament={tournament} 
+                            teams={teams || []} 
+                          />
+                        </CardContent>
                       </Card>
                     );
                   })}
