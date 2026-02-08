@@ -2456,18 +2456,6 @@ const Admin = () => {
                         />
                       </div>
 
-                      {/* CricAPI Match ID */}
-                      <div className="space-y-2">
-                        <Label>CricAPI Match ID</Label>
-                        <Input
-                          placeholder="e.g., ea479cff-ddbe-48e0-..."
-                          value={(matchForm as any).cricapi_match_id || ''}
-                          onChange={(e) => setMatchForm({ ...matchForm, cricapi_match_id: e.target.value } as any)}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Used for fetching Playing XI from cricapi.com. Get the ID from the API URL.
-                        </p>
-                      </div>
 
 
                       {/* Football Auto-Sync Toggle */}
@@ -4309,7 +4297,7 @@ const Admin = () => {
 
                   <div className="p-3 rounded-lg bg-muted/50 border border-border/50">
                     <p className="text-xs text-muted-foreground">
-                      <strong>Usage:</strong> Go to Match → Playing XI → Fetch Squad → "CricAPI (cricapi.com)". Make sure the CricAPI Match ID is set in the match edit form.
+                      <strong>Usage:</strong> Go to Match → Playing XI → Fetch Squad → "CricAPI (cricapi.com)". Match ID is auto-detected from current matches.
                     </p>
                   </div>
 
