@@ -29,6 +29,7 @@ interface Player {
   batting_order: number | null;
   is_bench?: boolean;
   change_status?: string | null;
+  player_image?: string | null;
 }
 
 interface PreviousMatch {

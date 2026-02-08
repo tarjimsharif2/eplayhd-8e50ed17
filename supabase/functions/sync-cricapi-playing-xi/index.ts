@@ -327,6 +327,7 @@ Deno.serve(async (req) => {
           is_wicket_keeper: isWicketKeeper(player.role),
           batting_order: i + 1,
           is_bench: true,
+          player_image: player.playerImg || null,
         });
 
         if (teamId === teamAId) teamACount++;

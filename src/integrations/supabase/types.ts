@@ -585,6 +585,7 @@ export type Database = {
           is_vice_captain: boolean | null
           is_wicket_keeper: boolean | null
           match_id: string
+          player_image: string | null
           player_name: string
           player_role: string | null
           team_id: string
@@ -600,6 +601,7 @@ export type Database = {
           is_vice_captain?: boolean | null
           is_wicket_keeper?: boolean | null
           match_id: string
+          player_image?: string | null
           player_name: string
           player_role?: string | null
           team_id: string
@@ -615,6 +617,7 @@ export type Database = {
           is_vice_captain?: boolean | null
           is_wicket_keeper?: boolean | null
           match_id?: string
+          player_image?: string | null
           player_name?: string
           player_role?: string | null
           team_id?: string

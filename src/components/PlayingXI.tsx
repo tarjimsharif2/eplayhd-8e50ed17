@@ -38,6 +38,7 @@ interface Player {
   batting_order: number | null;
   is_bench?: boolean;
   change_status?: string | null;
+  player_image?: string | null;
 }
 
 interface PlayingXIProps {
@@ -196,10 +197,22 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
       } ${player.change_status === 'in' ? 'border-l-2 border-green-500' : ''} ${player.change_status === 'out' ? 'border-l-2 border-red-500 opacity-50' : ''}`}
     >
       <div className="flex items-center gap-2 min-w-0 flex-1">
-        {/* Order number */}
+        {/* Player image or order number */}
+        {player.player_image ? (
+          <img 
+            src={player.player_image} 
+            alt={player.player_name}
+            className="w-6 h-6 rounded-full object-cover flex-shrink-0 bg-muted/30"
+            onError={(e) => {
+              (e.target as HTMLImageElement).style.display = 'none';
+              const fallback = (e.target as HTMLImageElement).nextElementSibling;
+              if (fallback) (fallback as HTMLElement).style.display = 'flex';
+            }}
+          />
+        ) : null}
         <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center flex-shrink-0 ${
           isBench ? 'bg-muted/30 text-muted-foreground' : 'bg-primary/20 text-primary'
-        }`}>
+        } ${player.player_image ? 'hidden' : ''}`}>
           {isBench ? 'B' : index + 1}
         </span>
         

@@ -1,0 +1,1 @@
+ALTER TABLE public.match_playing_xi ADD COLUMN player_image text DEFAULT NULL;
