@@ -286,10 +286,22 @@ Deno.serve(async (req) => {
 
     console.log(`[sync-points-table] Sync complete. Updated: ${updatedCount}, Inserted: ${insertedCount}, Skipped: ${skippedTeams.length}`);
 
+    // Auto-recalculate positions after sync
+    console.log(`[sync-points-table] Auto-recalculating positions for tournament: ${tournamentId}`);
+    const { error: recalcError } = await supabase.rpc('recalculate_tournament_positions', {
+      p_tournament_id: tournamentId
+    });
+    
+    if (recalcError) {
+      console.error(`[sync-points-table] Recalculate error:`, recalcError);
+    } else {
+      console.log(`[sync-points-table] Positions recalculated successfully`);
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Points table synced successfully`,
+        message: `Points table synced and positions recalculated`,
         updated: updatedCount,
         inserted: insertedCount,
         skippedTeams: skippedTeams.length > 0 ? skippedTeams : undefined,

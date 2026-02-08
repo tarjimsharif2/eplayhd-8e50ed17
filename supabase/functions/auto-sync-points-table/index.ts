@@ -269,6 +269,38 @@ Deno.serve(async (req) => {
         }
 
         console.log(`[auto-sync-points-table] ${tournament.name}: Updated ${updatedCount}, Inserted ${insertedCount}, Skipped ${skippedTeams.length}`);
+        
+        // Auto-recalculate positions within each group after sync
+        // Get all entries for this tournament, grouped
+        const { data: allEntries } = await supabase
+          .from('tournament_points_table')
+          .select('id, group_name, points, net_run_rate, won')
+          .eq('tournament_id', tournament.id)
+          .order('group_name')
+          .order('points', { ascending: false })
+          .order('net_run_rate', { ascending: false })
+          .order('won', { ascending: false });
+        
+        if (allEntries && allEntries.length > 0) {
+          // Group entries by group_name and assign positions within each group
+          const groups = new Map<string, typeof allEntries>();
+          for (const entry of allEntries) {
+            const key = entry.group_name || '__no_group__';
+            if (!groups.has(key)) groups.set(key, []);
+            groups.get(key)!.push(entry);
+          }
+          
+          for (const [, groupEntries] of groups) {
+            for (let i = 0; i < groupEntries.length; i++) {
+              await supabase
+                .from('tournament_points_table')
+                .update({ position: i + 1 })
+                .eq('id', groupEntries[i].id);
+            }
+          }
+          console.log(`[auto-sync-points-table] Positions recalculated for ${tournament.name}`);
+        }
+        
         results.push({ tournament: tournament.name, seriesId, updated: updatedCount, inserted: insertedCount, skipped: skippedTeams });
 
         // Small delay between tournaments to avoid rate limiting
