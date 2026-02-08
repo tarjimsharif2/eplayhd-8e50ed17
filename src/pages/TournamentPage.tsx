@@ -16,7 +16,7 @@ import { Tournament, Match } from '@/hooks/useSportsData';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 import { useRealtimeLiveMatches } from '@/hooks/useRealtimeMatch';
-import { Trophy, Calendar, Loader2, Radio, Users } from 'lucide-react';
+import { Trophy, Calendar, Loader2, Radio, Users, ChevronDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DOMPurify from 'dompurify';
 
@@ -360,6 +360,25 @@ const TournamentPage = () => {
             </>
           )}
 
+          {/* View Points Table Button - before matches */}
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="my-4"
+          >
+            <button
+              onClick={() => {
+                document.getElementById('tournament-points-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg bg-primary/10 hover:bg-primary/20 border border-primary/20 transition-colors group"
+            >
+              <Trophy className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-primary">View Points Table</span>
+              <ChevronDown className="w-4 h-4 text-primary group-hover:translate-y-0.5 transition-transform" />
+            </button>
+          </motion.div>
+
           {/* Tournament Ad - Before Matches */}
           {tournamentAdPositions.before_matches && (
             <MultiAdSlot position="tournament_before_matches" fallbackPosition="in_article" className="my-4" />
@@ -491,7 +510,7 @@ const TournamentPage = () => {
           )}
 
           {/* Points Table */}
-          <div className="mt-6 mb-8">
+          <div id="tournament-points-table" className="mt-6 mb-8 scroll-mt-20">
             <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} syncTime={(tournament as any).points_table_sync_time} />
           </div>
 
