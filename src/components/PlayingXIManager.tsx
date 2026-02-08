@@ -737,18 +737,25 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
       console.warn('[CricAPI Client] currentMatches failed:', e);
     }
 
-    // Fallback to matches (includes upcoming)
-    try {
-      const res = await fetch(`https://api.cricapi.com/v1/matches?apikey=${apiKey}&offset=0`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data.status === 'success' && data.data?.length > 0) {
-          const found = findInList(data.data);
-          if (found) return found;
+    // Fallback to matches (includes upcoming) - paginate through multiple pages
+    for (let offset = 0; offset <= 75; offset += 25) {
+      try {
+        const res = await fetch(`https://api.cricapi.com/v1/matches?apikey=${apiKey}&offset=${offset}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.status === 'success' && data.data?.length > 0) {
+            const found = findInList(data.data);
+            if (found) return found;
+            // If fewer results than page size, no more pages
+            if (data.data.length < 25) break;
+          } else {
+            break; // No more data
+          }
         }
+      } catch (e) {
+        console.warn(`[CricAPI Client] matches list (offset=${offset}) failed:`, e);
+        break;
       }
-    } catch (e) {
-      console.warn('[CricAPI Client] matches list failed:', e);
     }
 
     return null;
