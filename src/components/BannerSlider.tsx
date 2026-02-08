@@ -279,24 +279,24 @@ const BannerSlider = () => {
       case 'watch_now':
         return (
           <motion.button
-            initial={{ opacity: 0, y: 10 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            whileHover={{ y: -2 }}
+            transition={{ duration: 0.4, delay: 0.4 }}
+            whileHover={{ y: -1 }}
             whileTap={{ scale: 0.96 }}
             className="group cursor-pointer"
           >
-            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-300 ${
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-[11px] sm:text-xs font-semibold transition-all duration-300 ${
               isLive
-                ? 'bg-white text-destructive shadow-[0_2px_20px_hsl(var(--destructive)/0.35)] group-hover:shadow-[0_4px_25px_hsl(var(--destructive)/0.5)]'
-                : 'bg-white text-foreground shadow-[0_2px_20px_hsl(var(--foreground)/0.15)] group-hover:shadow-[0_4px_25px_hsl(var(--foreground)/0.25)]'
+                ? 'bg-destructive/90 text-destructive-foreground backdrop-blur-sm'
+                : 'bg-primary/90 text-primary-foreground backdrop-blur-sm'
             }`}>
-              <Tv className={`w-4 h-4 ${isLive ? 'text-destructive' : 'text-foreground'}`} />
+              <Tv className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
               Watch Now
               {isLive && (
-                <span className="relative flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
+                <span className="relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive-foreground opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-destructive-foreground" />
                 </span>
               )}
             </span>
