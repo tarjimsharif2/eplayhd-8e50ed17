@@ -1148,12 +1148,11 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
             <DropdownMenuContent align="end" className="bg-background border">
               <DropdownMenuItem 
                 onClick={() => handleFetchSquad('cricapi', players && players.length > 0)}
-                disabled={fetchingSquad || !cricapiMatchId}
-                title={!cricapiMatchId ? 'CricAPI Match ID not set' : ''}
+                disabled={fetchingSquad}
               >
                 <CloudDownload className="w-4 h-4 mr-2" />
                 CricAPI (cricapi.com)
-                {!cricapiMatchId && <span className="text-xs text-muted-foreground ml-1">- ID missing</span>}
+                {!cricapiMatchId && <span className="text-xs text-muted-foreground ml-1">- Auto detect</span>}
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => handleFetchSquad('rapidapi', players && players.length > 0)}
