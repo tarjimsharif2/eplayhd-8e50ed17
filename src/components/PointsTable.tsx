@@ -279,14 +279,40 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, syncTime }
               </div>
             );
           })}
-          {syncTime && (
-            <div className="px-4 py-2 border-t border-border/20 flex items-center justify-center gap-1.5">
-              <Clock className="w-3 h-3 text-muted-foreground/60" />
-              <span className="text-[10px] text-muted-foreground/60">
-                Auto-syncs daily at {syncTime.split(/[+-]/)?.[0] || syncTime}
-              </span>
-            </div>
-          )}
+          {syncTime && (() => {
+            // syncTime format: "HH:MM" or "HH:MM+OO:OO" / "HH:MM-OO:OO"
+            const parts = syncTime.match(/^(\d{2}):(\d{2})([+-]\d{2}:\d{2})?$/);
+            let localTimeStr = syncTime.split(/[+-]/)?.[0] || syncTime;
+            
+            if (parts) {
+              const [, hh, mm, offset] = parts;
+              // Create a date in the stored timezone, then convert to local
+              const today = new Date();
+              const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+              const isoStr = offset 
+                ? `${dateStr}T${hh}:${mm}:00${offset}` 
+                : `${dateStr}T${hh}:${mm}:00Z`;
+              const syncDate = new Date(isoStr);
+              
+              if (!isNaN(syncDate.getTime())) {
+                const tzAbbr = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop() || '';
+                localTimeStr = syncDate.toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit', 
+                  hour12: true 
+                }) + (tzAbbr ? ` (${tzAbbr})` : '');
+              }
+            }
+            
+            return (
+              <div className="px-4 py-2 border-t border-border/20 flex items-center justify-center gap-1.5">
+                <Clock className="w-3 h-3 text-muted-foreground/60" />
+                <span className="text-[10px] text-muted-foreground/60">
+                  Auto-syncs daily at {localTimeStr}
+                </span>
+              </div>
+            );
+          })()}
         </CardContent>
       </Card>
     </motion.div>
