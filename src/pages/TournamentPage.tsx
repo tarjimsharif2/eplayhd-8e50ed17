@@ -492,7 +492,7 @@ const TournamentPage = () => {
 
           {/* Points Table */}
           <div className="mt-6 mb-8">
-            <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} />
+            <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} syncTime={(tournament as any).points_table_sync_time} />
           </div>
 
           {/* Tournament Ad - After Points Table */}

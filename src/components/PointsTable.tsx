@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trophy, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trophy, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Team } from '@/hooks/useSportsData';
 import { useState } from 'react';
@@ -51,13 +51,14 @@ interface PointsTableProps {
   tournamentId: string;
   tournamentName?: string;
   compact?: boolean;
+  syncTime?: string | null;
 }
 
 interface GroupedEntries {
   [groupName: string]: PointsTableEntry[];
 }
 
-const PointsTable = ({ tournamentId, tournamentName, compact = false }: PointsTableProps) => {
+const PointsTable = ({ tournamentId, tournamentName, compact = false, syncTime }: PointsTableProps) => {
   const { data: entries, isLoading } = usePointsTable(tournamentId);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
@@ -278,6 +279,14 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false }: PointsTa
               </div>
             );
           })}
+          {syncTime && (
+            <div className="px-4 py-2 border-t border-border/20 flex items-center justify-center gap-1.5">
+              <Clock className="w-3 h-3 text-muted-foreground/60" />
+              <span className="text-[10px] text-muted-foreground/60">
+                Auto-syncs daily at {syncTime.split(/[+-]/)?.[0] || syncTime}
+              </span>
+            </div>
+          )}
         </CardContent>
       </Card>
     </motion.div>
