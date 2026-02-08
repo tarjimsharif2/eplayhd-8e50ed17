@@ -439,7 +439,15 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     {/* Score Separator with Match Status */}
                     <div className="flex flex-col items-center">
                       <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
-                      {/* Full Time indicator for completed matches with match minute */}
+                      {/* Live minute indicator */}
+                      {displayStatus === 'live' && match.match_minute != null && (
+                        <div className="flex items-center gap-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2.5 py-1 rounded-full mt-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                          <Clock className="w-3 h-3" />
+                          <span className="text-xs font-bold tabular-nums">{match.match_minute}'</span>
+                        </div>
+                      )}
+                      {/* Full Time indicator for completed matches */}
                       {displayStatus === 'completed' && (
                         <div className="flex flex-col items-center gap-0.5 mt-1">
                           <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5 font-bold">
