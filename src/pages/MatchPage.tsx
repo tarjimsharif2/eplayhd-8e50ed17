@@ -599,7 +599,7 @@ const MatchPage = () => {
 
           {/* Points Table Section */}
           {tournament?.id && (
-            <div id="points-table-section" className="mt-6 scroll-mt-4">
+            <div id="points-table-section" className="mt-6 scroll-mt-20">
               <PointsTable tournamentId={tournament.id} tournamentName={tournament.name} syncTime={(tournament as any).points_table_sync_time} />
             </div>
           )}
