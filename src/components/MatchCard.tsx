@@ -181,13 +181,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
       // Reset seconds when minute changes
       setMatchSeconds(0);
       
-      // Paused states - don't count seconds
-      const pausedMinutes = [45, 90, 105, 120];
-      if (pausedMinutes.includes(match.match_minute)) {
-        return;
-      }
-      
-      // Start counting seconds
+      // Always count seconds - no pausing
       const interval = setInterval(() => {
         setMatchSeconds(prev => (prev >= 59 ? 0 : prev + 1));
       }, 1000);
@@ -462,99 +456,9 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                       <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
                       {/* Match time indicators for football */}
                       {displayStatus === 'live' && match.match_minute != null && (
-                        (() => {
-                          const minute = match.match_minute;
-                          
-                          // Half Time (paused at 45)
-                          if (minute === 45) {
-                            return (
-                              <div className="flex flex-col items-center gap-0.5 mt-1">
-                                <Badge className="bg-yellow-500/20 text-yellow-500 border-yellow-500/30 text-[10px] px-2 py-0.5 font-bold">
-                                  HT
-                                </Badge>
-                                <FootballTimer minute={minute} seconds={matchSeconds} />
-                              </div>
-                            );
-                          }
-                          
-                          // Full Time pause (90 minutes)
-                          if (minute === 90) {
-                            return (
-                              <div className="flex flex-col items-center gap-0.5 mt-1">
-                                <Badge className="bg-green-500/20 text-green-500 border-green-500/30 text-[10px] px-2 py-0.5 font-bold">
-                                  FT
-                                </Badge>
-                                <FootballTimer minute={minute} seconds={matchSeconds} />
-                              </div>
-                            );
-                          }
-                          
-                          // Extra Time Half Time (105 minutes)
-                          if (minute === 105) {
-                            return (
-                              <div className="flex flex-col items-center gap-0.5 mt-1">
-                                <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 text-[10px] px-2 py-0.5 font-bold">
-                                  ET HT
-                                </Badge>
-                                <FootballTimer minute={minute} seconds={matchSeconds} />
-                              </div>
-                            );
-                          }
-                          
-                          // After Extra Time (120+ minutes)
-                          if (minute >= 120) {
-                            return (
-                              <div className="flex flex-col items-center gap-0.5 mt-1">
-                                <Badge className="bg-purple-500/20 text-purple-500 border-purple-500/30 text-[10px] px-2 py-0.5 font-bold">
-                                  AET
-                                </Badge>
-                                <FootballTimer minute={minute} seconds={matchSeconds} />
-                              </div>
-                            );
-                          }
-                          
-                          // 2nd Half Extra Time (106-119)
-                          if (minute > 105 && minute < 120) {
-                            return (
-                              <div className="flex flex-col items-center gap-0.5 mt-1">
-                                <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 text-[9px] px-1.5 py-0">
-                                  ET 2nd
-                                </Badge>
-                                <FootballTimer minute={minute} seconds={matchSeconds} />
-                              </div>
-                            );
-                          }
-                          
-                          // 1st Half Extra Time (91-104)
-                          if (minute > 90 && minute <= 105) {
-                            return (
-                              <div className="flex flex-col items-center gap-0.5 mt-1">
-                                <Badge className="bg-orange-500/20 text-orange-500 border-orange-500/30 text-[9px] px-1.5 py-0">
-                                  ET 1st
-                                </Badge>
-                                <FootballTimer minute={minute} seconds={matchSeconds} />
-                              </div>
-                            );
-                          }
-                          
-                          // 2nd Half (46-89)
-                          if (minute > 45 && minute < 90) {
-                            return (
-                              <div className="flex flex-col items-center gap-0.5 mt-1">
-                                <span className="text-[9px] text-muted-foreground font-medium">2nd Half</span>
-                                <FootballTimer minute={minute} seconds={matchSeconds} />
-                              </div>
-                            );
-                          }
-                          
-                          // 1st Half (0-44)
-                          return (
-                            <div className="flex flex-col items-center gap-0.5 mt-1">
-                              <span className="text-[9px] text-muted-foreground font-medium">1st Half</span>
-                              <FootballTimer minute={minute} seconds={matchSeconds} />
-                            </div>
-                          );
-                        })()
+                        <div className="flex flex-col items-center gap-0.5 mt-1">
+                          <FootballTimer minute={match.match_minute} seconds={matchSeconds} />
+                        </div>
                       )}
                       {/* Full Time indicator for completed matches with match minute */}
                       {displayStatus === 'completed' && (
