@@ -7,6 +7,7 @@ import { MapPin, Clock, Star, Calendar } from "lucide-react";
 import TossCoin from "@/components/TossCoin";
 import InningsDisplay from "@/components/InningsDisplay";
 import FlipClock from "@/components/FlipClock";
+import FootballTimer from "@/components/FootballTimer";
 
 import { useMatchToss } from "@/hooks/useMatchToss";
 import { formatOvers } from "@/lib/utils";
@@ -144,6 +145,8 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
   const [countdown, setCountdown] = useState<string | null>(null);
   const [localTime, setLocalTime] = useState<string>("");
   const [timezone, setTimezone] = useState<string>("");
+  const [footballSeconds, setFootballSeconds] = useState(0);
+  const prevMinuteRef = useRef<number | null>(null);
 
   // Get date label (Today/Tomorrow/Date)
   const dateLabel = useMemo(() => getDateLabel(match.match_start_time, match.match_date), [match.match_start_time, match.match_date]);
@@ -207,6 +210,27 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
       setCountdown(null);
     }
   }, [match.match_start_time, match.match_time, displayStatus]);
+
+  // Football seconds timer - counts locally between server minute updates
+  useEffect(() => {
+    if (!isFootball || displayStatus !== 'live' || match.match_minute == null) {
+      setFootballSeconds(0);
+      prevMinuteRef.current = null;
+      return;
+    }
+
+    // Reset seconds when minute changes from server
+    if (prevMinuteRef.current !== match.match_minute) {
+      setFootballSeconds(0);
+      prevMinuteRef.current = match.match_minute;
+    }
+
+    const interval = setInterval(() => {
+      setFootballSeconds(prev => (prev >= 59 ? 59 : prev + 1));
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isFootball, displayStatus, match.match_minute]);
 
   const getStatusVariant = (status: string, isStumps?: boolean) => {
     if (isStumps) return 'secondary';
@@ -441,10 +465,8 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                       <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
                       {/* Live minute indicator */}
                       {displayStatus === 'live' && match.match_minute != null && (
-                        <div className="flex items-center gap-1.5 bg-orange-500/20 text-orange-400 border border-orange-500/30 px-2.5 py-1 rounded-full mt-1">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                          <Clock className="w-3 h-3" />
-                          <span className="text-xs font-bold tabular-nums">{match.match_minute}'</span>
+                        <div className="mt-1">
+                          <FootballTimer minute={match.match_minute} seconds={footballSeconds} />
                         </div>
                       )}
                       {/* Full Time indicator for completed matches */}
@@ -567,10 +589,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     </div>
                   ) : displayStatus === 'live' && match.match_minute != null && isFootball ? (
                     <div className="flex flex-col items-center">
-                      <div className="w-11 h-11 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500/30 relative">
-                        <span className="font-display text-base text-red-500 font-bold">{match.match_minute}'</span>
-                        <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
-                      </div>
+                      <FootballTimer minute={match.match_minute} seconds={footballSeconds} />
                     </div>
                   ) : (
                     <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/30">
