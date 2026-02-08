@@ -1,7 +1,7 @@
 import { useActiveBanners, Banner } from "@/hooks/useSportsData";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect, useMemo } from "react";
-import { ChevronLeft, ChevronRight, Play, Clock, Radio, Zap, Timer } from "lucide-react";
+import { ChevronLeft, ChevronRight, Play, Clock, Radio, Zap, Timer, Tv } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { usePublicSiteSettings } from "@/hooks/usePublicSiteSettings";
@@ -279,37 +279,27 @@ const BannerSlider = () => {
       case 'watch_now':
         return (
           <motion.button
-            initial={{ opacity: 0, x: -15 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.4, delay: 0.4, type: "spring", stiffness: 200 }}
-            whileHover={{ scale: 1.06, x: 4 }}
-            whileTap={{ scale: 0.95 }}
-            className={`group relative flex items-center gap-0 rounded-full overflow-hidden cursor-pointer shadow-xl ${
-              isLive ? 'shadow-destructive/40' : 'shadow-primary/40'
-            }`}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.4 }}
+            whileHover={{ y: -2 }}
+            whileTap={{ scale: 0.96 }}
+            className="group cursor-pointer"
           >
-            {/* Icon circle */}
-            <span className={`flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full ${
-              isLive ? 'bg-destructive' : 'bg-primary'
+            <span className={`inline-flex items-center gap-2 px-4 py-2 rounded-md text-xs sm:text-sm font-semibold transition-all duration-300 ${
+              isLive
+                ? 'bg-white text-destructive shadow-[0_2px_20px_hsl(var(--destructive)/0.35)] group-hover:shadow-[0_4px_25px_hsl(var(--destructive)/0.5)]'
+                : 'bg-white text-foreground shadow-[0_2px_20px_hsl(var(--foreground)/0.15)] group-hover:shadow-[0_4px_25px_hsl(var(--foreground)/0.25)]'
             }`}>
-              {isLive ? (
-                <Zap className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-destructive-foreground fill-current" />
-              ) : (
-                <Play className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-primary-foreground fill-current ml-0.5" />
+              <Tv className={`w-4 h-4 ${isLive ? 'text-destructive' : 'text-foreground'}`} />
+              Watch Now
+              {isLive && (
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-destructive opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-destructive" />
+                </span>
               )}
             </span>
-            {/* Text pill */}
-            <span className={`px-3 sm:px-4 py-1.5 sm:py-2 -ml-1 pl-3 sm:pl-4 text-xs sm:text-sm font-bold tracking-wider uppercase rounded-r-full border-y border-r ${
-              isLive
-                ? 'bg-destructive/20 text-destructive-foreground border-destructive/40 backdrop-blur-md'
-                : 'bg-primary/20 text-primary-foreground border-primary/40 backdrop-blur-md'
-            }`}>
-              Watch Now
-            </span>
-            {/* Glow ring on hover */}
-            <span className={`absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 ${
-              isLive ? 'ring-2 ring-destructive/50' : 'ring-2 ring-primary/50'
-            }`} />
           </motion.button>
         );
       default:
