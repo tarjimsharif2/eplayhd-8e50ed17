@@ -296,24 +296,29 @@ serve(async (req) => {
           newMinute = 45;
         } else if (matchedApi.status === 'Live') {
           newStatus = 'live';
+        } else if (dbMatch.status === 'live' && matchedApi.status === 'Scheduled') {
+          // ESPN sometimes returns "Scheduled" for live matches — keep our status as live
+          console.log(`[auto-sync-football] ESPN says "Scheduled" but DB is "live" for ${dbMatch.id} — keeping live status`);
+          newStatus = 'live';
+        }
+        
+        // Fallback: if no minute from API and match is live, calculate from match_start_time
+        // This handles cases where ESPN doesn't provide displayClock or returns wrong status
+        if (newMinute === null && newStatus === 'live' && dbMatch.match_start_time) {
+          const startTime = new Date(dbMatch.match_start_time).getTime();
+          const elapsedMin = (Date.now() - startTime) / 1000 / 60;
           
-          // Fallback: if ESPN returned no minute for a live match, calculate from match_start_time
-          if (newMinute === null && dbMatch.match_start_time) {
-            const startTime = new Date(dbMatch.match_start_time).getTime();
-            const elapsedMin = (Date.now() - startTime) / 1000 / 60;
-            
-            if (elapsedMin <= 47) {
-              // 1st half
-              newMinute = Math.min(Math.floor(elapsedMin), 45);
-            } else if (elapsedMin <= 63) {
-              // Halftime break
-              newMinute = 45;
-            } else {
-              // 2nd half: subtract ~15 min break
-              newMinute = Math.min(Math.floor(elapsedMin - 15), 90);
-            }
-            console.log(`[auto-sync-football] Fallback minute from start_time: ${newMinute}' (elapsed: ${Math.floor(elapsedMin)} min)`);
+          if (elapsedMin <= 47) {
+            // 1st half
+            newMinute = Math.min(Math.floor(elapsedMin), 45);
+          } else if (elapsedMin <= 63) {
+            // Halftime break
+            newMinute = 45;
+          } else {
+            // 2nd half: subtract ~15 min break
+            newMinute = Math.min(Math.floor(elapsedMin - 15), 90);
           }
+          console.log(`[auto-sync-football] Fallback minute from start_time: ${newMinute}' (elapsed: ${Math.floor(elapsedMin)} min)`);
         }
 
         // Check if update needed
