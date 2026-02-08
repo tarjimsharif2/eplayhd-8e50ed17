@@ -179,24 +179,37 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
 
   // Live timer for football matches - purely DB-based
   useEffect(() => {
-    if (displayStatus !== 'live' || !isFootball || match.match_minute == null) return;
+    if (displayStatus !== 'live' || !isFootball) return;
 
-    // Track when this match_minute was received
-    minuteReceivedAt.current = Date.now();
-    setDisplayMinute(match.match_minute);
-    setDisplaySeconds(0);
+    if (match.match_minute != null) {
+      // DB minute available: show it exactly, only cycle seconds 0-59
+      minuteReceivedAt.current = Date.now();
+      setDisplayMinute(match.match_minute);
+      setDisplaySeconds(0);
 
-    // Only count seconds locally between DB syncs (0-59), minute stays as DB value
-    const interval = setInterval(() => {
-      const sinceSyncSec = Math.floor((Date.now() - minuteReceivedAt.current) / 1000);
-      // Keep minute as DB value, only increment seconds within current minute
-      const extraMin = Math.floor(sinceSyncSec / 60);
-      setDisplayMinute(match.match_minute! + extraMin);
-      setDisplaySeconds(sinceSyncSec % 60);
-    }, 1000);
+      const interval = setInterval(() => {
+        const sinceSyncSec = Math.floor((Date.now() - minuteReceivedAt.current) / 1000);
+        // Show DB minute exactly - NO extra minute calculation
+        setDisplayMinute(match.match_minute!);
+        setDisplaySeconds(sinceSyncSec % 60);
+      }, 1000);
 
-    return () => clearInterval(interval);
-  }, [displayStatus, isFootball, match.match_minute]);
+      return () => clearInterval(interval);
+    } else if (match.match_start_time) {
+      // Fallback: no match_minute set yet, calculate from start time
+      const updateFromStartTime = () => {
+        const startTime = new Date(match.match_start_time!).getTime();
+        const elapsedSec = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+        const elapsedMin = Math.floor(elapsedSec / 60);
+        setDisplayMinute(elapsedMin);
+        setDisplaySeconds(elapsedSec % 60);
+      };
+
+      updateFromStartTime();
+      const interval = setInterval(updateFromStartTime, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [displayStatus, isFootball, match.match_minute, match.match_start_time]);
 
   useEffect(() => {
     if (match.match_start_time) {
@@ -463,7 +476,7 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     <div className="flex flex-col items-center">
                       <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
                       {/* Match time indicators for football */}
-                      {displayStatus === 'live' && match.match_minute != null && (
+                      {displayStatus === 'live' && (match.match_minute != null || match.match_start_time) && (
                         <div className="flex flex-col items-center gap-0.5 mt-1">
                           {displayMinute > 90 && (
                             <span className="text-[9px] text-red-500 font-bold uppercase tracking-wider">Extra Time</span>
