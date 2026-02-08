@@ -42,13 +42,22 @@ interface CricApiMatchBrowserProps {
 }
 
 const isSeriesCompleted = (series: CricApiSeries): boolean => {
-  if (series.endDate) {
-    const endDate = new Date(series.endDate);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return endDate < today;
+  if (!series.endDate) return false;
+  
+  // endDate can be full "2026-09-15" or short "Sep 27"
+  let endDate = new Date(series.endDate);
+  
+  // If short format like "Sep 27", derive year from startDate
+  if (isNaN(endDate.getTime()) && series.startDate) {
+    const year = new Date(series.startDate).getFullYear();
+    endDate = new Date(`${series.endDate} ${year}`);
   }
-  return false;
+  
+  if (isNaN(endDate.getTime())) return false;
+  
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return endDate < today;
 };
 
 const CricApiMatchBrowser = ({ open, onClose, onSelectMatch, teamAName, teamBName }: CricApiMatchBrowserProps) => {
