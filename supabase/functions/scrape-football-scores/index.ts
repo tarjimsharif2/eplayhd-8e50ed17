@@ -156,12 +156,15 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
       for (const entry of roster.roster || []) {
         const player = entry.athlete;
         if (player && entry.starter) {
+          // Build headshot URL: prefer explicit headshot, fallback to constructing from athlete ID
+          const headshotUrl = player.headshot?.href || player.headshot || 
+            (player.id ? `https://a.espncdn.com/i/headshots/soccer/players/full/${player.id}.png` : undefined);
           lineup.push({
             name: player.displayName || player.fullName || 'Unknown',
             position: entry.position?.abbreviation || player.position?.abbreviation || '',
             jerseyNumber: player.jersey || entry.jersey,
             isCaptain: entry.captain || false,
-            playerImage: player.headshot?.href || player.headshot || undefined,
+            playerImage: headshotUrl,
           });
         }
       }
@@ -180,12 +183,14 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
           if (statGroup.type === 'starters' || statGroup.name?.toLowerCase().includes('starter')) {
             for (const player of statGroup.athletes || []) {
               const athlete = player.athlete || player;
+              const headshotUrl = athlete.headshot?.href || athlete.headshot || 
+                (athlete.id ? `https://a.espncdn.com/i/headshots/soccer/players/full/${athlete.id}.png` : undefined);
               lineup.push({
                 name: athlete.displayName || athlete.fullName || 'Unknown',
                 position: athlete.position?.abbreviation || player.position?.abbreviation || '',
                 jerseyNumber: athlete.jersey,
                 isCaptain: false,
-                playerImage: athlete.headshot?.href || athlete.headshot || undefined,
+                playerImage: headshotUrl,
               });
             }
           }
@@ -202,12 +207,14 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
         const lineup = isHome ? homeLineup : awayLineup;
         
         for (const player of formation.players || formation.lineup || []) {
+          const headshotUrl = player.headshot?.href || player.headshot || 
+            (player.id ? `https://a.espncdn.com/i/headshots/soccer/players/full/${player.id}.png` : undefined);
           lineup.push({
             name: player.displayName || player.name || player.fullName || 'Unknown',
             position: player.position?.abbreviation || player.position || '',
             jerseyNumber: player.jersey,
             isCaptain: player.captain || false,
-            playerImage: player.headshot?.href || player.headshot || undefined,
+            playerImage: headshotUrl,
           });
         }
       }
