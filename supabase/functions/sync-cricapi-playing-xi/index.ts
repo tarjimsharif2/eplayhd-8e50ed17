@@ -33,6 +33,45 @@ interface CricApiResponse {
   };
 }
 
+interface CricApiMatch {
+  id: string;
+  name: string;
+  matchType: string;
+  status: string;
+  venue: string;
+  date: string;
+  dateTimeGMT: string;
+  teams: string[];
+  teamInfo?: Array<{
+    name: string;
+    shortname: string;
+    img?: string;
+  }>;
+  score?: Array<{
+    r: number;
+    w: number;
+    o: number;
+    inning: string;
+  }>;
+  series_id?: string;
+  fantasyEnabled?: boolean;
+  bbbEnabled?: boolean;
+  hasSquad?: boolean;
+  matchStarted?: boolean;
+  matchEnded?: boolean;
+}
+
+interface CricApiMatchesResponse {
+  apikey: string;
+  data: CricApiMatch[];
+  status: string;
+  info?: {
+    hitsToday: number;
+    hitsUsed: number;
+    hitsLimit: number;
+  };
+}
+
 // Normalize team name for matching
 function normalizeTeamName(name: string): string {
   return name
@@ -99,6 +138,79 @@ function matchTeam(
   return null;
 }
 
+// Auto-detect CricAPI match ID from currentMatches endpoint
+async function autoDetectMatchId(
+  apiKey: string,
+  teamAName: string,
+  teamAShortName: string,
+  teamBName: string,
+  teamBShortName: string
+): Promise<{ matchId: string | null; matchName: string | null; error: string | null }> {
+  try {
+    console.log(`[CricAPI Auto] Searching for match: ${teamAName} vs ${teamBName}`);
+    
+    const response = await fetch(`https://api.cricapi.com/v1/currentMatches?apikey=${apiKey}`);
+    if (!response.ok) {
+      return { matchId: null, matchName: null, error: `currentMatches API returned ${response.status}` };
+    }
+
+    const data: CricApiMatchesResponse = await response.json();
+    
+    if (data.status !== 'success' || !data.data || data.data.length === 0) {
+      return { matchId: null, matchName: null, error: 'No current matches found from CricAPI' };
+    }
+
+    console.log(`[CricAPI Auto] Found ${data.data.length} current matches, searching...`);
+
+    const normA = normalizeTeamName(teamAName);
+    const normB = normalizeTeamName(teamBName);
+    const shortA = teamAShortName?.toLowerCase().trim() || '';
+    const shortB = teamBShortName?.toLowerCase().trim() || '';
+
+    for (const match of data.data) {
+      if (!match.teams || match.teams.length < 2) continue;
+
+      const team1 = normalizeTeamName(match.teams[0]);
+      const team2 = normalizeTeamName(match.teams[1]);
+
+      // Also check teamInfo shortnames if available
+      const short1 = match.teamInfo?.[0]?.shortname?.toLowerCase().trim() || '';
+      const short2 = match.teamInfo?.[1]?.shortname?.toLowerCase().trim() || '';
+
+      // Check if both our teams match (in any order)
+      const matchesA = (
+        team1 === normA || team1.includes(normA) || normA.includes(team1) ||
+        short1 === shortA || team2 === normA || team2.includes(normA) || normA.includes(team2) ||
+        short2 === shortA
+      );
+      
+      const matchesB = (
+        team1 === normB || team1.includes(normB) || normB.includes(team1) ||
+        short1 === shortB || team2 === normB || team2.includes(normB) || normB.includes(team2) ||
+        short2 === shortB
+      );
+
+      if (matchesA && matchesB) {
+        console.log(`[CricAPI Auto] Found match: "${match.name}" (ID: ${match.id})`);
+        return { matchId: match.id, matchName: match.name, error: null };
+      }
+    }
+
+    // Log available matches for debugging
+    const availableTeams = data.data.map(m => m.teams?.join(' vs ') || m.name).join(', ');
+    console.log(`[CricAPI Auto] No match found. Available: ${availableTeams}`);
+    
+    return { 
+      matchId: null, 
+      matchName: null, 
+      error: `Could not find ${teamAName} vs ${teamBName} in current matches. Available: ${availableTeams.substring(0, 200)}` 
+    };
+  } catch (err) {
+    console.error('[CricAPI Auto] Error:', err);
+    return { matchId: null, matchName: null, error: `Auto-detect failed: ${err.message}` };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -120,32 +232,6 @@ Deno.serve(async (req) => {
 
     console.log(`[CricAPI Squad] Fetching squad for match ${matchId}`);
 
-    // Get the match to find cricapi_match_id
-    const { data: match, error: matchError } = await supabase
-      .from('matches')
-      .select('cricapi_match_id')
-      .eq('id', matchId)
-      .single();
-
-    if (matchError || !match) {
-      console.error('[CricAPI Squad] Match not found:', matchError);
-      return new Response(JSON.stringify({ success: false, error: 'Match not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    const cricapiMatchId = match.cricapi_match_id;
-    if (!cricapiMatchId) {
-      return new Response(JSON.stringify({ 
-        success: false, 
-        error: 'CricAPI Match ID not set. Please add the CricAPI Match ID in the match settings first.' 
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     // Get the CricAPI key from site_settings
     const { data: settings, error: settingsError } = await supabase
       .from('site_settings')
@@ -165,6 +251,56 @@ Deno.serve(async (req) => {
     }
 
     const apiKey = settings.cricket_api_key;
+
+    // Get the match to find cricapi_match_id
+    const { data: match, error: matchError } = await supabase
+      .from('matches')
+      .select('cricapi_match_id')
+      .eq('id', matchId)
+      .single();
+
+    if (matchError || !match) {
+      console.error('[CricAPI Squad] Match not found:', matchError);
+      return new Response(JSON.stringify({ success: false, error: 'Match not found' }), {
+        status: 404,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    let cricapiMatchId = match.cricapi_match_id;
+    let autoDetected = false;
+
+    // Auto-detect match ID if not set
+    if (!cricapiMatchId) {
+      console.log('[CricAPI Squad] No cricapi_match_id set, auto-detecting...');
+      
+      const detection = await autoDetectMatchId(apiKey, teamAName, teamAShortName, teamBName, teamBShortName);
+      
+      if (!detection.matchId) {
+        return new Response(JSON.stringify({ 
+          success: false, 
+          error: detection.error || 'Could not auto-detect match ID from CricAPI. Try setting it manually.' 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      cricapiMatchId = detection.matchId;
+      autoDetected = true;
+
+      // Save the detected match ID to the database for future use
+      const { error: updateError } = await supabase
+        .from('matches')
+        .update({ cricapi_match_id: cricapiMatchId })
+        .eq('id', matchId);
+
+      if (updateError) {
+        console.warn('[CricAPI Squad] Failed to save auto-detected ID:', updateError);
+      } else {
+        console.log(`[CricAPI Squad] Auto-detected and saved match ID: ${cricapiMatchId} (${detection.matchName})`);
+      }
+    }
 
     // Fetch squad from CricAPI
     const apiUrl = `https://api.cricapi.com/v1/match_squad?apikey=${apiKey}&id=${cricapiMatchId}`;
@@ -198,7 +334,6 @@ Deno.serve(async (req) => {
 
     // Match API teams to our teams
     const teamMapping: Record<string, string> = {};
-    const unmatchedTeams: string[] = [];
 
     for (const apiTeam of apiData.data) {
       const matchedTeamId = matchTeam(
@@ -207,14 +342,13 @@ Deno.serve(async (req) => {
       
       if (matchedTeamId) {
         teamMapping[apiTeam.teamName] = matchedTeamId;
-        console.log(`[CricAPI Squad] Matched \"${apiTeam.teamName}\" → ${matchedTeamId === teamAId ? teamAName : teamBName}`);
+        console.log(`[CricAPI Squad] Matched "${apiTeam.teamName}" → ${matchedTeamId === teamAId ? teamAName : teamBName}`);
       } else {
-        unmatchedTeams.push(apiTeam.teamName);
-        console.warn(`[CricAPI Squad] Could not match team: \"${apiTeam.teamName}\"`);
+        console.warn(`[CricAPI Squad] Could not match team: "${apiTeam.teamName}"`);
       }
     }
 
-    // If we couldn't match both teams, try positional fallback (first = teamA, second = teamB)
+    // If we couldn't match both teams, try positional fallback
     if (Object.keys(teamMapping).length < 2 && apiData.data.length >= 2) {
       console.log('[CricAPI Squad] Using positional fallback for team matching');
       teamMapping[apiData.data[0].teamName] = teamAId;
@@ -253,7 +387,7 @@ Deno.serve(async (req) => {
           is_vice_captain: false,
           is_wicket_keeper: isWicketKeeper(player.role),
           batting_order: i + 1,
-          is_bench: true, // All added to squad, user can select Playing XI
+          is_bench: true,
         });
 
         if (teamId === teamAId) teamACount++;
@@ -280,7 +414,8 @@ Deno.serve(async (req) => {
       throw insertError;
     }
 
-    console.log(`[CricAPI Squad] Successfully added ${allPlayers.length} players (${teamACount} + ${teamBCount})`);
+    const autoMsg = autoDetected ? ` (Match ID auto-detected: ${cricapiMatchId})` : '';
+    console.log(`[CricAPI Squad] Successfully added ${allPlayers.length} players (${teamACount} + ${teamBCount})${autoMsg}`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -288,7 +423,9 @@ Deno.serve(async (req) => {
       teamA: { count: teamACount },
       teamB: { count: teamBCount },
       info: apiData.info,
-      message: `${allPlayers.length} players added from CricAPI (${teamACount} + ${teamBCount})`
+      autoDetected,
+      cricapiMatchId,
+      message: `${allPlayers.length} players added from CricAPI (${teamACount} + ${teamBCount})${autoMsg}`
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -304,4 +441,3 @@ Deno.serve(async (req) => {
     });
   }
 });
-
