@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Loader2, Search, ChevronRight, ArrowLeft, Trophy, Calendar } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -41,6 +40,16 @@ interface CricApiMatchBrowserProps {
   teamAName: string;
   teamBName: string;
 }
+
+const isSeriesCompleted = (series: CricApiSeries): boolean => {
+  if (series.endDate) {
+    const endDate = new Date(series.endDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return endDate < today;
+  }
+  return false;
+};
 
 const CricApiMatchBrowser = ({ open, onClose, onSelectMatch, teamAName, teamBName }: CricApiMatchBrowserProps) => {
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -92,8 +101,10 @@ const CricApiMatchBrowser = ({ open, onClose, onSelectMatch, teamAName, teamBNam
       if (res.ok) {
         const data = await res.json();
         if (data.status === 'success' && data.data) {
-          setSeriesList(data.data);
-          setFilteredSeries(data.data);
+          // Filter out completed tournaments
+          const activeSeries = data.data.filter((s: CricApiSeries) => !isSeriesCompleted(s));
+          setSeriesList(activeSeries);
+          setFilteredSeries(activeSeries);
         }
       }
     } catch (e) {
@@ -124,26 +135,22 @@ const CricApiMatchBrowser = ({ open, onClose, onSelectMatch, teamAName, teamBNam
     if (!apiKey) return;
     setLoading(true);
     try {
-      // Filter all matches by series_id
-      const seriesMatches = allMatches.filter(m => (m as any).series_id === seriesId);
-      
-      if (seriesMatches.length > 0) {
-        setMatchesList(seriesMatches);
-        setFilteredMatches(seriesMatches);
-      } else {
-        // If no matches found via filtering, try series_info endpoint
-        const res = await fetch(`https://api.cricapi.com/v1/series_info?apikey=${apiKey}&id=${seriesId}`);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.status === 'success' && data.data?.matchList) {
-            setMatchesList(data.data.matchList);
-            setFilteredMatches(data.data.matchList);
-          } else {
-            setMatchesList([]);
-            setFilteredMatches([]);
-          }
+      // Try series_info endpoint first for complete match list
+      const res = await fetch(`https://api.cricapi.com/v1/series_info?apikey=${apiKey}&id=${seriesId}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.status === 'success' && data.data?.matchList?.length > 0) {
+          setMatchesList(data.data.matchList);
+          setFilteredMatches(data.data.matchList);
+          setLoading(false);
+          return;
         }
       }
+
+      // Fallback: filter from all matches
+      const seriesMatches = allMatches.filter(m => (m as any).series_id === seriesId);
+      setMatchesList(seriesMatches);
+      setFilteredMatches(seriesMatches);
     } catch (e) {
       console.error('Failed to fetch series matches:', e);
     } finally {
@@ -203,90 +210,115 @@ const CricApiMatchBrowser = ({ open, onClose, onSelectMatch, teamAName, teamBNam
 
   const directMatchResults = step === 'series' && searchQuery.length >= 2 ? handleSearchAllMatches() : [];
 
+  const getMatchStatusBadge = (match: CricApiMatch) => {
+    if (match.matchStarted && !match.matchEnded) return { label: 'LIVE', variant: 'destructive' as const };
+    if (match.matchEnded) return { label: 'Ended', variant: 'secondary' as const };
+    return { label: 'Upcoming', variant: 'secondary' as const };
+  };
+
+  const renderMatchCard = (match: CricApiMatch) => {
+    const badge = getMatchStatusBadge(match);
+    return (
+      <Card
+        key={match.id}
+        className="cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleSelectMatch(match)}
+      >
+        <CardContent className="p-3">
+          <div className="flex items-start gap-2">
+            <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium leading-tight">{match.name}</p>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                <span className="text-xs text-muted-foreground">{match.date || match.dateTimeGMT}</span>
+                <Badge variant={badge.variant} className="text-[9px] px-1.5 py-0">
+                  {badge.label}
+                </Badge>
+                {match.matchType && (
+                  <Badge variant="outline" className="text-[9px] px-1.5 py-0">{match.matchType.toUpperCase()}</Badge>
+                )}
+              </div>
+              {match.venue && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{match.venue}</p>}
+              {match.teamInfo && match.teamInfo.length >= 2 && (
+                <div className="flex items-center gap-3 mt-1.5">
+                  {match.teamInfo.map((t, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <img src={t.img} alt={t.shortname} className="w-4 h-4 object-contain" 
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                      <span className="text-[11px] font-medium">{t.shortname}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
-        <DialogHeader>
+      <DialogContent className="max-w-lg max-h-[85vh] p-0 flex flex-col overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-0 shrink-0">
           <DialogTitle className="flex items-center gap-2 text-base">
             {step === 'matches' && (
               <Button variant="ghost" size="icon" className="h-7 w-7" onClick={handleBack}>
                 <ArrowLeft className="w-4 h-4" />
               </Button>
             )}
-            {step === 'series' ? 'CricAPI: টূর্ণামেন্ট খুঁজুন' : selectedSeries?.name || 'ম্যাচ সিলেক্ট করুন'}
+            {step === 'series' ? 'CricAPI: Browse Tournaments' : selectedSeries?.name || 'Select Match'}
           </DialogTitle>
         </DialogHeader>
 
-        {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder={step === 'series' ? 'টূর্ণামেন্ট বা ম্যাচ খুঁজুন...' : 'ম্যাচ খুঁজুন...'}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
-            autoFocus
-          />
+        <div className="px-6 pt-3 shrink-0 space-y-2">
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder={step === 'series' ? 'Search tournament or match...' : 'Search match...'}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+              autoFocus
+            />
+          </div>
+
+          {/* Info hint */}
+          <p className="text-xs text-muted-foreground">
+            {step === 'series' 
+              ? `Looking for: ${teamAName} vs ${teamBName}` 
+              : `${filteredMatches.length} match${filteredMatches.length !== 1 ? 'es' : ''} found`
+            }
+          </p>
         </div>
 
-        {/* Auto-suggestion hint */}
-        <p className="text-xs text-muted-foreground">
-          {step === 'series' 
-            ? `খুঁজছেন: ${teamAName} vs ${teamBName}` 
-            : `${filteredMatches.length}টি ম্যাচ পাওয়া গেছে`
-          }
-        </p>
-
-        <ScrollArea className="flex-1 min-h-0 max-h-[55vh]">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto px-6 pb-6 pt-2 min-h-0">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">লোড হচ্ছে...</span>
+              <span className="ml-2 text-sm text-muted-foreground">Loading...</span>
             </div>
           ) : step === 'series' ? (
-            <div className="space-y-2 pr-2">
+            <div className="space-y-2">
               {/* Direct match results when searching */}
               {directMatchResults.length > 0 && (
                 <div className="space-y-2 mb-4">
-                  <p className="text-xs font-semibold text-primary px-1">🎯 সরাসরি ম্যাচ ({directMatchResults.length})</p>
-                  {directMatchResults.slice(0, 10).map((match) => (
-                    <Card
-                      key={match.id}
-                      className="cursor-pointer hover:border-primary/50 transition-colors"
-                      onClick={() => handleSelectMatch(match)}
-                    >
-                      <CardContent className="p-3">
-                        <div className="flex items-start gap-2">
-                          <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium leading-tight">{match.name}</p>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              <span className="text-xs text-muted-foreground">{match.date}</span>
-                              <Badge variant={match.matchStarted && !match.matchEnded ? 'destructive' : 'secondary'} className="text-[9px] px-1.5 py-0">
-                                {match.matchStarted && !match.matchEnded ? 'LIVE' : match.matchEnded ? 'Ended' : 'Upcoming'}
-                              </Badge>
-                              {match.matchType && (
-                                <Badge variant="outline" className="text-[9px] px-1.5 py-0">{match.matchType.toUpperCase()}</Badge>
-                              )}
-                            </div>
-                            {match.venue && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{match.venue}</p>}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                  <p className="text-xs font-semibold text-primary px-1">🎯 Direct Matches ({directMatchResults.length})</p>
+                  {directMatchResults.slice(0, 10).map(renderMatchCard)}
                   {directMatchResults.length > 10 && (
-                    <p className="text-xs text-muted-foreground text-center">আরো {directMatchResults.length - 10}টি ম্যাচ...</p>
+                    <p className="text-xs text-muted-foreground text-center">{directMatchResults.length - 10} more match(es)...</p>
                   )}
                 </div>
               )}
 
               {/* Series list */}
               {directMatchResults.length > 0 && filteredSeries.length > 0 && (
-                <p className="text-xs font-semibold text-primary px-1 pt-2 border-t">🏆 টূর্ণামেন্ট ({filteredSeries.length})</p>
+                <p className="text-xs font-semibold text-primary px-1 pt-2 border-t">🏆 Tournaments ({filteredSeries.length})</p>
               )}
               {filteredSeries.length === 0 && directMatchResults.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">কোনো টূর্ণামেন্ট পাওয়া যায়নি</p>
+                <p className="text-sm text-muted-foreground text-center py-8">No tournaments found</p>
               ) : (
                 filteredSeries.map((series) => (
                   <Card
@@ -322,51 +354,15 @@ const CricApiMatchBrowser = ({ open, onClose, onSelectMatch, teamAName, teamBNam
               )}
             </div>
           ) : (
-            <div className="space-y-2 pr-2">
+            <div className="space-y-2">
               {filteredMatches.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-8">এই সিরিজে কোনো ম্যাচ পাওয়া যায়নি</p>
+                <p className="text-sm text-muted-foreground text-center py-8">No matches found in this series</p>
               ) : (
-                filteredMatches.map((match) => (
-                  <Card
-                    key={match.id}
-                    className="cursor-pointer hover:border-primary/50 transition-colors"
-                    onClick={() => handleSelectMatch(match)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-start gap-2">
-                        <Calendar className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium leading-tight">{match.name}</p>
-                          <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span className="text-xs text-muted-foreground">{match.date || match.dateTimeGMT}</span>
-                            <Badge variant={match.matchStarted && !match.matchEnded ? 'destructive' : 'secondary'} className="text-[9px] px-1.5 py-0">
-                              {match.matchStarted && !match.matchEnded ? 'LIVE' : match.matchEnded ? 'Ended' : match.status || 'Upcoming'}
-                            </Badge>
-                            {match.matchType && (
-                              <Badge variant="outline" className="text-[9px] px-1.5 py-0">{match.matchType.toUpperCase()}</Badge>
-                            )}
-                          </div>
-                          {match.venue && <p className="text-[11px] text-muted-foreground mt-0.5 truncate">{match.venue}</p>}
-                          {match.teamInfo && match.teamInfo.length >= 2 && (
-                            <div className="flex items-center gap-3 mt-1.5">
-                              {match.teamInfo.map((t, i) => (
-                                <div key={i} className="flex items-center gap-1">
-                                  <img src={t.img} alt={t.shortname} className="w-4 h-4 object-contain" 
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                  <span className="text-[11px] font-medium">{t.shortname}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
+                filteredMatches.map(renderMatchCard)
               )}
             </div>
           )}
-        </ScrollArea>
+        </div>
       </DialogContent>
     </Dialog>
   );
