@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, ChevronDown, ArrowUpDown, Wand2, Save, Check, History, UserPlus, UserMinus } from "lucide-react";
+import { Plus, Edit2, Trash2, Loader2, Upload, CloudDownload, X, ChevronDown, ArrowUpDown, Wand2, Save, Check, History, UserPlus, UserMinus, User, Image } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Team } from "@/hooks/useSportsData";
@@ -201,6 +201,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
     batting_order: null as number | null,
     change_status: '' as string,
     is_bench: true, // Default to bench/squad, not playing XI
+    player_image: '' as string,
   });
   const [bulkText, setBulkText] = useState('');
   const [bulkAddType, setBulkAddType] = useState<'playing_xi' | 'bench' | 'squad'>('squad');
@@ -427,6 +428,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
       batting_order: null,
       change_status: '',
       is_bench: true, // Default to bench/squad
+      player_image: '',
     });
   };
 
@@ -443,6 +445,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         batting_order: player.batting_order,
         change_status: player.change_status || '',
         is_bench: player.is_bench ?? true,
+        player_image: player.player_image || '',
       });
     } else {
       resetForm();
@@ -577,7 +580,8 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
           is_wicket_keeper: form.is_wicket_keeper,
           batting_order: form.batting_order,
           is_bench: form.is_bench,
-        });
+          player_image: form.player_image.trim() || null,
+        } as any);
         toast({ title: "Player updated successfully" });
       } else {
         await createPlayer.mutateAsync({
@@ -590,7 +594,8 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
           is_wicket_keeper: form.is_wicket_keeper,
           batting_order: form.batting_order,
           is_bench: form.is_bench,
-        });
+          player_image: form.player_image.trim() || null,
+        } as any);
         toast({ title: form.is_bench ? "Player added to Squad" : "Player added to Playing XI" });
       }
       setDialogOpen(false);
@@ -945,6 +950,24 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         <CardContent className="p-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Player Image */}
+              <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 bg-muted/30">
+                {player.player_image ? (
+                  <img 
+                    src={player.player_image} 
+                    alt={player.player_name}
+                    className="w-full h-full object-cover"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = 'none';
+                      const fallback = (e.target as HTMLImageElement).nextElementSibling;
+                      if (fallback) (fallback as HTMLElement).style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div className={`w-full h-full flex items-center justify-center ${player.player_image ? 'hidden' : ''}`}>
+                  <User className="w-4 h-4 text-muted-foreground/50" />
+                </div>
+              </div>
               {/* IN/OUT Status Badge */}
               {player.change_status === 'in' && (
                 <Badge className="text-[9px] px-1 py-0 bg-green-500/20 text-green-400 border-green-500/30 gap-0.5">
@@ -1463,6 +1486,37 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
                 />
                 <Label htmlFor="is_wk" className="text-sm">WK</Label>
               </div>
+            </div>
+
+            {/* Player Image URL */}
+            <div className="space-y-2 pt-2 border-t">
+              <Label className="flex items-center gap-1.5">
+                <Image className="w-3.5 h-3.5" />
+                Player Image URL
+              </Label>
+              <div className="flex gap-2 items-start">
+                {form.player_image && (
+                  <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 bg-muted/30 border">
+                    <img 
+                      src={form.player_image} 
+                      alt="Preview"
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '';
+                      }}
+                    />
+                  </div>
+                )}
+                <Input
+                  placeholder="https://example.com/player-photo.jpg"
+                  value={form.player_image}
+                  onChange={(e) => setForm({ ...form, player_image: e.target.value })}
+                  className="flex-1"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                কাস্টম প্লেয়ার ইমেজ URL দিন। CricAPI থেকে অটোমেটিক আসলেও চাইলে বদলাতে পারবেন।
+              </p>
             </div>
 
             {/* Edit mode: Toggle Playing XI / Bench */}

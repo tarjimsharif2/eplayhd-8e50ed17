@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Users, Shield, Star, Zap } from 'lucide-react';
+import { Users, Shield, Star, Zap, User } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 // Cricket role icons - using emojis for cricket bat/ball
@@ -190,31 +190,35 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.02 }}
-      className={`flex items-center justify-between py-1.5 px-2 rounded transition-all duration-200 ${
+      className={`flex items-center justify-between py-2 px-2.5 rounded-lg transition-all duration-200 ${
         isBench 
           ? 'bg-muted/10 opacity-60' 
           : 'bg-muted/20 hover:bg-muted/30'
       } ${player.change_status === 'in' ? 'border-l-2 border-green-500' : ''} ${player.change_status === 'out' ? 'border-l-2 border-red-500 opacity-50' : ''}`}
     >
-      <div className="flex items-center gap-2 min-w-0 flex-1">
-        {/* Player image or order number */}
-        {player.player_image ? (
-          <img 
-            src={player.player_image} 
-            alt={player.player_name}
-            className="w-6 h-6 rounded-full object-cover flex-shrink-0 bg-muted/30"
-            onError={(e) => {
-              (e.target as HTMLImageElement).style.display = 'none';
-              const fallback = (e.target as HTMLImageElement).nextElementSibling;
-              if (fallback) (fallback as HTMLElement).style.display = 'flex';
-            }}
-          />
-        ) : null}
-        <span className={`w-4 h-4 rounded-full text-[9px] font-bold flex items-center justify-center flex-shrink-0 ${
-          isBench ? 'bg-muted/30 text-muted-foreground' : 'bg-primary/20 text-primary'
-        } ${player.player_image ? 'hidden' : ''}`}>
-          {isBench ? 'B' : index + 1}
-        </span>
+      <div className="flex items-center gap-2.5 min-w-0 flex-1">
+        {/* Player image or default avatar */}
+        <div className={`w-8 h-8 rounded-full flex-shrink-0 overflow-hidden ${
+          isBench ? 'opacity-70' : ''
+        }`}>
+          {player.player_image ? (
+            <img 
+              src={player.player_image} 
+              alt={player.player_name}
+              className="w-full h-full object-cover bg-muted/30"
+              onError={(e) => {
+                (e.target as HTMLImageElement).style.display = 'none';
+                const fallback = (e.target as HTMLImageElement).nextElementSibling;
+                if (fallback) (fallback as HTMLElement).style.display = 'flex';
+              }}
+            />
+          ) : null}
+          <div 
+            className={`w-full h-full bg-muted/40 flex items-center justify-center ${player.player_image ? 'hidden' : ''}`}
+          >
+            <User className="w-4 h-4 text-muted-foreground/60" />
+          </div>
+        </div>
         
         {/* Role icon */}
         <div className="w-4 flex items-center justify-center flex-shrink-0">
@@ -222,7 +226,7 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
         </div>
         
         {/* Player name */}
-        <span className={`text-xs font-medium truncate ${isBench ? 'text-muted-foreground' : ''}`}>
+        <span className={`text-sm font-medium truncate ${isBench ? 'text-muted-foreground' : ''}`}>
           {player.player_name}
         </span>
         
@@ -241,7 +245,7 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
           </div>
         )}
         
-        {/* IN/OUT Status Badge - after player name */}
+        {/* IN/OUT Status Badge */}
         {player.change_status === 'in' && (
           <span className="text-[7px] px-1 py-0 bg-green-500/30 text-green-400 rounded font-bold flex-shrink-0">
             IN
@@ -254,9 +258,9 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
         )}
       </div>
       
-      {/* Player role badge - full name */}
+      {/* Player role badge */}
       {player.player_role && (
-        <span className={`text-[8px] px-1 py-0.5 rounded font-medium flex-shrink-0 ml-1 whitespace-nowrap ${getRoleBadgeColor(player.player_role)}`}>
+        <span className={`text-[8px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ml-1 whitespace-nowrap ${getRoleBadgeColor(player.player_role)}`}>
           {player.player_role}
         </span>
       )}
