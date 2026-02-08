@@ -3337,6 +3337,16 @@ const Admin = () => {
                               onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, show_in_homepage: checked })}
                             />
                           </div>
+                          <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                            <div className="space-y-0.5">
+                              <Label className="text-base font-medium">Show Points Table</Label>
+                              <p className="text-sm text-muted-foreground">Display points table section on tournament page & Points Table manager</p>
+                            </div>
+                            <Switch
+                              checked={tournamentForm.show_points_table}
+                              onCheckedChange={(checked) => setTournamentForm({ ...tournamentForm, show_points_table: checked })}
+                            />
+                          </div>
                           <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm border-orange-500/30 bg-orange-500/5">
                             <div className="space-y-0.5">
                               <Label className="text-base font-medium text-orange-600 dark:text-orange-400">Tournament Completed</Label>
