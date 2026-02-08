@@ -439,14 +439,6 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                     {/* Score Separator with Match Status */}
                     <div className="flex flex-col items-center">
                       <span className="text-xl md:text-2xl font-bold text-muted-foreground/60">-</span>
-                      {/* Live indicator for football */}
-                      {displayStatus === 'live' && (
-                        <div className="flex flex-col items-center gap-0.5 mt-1">
-                          <Badge className="bg-red-500/20 text-red-500 border-red-500/30 text-[10px] px-2 py-0.5 font-bold animate-pulse">
-                            LIVE
-                          </Badge>
-                        </div>
-                      )}
                       {/* Full Time indicator for completed matches with match minute */}
                       {displayStatus === 'completed' && (
                         <div className="flex flex-col items-center gap-0.5 mt-1">
