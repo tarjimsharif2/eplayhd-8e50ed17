@@ -155,41 +155,9 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
   const teamAPlayers = [...teamAPlayingXI, ...teamABench];
   const teamBPlayers = [...teamBPlayingXI, ...teamBBench];
 
-  // Show placeholder message if no players yet
+  // Hide entire section if no players added
   if (teamAPlayers.length === 0 && teamBPlayers.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3 }}
-      >
-        <Card className="overflow-hidden border-border/50 bg-gradient-to-br from-card via-card to-card/80 backdrop-blur shadow-lg">
-          <CardHeader className="pb-4 bg-gradient-to-r from-primary/10 via-transparent to-primary/5">
-            <CardTitle className="flex items-center gap-3 text-lg">
-              <div className="w-9 h-9 rounded-lg bg-primary/20 flex items-center justify-center">
-                <Users className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <span>Playing XI</span>
-                <p className="text-xs font-normal text-muted-foreground mt-0.5">
-                  Starting lineup for both teams
-                </p>
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="py-8">
-            <div className="text-center">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted/50 flex items-center justify-center">
-                <Users className="w-8 h-8 text-muted-foreground/50" />
-              </div>
-              <p className="text-muted-foreground text-sm">
-                Playing XI will be displayed as soon as it is published before the match starts.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
-    );
+    return null;
   }
 
   const renderPlayer = (player: Player, index: number, isBench: boolean = false) => (
