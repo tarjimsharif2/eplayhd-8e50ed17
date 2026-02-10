@@ -5,36 +5,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Helper function to fetch with retry logic
-async function fetchWithRetry(url: string, options: RequestInit, maxRetries = 3): Promise<Response> {
-  let lastError: Error | null = null;
-  
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 15000);
-      
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-      });
-      
-      clearTimeout(timeoutId);
-      return response;
-    } catch (error) {
-      lastError = error as Error;
-      console.log(`Attempt ${attempt}/${maxRetries} failed: ${error}`);
-      
-      if (attempt < maxRetries) {
-        const delay = Math.pow(2, attempt - 1) * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-  }
-  
-  throw lastError || new Error('Failed to fetch after retries');
-}
-
 // Normalize team name for matching
 const normalizeTeamName = (name: string): string => {
   return (name || '').toLowerCase().replace(/[^a-z0-9\s]/g, '').trim();
@@ -76,13 +46,30 @@ async function syncTournamentPoints(
   
   const pointsTableUrl = `https://${cricbuzzHost}${pointsTablePath}`;
   
-  const response = await fetchWithRetry(pointsTableUrl, {
-    method: 'GET',
-    headers: {
-      'x-rapidapi-host': cricbuzzHost,
-      'x-rapidapi-key': rapidApiKey,
-    },
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+  
+  let response: Response;
+  try {
+    response = await fetch(pointsTableUrl, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-host': cricbuzzHost,
+        'x-rapidapi-key': rapidApiKey,
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch (error) {
+    clearTimeout(timeoutId);
+    console.error(`[auto-sync-points-table] Network error for ${tournament.name}:`, error);
+    return { tournament: tournament.name, seriesId, updated: 0, inserted: 0, skipped: [`Network error: ${error}`] };
+  }
+
+  if (response.status === 429) {
+    console.warn(`[auto-sync-points-table] Rate limited (429) for ${tournament.name} - will cooldown`);
+    return { tournament: tournament.name, seriesId, updated: 0, inserted: 0, skipped: ['Rate limited (429) - will retry later'] };
+  }
 
   if (!response.ok) {
     console.error(`[auto-sync-points-table] API error for ${tournament.name}: ${response.status}`);
@@ -266,21 +253,22 @@ Deno.serve(async (req) => {
       }
     }
 
-    // === CHECK 2: On-complete sync - check for recently completed matches (within last 5 minutes) ===
-    const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000).toISOString();
+    // === CHECK 2: On-complete sync ===
+    // Check for recently completed matches, but use a smart cooldown:
+    // - Look for matches completed in last 30 minutes
+    // - But only sync if points table hasn't been updated in last 15 minutes (cooldown)
+    const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
     
     const { data: recentlyCompletedMatches } = await supabase
       .from('matches')
       .select('tournament_id')
       .eq('status', 'completed')
-      .gte('updated_at', fiveMinutesAgo)
+      .gte('updated_at', thirtyMinutesAgo)
       .not('tournament_id', 'is', null);
 
     if (recentlyCompletedMatches && recentlyCompletedMatches.length > 0) {
-      // Get unique tournament IDs
       const completedTournamentIds = [...new Set(recentlyCompletedMatches.map(m => m.tournament_id))];
       
-      // Check which tournaments have on_complete_sync enabled
       const { data: onCompleteTournaments } = await supabase
         .from('tournaments')
         .select('id, name, series_id, points_table_sync_time, points_table_daily_sync_enabled, points_table_on_complete_sync_enabled')
@@ -292,7 +280,36 @@ Deno.serve(async (req) => {
 
       if (onCompleteTournaments) {
         for (const t of onCompleteTournaments) {
-          // Avoid duplicates
+          // Cooldown check: only try if points table hasn't been updated in last 15 minutes
+          const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000).toISOString();
+          
+          const { data: recentUpdate } = await supabase
+            .from('tournament_points_table')
+            .select('updated_at')
+            .eq('tournament_id', t.id)
+            .gte('updated_at', fifteenMinutesAgo)
+            .limit(1);
+          
+          if (recentUpdate && recentUpdate.length > 0) {
+            console.log(`[auto-sync-points-table] Skipping ${t.name} - already synced within 15 min cooldown`);
+            continue;
+          }
+
+          // Also check if we've been rate limited recently by looking at the cron interval
+          // Only attempt on-complete sync at specific intervals: 2, 5, 10, 20, 30 min after completion
+          const oldestCompletedMatch = recentlyCompletedMatches
+            .filter(m => m.tournament_id === t.id)
+            .reduce((oldest: string | null, m: any) => {
+              // We don't have exact completion time, so we use the window approach
+              return oldest;
+            }, null);
+
+          // Simple approach: only try every 5 minutes (minute 0, 5, 10, etc.)
+          if (currentMinute % 5 !== 0) {
+            console.log(`[auto-sync-points-table] Skipping ${t.name} - waiting for 5-min interval (current: ${currentMinute})`);
+            continue;
+          }
+
           if (!tournamentsToSync.find(existing => existing.id === t.id)) {
             tournamentsToSync.push(t);
             syncReasons.set(t.id, 'on_complete');
@@ -312,7 +329,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.log(`[auto-sync-points-table] ${tournamentsToSync.length} tournaments to sync (reasons: ${[...syncReasons.entries()].map(([id, reason]) => reason).join(', ')})`);
+    console.log(`[auto-sync-points-table] ${tournamentsToSync.length} tournaments to sync (reasons: ${[...syncReasons.values()].join(', ')})`);
 
     // Get ALL teams
     const { data: teams, error: teamsError } = await supabase
@@ -329,14 +346,22 @@ Deno.serve(async (req) => {
 
     const results: Array<{ tournament: string; seriesId: string; updated: number; inserted: number; skipped: string[]; reason: string }> = [];
 
-    // Process each tournament
+    // Process each tournament with delay between calls
     for (const tournament of tournamentsToSync) {
       try {
         const result = await syncTournamentPoints(supabase, tournament, teams, rapidApiKey, cricbuzzHost, endpoints);
         results.push({ ...result, reason: syncReasons.get(tournament.id) || 'unknown' });
 
-        // Small delay between tournaments to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // If we got rate limited, stop trying other tournaments too
+        if (result.skipped.some(s => s.includes('429'))) {
+          console.warn('[auto-sync-points-table] Rate limited - stopping further sync attempts this run');
+          break;
+        }
+
+        // 3 second delay between tournaments
+        if (tournamentsToSync.indexOf(tournament) < tournamentsToSync.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 3000));
+        }
       } catch (err) {
         console.error(`[auto-sync-points-table] Error syncing ${tournament.name}:`, err);
         results.push({ tournament: tournament.name, seriesId: tournament.series_id, updated: 0, inserted: 0, skipped: [`Error: ${err}`], reason: syncReasons.get(tournament.id) || 'unknown' });
