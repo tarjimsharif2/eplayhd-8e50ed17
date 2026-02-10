@@ -167,8 +167,8 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
   // Fetch innings for cricket matches
   const { data: innings } = useMatchInnings(isCricket ? match.id : undefined);
   
-  // Fetch toss for cricket matches (live or completed) - both API and manual toss
-  const shouldFetchToss = isCricket && (displayStatus === 'live' || displayStatus === 'completed');
+  // Fetch toss for all cricket matches - show as soon as toss is published
+  const shouldFetchToss = isCricket;
   const { parsedToss, toss: rawToss } = useMatchToss({ matchId: match.id, enabled: shouldFetchToss });
 
   useEffect(() => {
