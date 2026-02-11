@@ -95,8 +95,8 @@ async function getActiveLeagueCodes(): Promise<string[]> {
 }
 
 // Helper to safely extract headshot URL from ESPN player data
-// Only use explicitly provided headshot URLs — do NOT construct fallback URLs
-// because many player IDs don't have actual photos on ESPN CDN (results in 404)
+// Try explicit headshot first, then construct from player ID as fallback
+// Some constructed URLs may 404 — UI handles this with onError fallback
 function getPlayerHeadshot(player: Record<string, unknown>): string | undefined {
   // Check explicit headshot href from API response
   const headshot = player.headshot as Record<string, unknown> | string | undefined;
@@ -118,8 +118,17 @@ function getPlayerHeadshot(player: Record<string, unknown>): string | undefined 
         if (href && typeof href === 'string' && href.startsWith('http')) return href;
       }
     }
+    // Fallback: construct from athlete ID
+    const athleteId = athlete.id as string | undefined;
+    if (athleteId) {
+      return `https://a.espncdn.com/i/headshots/soccer/players/full/${athleteId}.png`;
+    }
   }
-  // NO fallback URL construction — only use verified headshot URLs
+  // Fallback: construct from player ID (ESPN CDN pattern)
+  const playerId = player.id as string | undefined;
+  if (playerId) {
+    return `https://a.espncdn.com/i/headshots/soccer/players/full/${playerId}.png`;
+  }
   return undefined;
 }
 
