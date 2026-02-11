@@ -56,6 +56,11 @@ const SportsChannels = () => {
           >
             <Link to={`/channel/${channel.slug || channel.id}`}>
               <div className="group relative flex flex-col items-center p-2.5 rounded-lg bg-card/50 border border-border/30 hover:border-primary/40 hover:bg-card transition-all duration-300">
+                {/* Auto Index */}
+                <span className="absolute top-1 left-1.5 text-[9px] font-bold text-muted-foreground/60">
+                  {index + 1}
+                </span>
+
                 {/* Channel Logo */}
                 <div 
                   className="w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 border-2 border-border/20 group-hover:border-primary/30 transition-colors shadow-md"
