@@ -174,7 +174,7 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
     >
       <div className="flex items-center gap-2.5 min-w-0 flex-1">
         {/* Player image or default avatar */}
-        <div className={`w-11 h-11 rounded-full flex-shrink-0 overflow-hidden border border-border/30 ${
+        <div className={`relative w-11 h-11 rounded-full flex-shrink-0 overflow-hidden border border-border/30 ${
           isBench ? 'opacity-70' : ''
         }`}>
           {isValidPlayerImage(player.player_image) ? (
@@ -191,9 +191,14 @@ const PlayingXI = ({ matchId, teamAId, teamBId, teamAName, teamBName, teamALogo,
             />
           ) : null}
           <div 
-            className={`w-full h-full bg-muted/40 flex items-center justify-center ${isValidPlayerImage(player.player_image) ? 'hidden' : ''}`}
+            className="w-full h-full bg-muted/40 flex items-center justify-center"
+            style={{ display: isValidPlayerImage(player.player_image) ? 'none' : 'flex' }}
           >
-            <User className="w-5 h-5 text-muted-foreground/50" />
+            {player.player_role ? (
+              <span className="text-[11px] font-bold text-foreground/70">{player.player_role.charAt(0)}</span>
+            ) : (
+              <User className="w-5 h-5 text-muted-foreground/50" />
+            )}
           </div>
         </div>
         

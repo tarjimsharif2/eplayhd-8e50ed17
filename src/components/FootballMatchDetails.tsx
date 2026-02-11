@@ -15,7 +15,7 @@ const PlayerAvatar = ({ player }: { player: Player }) => {
   const showImage = player.player_image && !imgError;
   
   return (
-    <div className="w-8 h-8 rounded-full flex-shrink-0 overflow-hidden border border-border/30 bg-muted/40">
+    <div className="relative w-8 h-8 rounded-full flex-shrink-0 overflow-hidden border border-border/30 bg-muted/40">
       {showImage ? (
         <img 
           src={player.player_image!} 
@@ -24,10 +24,11 @@ const PlayerAvatar = ({ player }: { player: Player }) => {
           referrerPolicy="no-referrer"
           onError={() => setImgError(true)}
         />
-      ) : (
-        <div className="w-full h-full flex items-center justify-center">
+      ) : null}
+      {!showImage && (
+        <div className="w-full h-full flex items-center justify-center bg-muted/40">
           {player.batting_order ? (
-            <span className="text-[10px] font-bold text-muted-foreground">{player.batting_order}</span>
+            <span className="text-[10px] font-bold text-foreground/70">{player.batting_order}</span>
           ) : (
             <User className="w-4 h-4 text-muted-foreground/50" />
           )}
