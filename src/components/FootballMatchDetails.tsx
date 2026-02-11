@@ -22,7 +22,6 @@ const PlayerAvatar = ({ player }: { player: Player }) => {
           alt={player.player_name}
           className="w-full h-full object-cover"
           referrerPolicy="no-referrer"
-          crossOrigin="anonymous"
           onError={() => setImgError(true)}
         />
       ) : (
