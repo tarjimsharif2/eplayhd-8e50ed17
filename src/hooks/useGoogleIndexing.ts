@@ -126,6 +126,65 @@ export const useGoogleIndexing = () => {
     }
   };
 
+  const submitChannelForIndexing = async (channelSlug: string, canonicalUrl?: string): Promise<IndexingResult | null> => {
+    try {
+      let baseUrl = canonicalUrl;
+      if (!baseUrl) {
+        const { data: settings } = await supabase
+          .from('site_settings_public')
+          .select('canonical_url')
+          .limit(1)
+          .single();
+        baseUrl = settings?.canonical_url || '';
+      }
+
+      if (!baseUrl) {
+        console.log('No canonical URL configured, skipping indexing');
+        return null;
+      }
+
+      const channelUrl = `${baseUrl}/channel/${channelSlug}`;
+      console.log('Submitting channel for Google Indexing:', channelUrl);
+
+      const { data, error } = await supabase.functions.invoke('google-indexing', {
+        body: { urls: [channelUrl], action: 'URL_UPDATED' }
+      });
+
+      if (error) {
+        console.error('Google Indexing error:', error);
+        return null;
+      }
+
+      if (data?.success) {
+        console.log('Channel indexing result:', data);
+        if (data.submitted > 0) {
+          toast({
+            title: "Indexed",
+            description: `Channel submitted to Google`,
+          });
+        } else if (data.failed > 0) {
+          const firstError = data.results?.find((r: any) => !r.success)?.error || 'Unknown error';
+          let errorMessage = `Failed: ${firstError.substring(0, 80)}`;
+          if (firstError.includes('verify the URL owner')) {
+            errorMessage = "Add service account as site owner in Search Console.";
+          } else if (firstError.includes('SERVICE_DISABLED')) {
+            errorMessage = "Google Indexing API is not enabled.";
+          }
+          toast({
+            title: "Indexing Failed",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Failed to submit for indexing:', error);
+      return null;
+    }
+  };
+
   const submitUrlForIndexing = async (url: string, action: 'URL_UPDATED' | 'URL_DELETED' = 'URL_UPDATED'): Promise<IndexingResult | null> => {
     try {
       console.log('Submitting URL for Google Indexing:', url, action);
@@ -172,6 +231,7 @@ export const useGoogleIndexing = () => {
   return {
     submitMatchForIndexing,
     submitTournamentForIndexing,
+    submitChannelForIndexing,
     submitUrlForIndexing,
   };
 };

@@ -22,9 +22,10 @@ import {
   Channel,
   ChannelStreamingServer
 } from "@/hooks/useChannels";
-import { Plus, Edit2, Trash2, Tv, Loader2, Radio, Server, ExternalLink, Play, Settings } from "lucide-react";
+import { Plus, Edit2, Trash2, Tv, Loader2, Radio, Server, ExternalLink, Play, Settings, Globe } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import HeaderEditor, { HeaderItem, headersToServerForm, serverFormToHeaders } from "@/components/HeaderEditor";
+import { useGoogleIndexing } from "@/hooks/useGoogleIndexing";
 
 interface ChannelFormType {
   name: string;
@@ -72,6 +73,7 @@ const defaultServerForm: ServerFormType = {
 
 const ChannelsManager = () => {
   const { toast } = useToast();
+  const { submitChannelForIndexing } = useGoogleIndexing();
   const { data: channels, isLoading } = useAllChannels();
   const createChannel = useCreateChannel();
   const updateChannel = useUpdateChannel();
@@ -126,9 +128,13 @@ const ChannelsManager = () => {
       if (editingChannel) {
         await updateChannel.mutateAsync({ id: editingChannel.id, ...channelForm, slug });
         toast({ title: "Channel updated successfully" });
+        // Auto-index on update
+        submitChannelForIndexing(slug);
       } else {
         await createChannel.mutateAsync({ ...channelForm, slug });
         toast({ title: "Channel created successfully" });
+        // Auto-index on create
+        submitChannelForIndexing(slug);
       }
       setChannelDialogOpen(false);
       resetChannelForm();
@@ -206,7 +212,10 @@ const ChannelsManager = () => {
                       </div>
                       <p className="text-sm text-muted-foreground truncate">/channel/{channel.slug}</p>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); if (channel.slug) submitChannelForIndexing(channel.slug); }} title="Submit to Google">
+                        <Globe className="w-4 h-4" />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleEditChannel(channel); }}>
                         <Edit2 className="w-4 h-4" />
                       </Button>
