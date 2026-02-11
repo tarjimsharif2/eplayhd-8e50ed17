@@ -159,7 +159,12 @@ async function enrichLineupWithTheSportsDB(
   const homeMissing = homeLineup.some(p => !p.playerImage);
   const awayMissing = awayLineup.some(p => !p.playerImage);
   
-  if (!homeMissing && !awayMissing) return; // All images present
+  if (!homeMissing && !awayMissing) {
+    console.log(`[TheSportsDB] All players have ESPN headshots, skipping`);
+    return;
+  }
+  
+  console.log(`[TheSportsDB] Home missing: ${homeLineup.filter(p => !p.playerImage).length}, Away missing: ${awayLineup.filter(p => !p.playerImage).length}`);
   
   // Fetch both teams in parallel
   const [homeImages, awayImages] = await Promise.all([
@@ -167,24 +172,24 @@ async function enrichLineupWithTheSportsDB(
     awayMissing ? fetchTheSportsDBPlayerImages(awayTeamName) : Promise.resolve(new Map<string, string>()),
   ]);
   
-  // Fill missing images
+  let filled = 0;
   for (const player of homeLineup) {
     if (!player.playerImage) {
       const img = findTheSportsDBImage(player.name, homeImages);
-      if (img) player.playerImage = img;
+      if (img) { player.playerImage = img; filled++; }
     }
   }
   for (const player of awayLineup) {
     if (!player.playerImage) {
       const img = findTheSportsDBImage(player.name, awayImages);
-      if (img) player.playerImage = img;
+      if (img) { player.playerImage = img; filled++; }
     }
   }
+  console.log(`[TheSportsDB] Filled ${filled} player images`);
 }
 
 // Helper to safely extract headshot URL from ESPN player data
-// Try explicit headshot first, then construct from player ID as fallback
-// Some constructed URLs may 404 — UI handles this with onError fallback
+// ONLY returns explicit headshots from API - constructed CDN URLs return blank placeholders
 function getPlayerHeadshot(player: Record<string, unknown>): string | undefined {
   // Check explicit headshot href from API response
   const headshot = player.headshot as Record<string, unknown> | string | undefined;
@@ -206,17 +211,9 @@ function getPlayerHeadshot(player: Record<string, unknown>): string | undefined 
         if (href && typeof href === 'string' && href.startsWith('http')) return href;
       }
     }
-    // Fallback: construct from athlete ID
-    const athleteId = athlete.id as string | undefined;
-    if (athleteId) {
-      return `https://a.espncdn.com/i/headshots/soccer/players/full/${athleteId}.png`;
-    }
+    // DO NOT construct from athlete ID - ESPN CDN returns blank placeholder images
   }
-  // Fallback: construct from player ID (ESPN CDN pattern)
-  const playerId = player.id as string | undefined;
-  if (playerId) {
-    return `https://a.espncdn.com/i/headshots/soccer/players/full/${playerId}.png`;
-  }
+  // DO NOT construct from player ID - ESPN CDN returns blank placeholder images
   return undefined;
 }
 
@@ -302,7 +299,6 @@ async function fetchMatchDetails(eventId: string, leagueCode: string): Promise<{
         const isHome = teamId === homeTeamId;
         const lineup = isHome ? homeLineup : awayLineup;
         
-        // Look for lineup/starters in statistics
         for (const statGroup of teamPlayers.statistics || []) {
           if (statGroup.type === 'starters' || statGroup.name?.toLowerCase().includes('starter')) {
             for (const player of statGroup.athletes || []) {
