@@ -78,13 +78,26 @@ const CricApiMatchBrowser = ({ open, onClose, onSelectMatch, teamAName, teamBNam
   const fetchSeries = async (key: string) => {
     setLoading(true);
     try {
-      const res = await fetch(`https://api.cricapi.com/v1/series?apikey=${key}&offset=0`);
-      if (res.ok) {
+      const allSeries: CricApiSeries[] = [];
+      let offset = 0;
+      const maxPages = 5; // Fetch up to 5 pages (125 series)
+      
+      for (let page = 0; page < maxPages; page++) {
+        const res = await fetch(`https://api.cricapi.com/v1/series?apikey=${key}&offset=${offset}`);
+        if (!res.ok) break;
+        
         const data = await res.json();
-        if (data.status === 'success' && data.data) {
-          setSeriesList(data.data);
+        if (data.status === 'success' && data.data?.length > 0) {
+          allSeries.push(...data.data);
+          // CricAPI returns 25 per page, if less than 25 returned, no more pages
+          if (data.data.length < 25) break;
+          offset += 25;
+        } else {
+          break;
         }
       }
+      
+      setSeriesList(allSeries);
     } catch (e) {
       console.error('Failed to fetch series:', e);
     } finally {
