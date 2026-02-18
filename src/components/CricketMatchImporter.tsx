@@ -289,9 +289,22 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
       if (error) throw error;
 
       if (data?.matches) {
+        // Filter out completed matches - only show upcoming/live for RapidAPI
+        const filteredMatches = data.matches.filter((m: ESPNCricketMatch) => {
+          const status = m.status?.toLowerCase() || '';
+          const isCompleted = status.includes('complete') || 
+            status.includes(' won ') || 
+            status.includes(' beat ') ||
+            status.includes(' defeated ') ||
+            status.includes('match drawn') ||
+            status.includes('match tied') ||
+            (status.includes('result') && !status.includes('no result'));
+          return !isCompleted;
+        });
+
         const targetTournamentId = defaultTournamentId || null;
         
-        const matchesWithMappings: MatchToImport[] = data.matches.map((m: ESPNCricketMatch) => ({
+        const matchesWithMappings: MatchToImport[] = filteredMatches.map((m: ESPNCricketMatch) => ({
           ...m,
           selected: false,
           teamAId: findTeamMatch(m.homeTeam),
@@ -306,13 +319,15 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
         
         toast({
           title: "Matches Fetched",
-          description: `Found ${data.matches.length} match(es)`,
+          description: `Found ${filteredMatches.length} upcoming/live match(es) from ${data.matches.length} total`,
         });
         
-        if (data.matches.length === 0) {
+        if (filteredMatches.length === 0) {
           toast({
-            title: "No matches found",
-            description: "No matches found for this series. Check series ID.",
+            title: "No upcoming matches",
+            description: data.matches.length > 0 
+              ? `All ${data.matches.length} matches are completed.`
+              : "No matches found for this series. Check series ID.",
             variant: "destructive"
           });
         }
@@ -900,7 +915,7 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
             </Badge>
           </div>
 
-          <ScrollArea className="flex-1 min-h-[200px] max-h-[300px] sm:max-h-[350px]">
+          <div className="flex-1 min-h-[200px] max-h-[300px] sm:max-h-[350px] overflow-y-auto overscroll-contain">
             <div className="space-y-2 pr-2">
               {apiMatches.map((match, index) => (
                 <div 
@@ -1027,7 +1042,7 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Import Button - Fixed at bottom */}
           <div className="pt-2 border-t mt-2">
