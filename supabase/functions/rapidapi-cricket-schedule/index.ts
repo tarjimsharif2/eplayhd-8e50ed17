@@ -350,22 +350,29 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Filter for upcoming 7 days if needed
-    const now = new Date();
-    const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    // Filter for upcoming 7 days only for non-series requests
+    // For series-specific requests, return ALL matches (no date filter)
+    let upcomingMatches: CricbuzzMatch[];
     
-    // Filter matches for next 7 days (include matches without startTime as potentially upcoming)
-    const upcomingMatches = allMatches.filter(match => {
-      if (!match.startTime) return true; // Keep matches without time
+    if (seriesId && seriesId !== 'all') {
+      // Series-specific: return all matches without date filtering
+      upcomingMatches = allMatches;
+      console.log(`[rapidapi-cricket-schedule] Series fetch - returning all ${allMatches.length} matches (no date filter)`);
+    } else {
+      const now = new Date();
+      const sevenDaysLater = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
       
-      try {
-        const matchDate = new Date(match.startTime);
-        // Include matches from now to 7 days ahead
-        return matchDate >= new Date(now.getTime() - 24 * 60 * 60 * 1000) && matchDate <= sevenDaysLater;
-      } catch {
-        return true;
-      }
-    });
+      upcomingMatches = allMatches.filter(match => {
+        if (!match.startTime) return true;
+        
+        try {
+          const matchDate = new Date(match.startTime);
+          return matchDate >= new Date(now.getTime() - 24 * 60 * 60 * 1000) && matchDate <= sevenDaysLater;
+        } catch {
+          return true;
+        }
+      });
+    }
 
     // Sort by start time
     upcomingMatches.sort((a, b) => {
