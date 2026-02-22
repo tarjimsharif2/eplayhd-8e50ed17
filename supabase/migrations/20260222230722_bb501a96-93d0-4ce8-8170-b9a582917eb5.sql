@@ -1,0 +1,2 @@
+
+ALTER TABLE public.tournament_points_table DROP CONSTRAINT tournament_points_table_tournament_team_unique;
