@@ -1065,6 +1065,17 @@ Deno.serve(async (req) => {
         .update(matchUpdate)
         .eq('id', match.id);
 
+      // Auto-disable API sync for completed matches with full scores
+      // This prevents unnecessary API calls for matches that are done
+      if (matchStatus === 'completed' && finalScoreA && finalScoreB && 
+          finalScoreA.trim() !== '' && finalScoreB.trim() !== '') {
+        console.log(`[sync-api-scores] Auto-disabling API sync for completed match ${match.id} (both scores present)`);
+        await supabase
+          .from('matches')
+          .update({ api_score_enabled: false })
+          .eq('id', match.id);
+      }
+
       console.log(`[sync-api-scores] Synced match: ${teamAName} (${scoreA}) vs ${teamBName} (${scoreB})`);
       syncedCount++;
     }
