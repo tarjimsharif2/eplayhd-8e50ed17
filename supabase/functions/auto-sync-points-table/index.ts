@@ -116,12 +116,20 @@ async function syncTournamentPoints(
       const position = parseInt(standing.position || 0) || 0;
       const apiNrr = parseFloat(standing.nrr || '0') || 0;
 
-      const { data: existing } = await supabase
+      // Query by group_name to handle teams in multiple groups
+      let existingQuery = supabase
         .from('tournament_points_table')
         .select('id')
         .eq('tournament_id', tournament.id)
-        .eq('team_id', matchingTeam.id)
-        .maybeSingle();
+        .eq('team_id', matchingTeam.id);
+      
+      if (groupName) {
+        existingQuery = existingQuery.eq('group_name', groupName);
+      } else {
+        existingQuery = existingQuery.is('group_name', null);
+      }
+      
+      const { data: existing } = await existingQuery.maybeSingle();
 
       const entryData = {
         tournament_id: tournament.id,

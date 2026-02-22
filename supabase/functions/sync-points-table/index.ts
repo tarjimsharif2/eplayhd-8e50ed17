@@ -295,13 +295,20 @@ Deno.serve(async (req) => {
         // Get NRR from API - parse the string to float
         const apiNrr = parseFloat(standing.nrr || '0') || 0;
 
-        // Check if entry exists
-        const { data: existing } = await supabase
+        // Check if entry exists for this specific group
+        let existingQuery = supabase
           .from('tournament_points_table')
           .select('id, net_run_rate, group_name')
           .eq('tournament_id', tournamentId)
-          .eq('team_id', matchingTeam.id)
-          .maybeSingle();
+          .eq('team_id', matchingTeam.id);
+        
+        if (groupName) {
+          existingQuery = existingQuery.eq('group_name', groupName);
+        } else {
+          existingQuery = existingQuery.is('group_name', null);
+        }
+        
+        const { data: existing } = await existingQuery.maybeSingle();
 
         const entryData = {
           tournament_id: tournamentId,
