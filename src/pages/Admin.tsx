@@ -297,6 +297,7 @@ const Admin = () => {
     // API Cricket settings (api-cricket.com)
     api_cricket_key: '',
     api_cricket_enabled: false,
+    auto_match_result_enabled: true,
     api_sync_interval_seconds: 120,
     // RapidAPI settings (Cricbuzz)
     rapidapi_key: '',
@@ -356,6 +357,7 @@ const Admin = () => {
         cricket_api_enabled: siteSettings.cricket_api_enabled !== false,
         api_cricket_key: (siteSettings as any).api_cricket_key || '',
         api_cricket_enabled: (siteSettings as any).api_cricket_enabled || false,
+        auto_match_result_enabled: (siteSettings as any).auto_match_result_enabled !== false,
         api_sync_interval_seconds: (siteSettings as any).api_sync_interval_seconds || 120,
         rapidapi_key: (siteSettings as any).rapidapi_key || '',
         rapidapi_enabled: (siteSettings as any).rapidapi_enabled || false,
@@ -1634,6 +1636,7 @@ const Admin = () => {
         // API Cricket settings (api-cricket.com)
         api_cricket_key: siteSettingsForm.api_cricket_key || null,
         api_cricket_enabled: siteSettingsForm.api_cricket_enabled,
+        auto_match_result_enabled: siteSettingsForm.auto_match_result_enabled,
         api_sync_interval_seconds: siteSettingsForm.api_sync_interval_seconds || 120,
         // RapidAPI settings (Cricbuzz)
         rapidapi_key: siteSettingsForm.rapidapi_key || null,
@@ -4432,6 +4435,17 @@ const Admin = () => {
                     <p className="text-xs text-muted-foreground">
                       How often to sync scores from API (minimum 30 seconds). Currently: {siteSettingsForm.api_sync_interval_seconds} seconds ({(siteSettingsForm.api_sync_interval_seconds / 60).toFixed(1)} minutes)
                     </p>
+                  </div>
+
+                  <div className="flex items-center justify-between rounded-lg border p-4 shadow-sm">
+                    <div className="space-y-0.5">
+                      <Label className="text-base font-medium">Auto Match Result</Label>
+                      <p className="text-sm text-muted-foreground">ম্যাচ শেষ হলে API থেকে অটো result (team_a_won/team_b_won) সেট করবে</p>
+                    </div>
+                    <Switch
+                      checked={siteSettingsForm.auto_match_result_enabled}
+                      onCheckedChange={(checked) => setSiteSettingsForm({ ...siteSettingsForm, auto_match_result_enabled: checked })}
+                    />
                   </div>
 
                   <div className="p-3 rounded-lg bg-muted/50 border border-border/50">

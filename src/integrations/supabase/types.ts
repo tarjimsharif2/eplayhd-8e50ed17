@@ -1033,6 +1033,7 @@ export type Database = {
           api_cricket_enabled: boolean | null
           api_cricket_key: string | null
           api_sync_interval_seconds: number | null
+          auto_match_result_enabled: boolean | null
           canonical_url: string | null
           created_at: string
           cricket_api_enabled: boolean | null
@@ -1100,6 +1101,7 @@ export type Database = {
           api_cricket_enabled?: boolean | null
           api_cricket_key?: string | null
           api_sync_interval_seconds?: number | null
+          auto_match_result_enabled?: boolean | null
           canonical_url?: string | null
           created_at?: string
           cricket_api_enabled?: boolean | null
@@ -1167,6 +1169,7 @@ export type Database = {
           api_cricket_enabled?: boolean | null
           api_cricket_key?: string | null
           api_sync_interval_seconds?: number | null
+          auto_match_result_enabled?: boolean | null
           canonical_url?: string | null
           created_at?: string
           cricket_api_enabled?: boolean | null
@@ -1236,6 +1239,7 @@ export type Database = {
           ads_txt_content: string | null
           api_cricket_enabled: boolean | null
           api_sync_interval_seconds: number | null
+          auto_match_result_enabled: boolean | null
           canonical_url: string | null
           created_at: string | null
           cricket_api_enabled: boolean | null
@@ -1293,6 +1297,7 @@ export type Database = {
           ads_txt_content?: string | null
           api_cricket_enabled?: boolean | null
           api_sync_interval_seconds?: number | null
+          auto_match_result_enabled?: boolean | null
           canonical_url?: string | null
           created_at?: string | null
           cricket_api_enabled?: boolean | null
@@ -1350,6 +1355,7 @@ export type Database = {
           ads_txt_content?: string | null
           api_cricket_enabled?: boolean | null
           api_sync_interval_seconds?: number | null
+          auto_match_result_enabled?: boolean | null
           canonical_url?: string | null
           created_at?: string | null
           cricket_api_enabled?: boolean | null

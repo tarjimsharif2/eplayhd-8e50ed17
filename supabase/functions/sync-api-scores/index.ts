@@ -320,7 +320,7 @@ Deno.serve(async (req) => {
     // Get the API key and sync interval from site_settings
     const { data: settings, error: settingsError } = await supabase
       .from('site_settings')
-      .select('api_cricket_key, api_cricket_enabled, api_sync_interval_seconds')
+      .select('api_cricket_key, api_cricket_enabled, api_sync_interval_seconds, auto_match_result_enabled')
       .limit(1)
       .maybeSingle();
 
@@ -342,8 +342,9 @@ Deno.serve(async (req) => {
 
     const apiKey = settings.api_cricket_key;
     const syncIntervalSeconds = settings.api_sync_interval_seconds || 120;
+    const autoMatchResultEnabled = settings.auto_match_result_enabled !== false; // default true
     
-    console.log(`[sync-api-scores] Sync interval configured: ${syncIntervalSeconds} seconds`);
+    console.log(`[sync-api-scores] Sync interval: ${syncIntervalSeconds}s, Auto match result: ${autoMatchResultEnabled}`);
 
     // Get matches that need syncing
     const now = new Date();
@@ -423,7 +424,8 @@ Deno.serve(async (req) => {
       const isIncomplete = hasIncompleteScores();
       
       // For completed matches with incomplete scores or missing match_result - ALWAYS force sync
-      if (match.status === 'completed' && (isIncomplete || !(match as any).match_result)) {
+      const needsMatchResult = autoMatchResultEnabled && !(match as any).match_result;
+      if (match.status === 'completed' && (isIncomplete || needsMatchResult)) {
         console.log(`[sync-api-scores] FORCE SYNCING completed match ${match.id} - incomplete scores or missing match_result (score_a="${match.score_a}", score_b="${match.score_b}", match_result="${(match as any).match_result}")`);
         return true; // Skip ALL other checks
       }
@@ -985,7 +987,7 @@ Deno.serve(async (req) => {
 
       // Auto-detect match_result from API data when match is completed
       let detectedMatchResult: string | null = null;
-      if (matchStatus === 'completed') {
+      if (matchStatus === 'completed' && autoMatchResultEnabled) {
         const resultText = (detailedEvent.event_final_result || detailedEvent.event_status_info || '').toLowerCase();
         console.log(`[sync-api-scores] Detecting match_result from: "${resultText}"`);
         
