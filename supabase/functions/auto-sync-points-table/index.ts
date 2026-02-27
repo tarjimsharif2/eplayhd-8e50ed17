@@ -235,77 +235,40 @@ Deno.serve(async (req) => {
         const syncTimeRaw = t.points_table_sync_time;
         if (!syncTimeRaw) continue;
 
-        const timePart = syncTimeRaw.split(/[+-]/)[0];
-        const [syncHourStr, syncMinuteStr] = timePart.split(':');
-        let syncHour = parseInt(syncHourStr) || 0;
-        let syncMinute = parseInt(syncMinuteStr) || 0;
-
-        const offsetMatch = syncTimeRaw.match(/([+-])(\d{2}):(\d{2})$/);
-        if (offsetMatch) {
-          const sign = offsetMatch[1] === '+' ? -1 : 1;
-          const offsetHours = parseInt(offsetMatch[2]) || 0;
-          const offsetMinutes = parseInt(offsetMatch[3]) || 0;
-          let totalMinutes = (syncHour * 60 + syncMinute) + sign * (offsetHours * 60 + offsetMinutes);
-          totalMinutes = ((totalMinutes % 1440) + 1440) % 1440;
-          syncHour = Math.floor(totalMinutes / 60);
-          syncMinute = totalMinutes % 60;
-        }
-
-        const syncTotalMinutes = syncHour * 60 + syncMinute;
-        const diff = Math.abs(currentTotalMinutes - syncTotalMinutes);
+        // Support multiple comma-separated sync times
+        const syncTimes = syncTimeRaw.split(',').map((s: string) => s.trim()).filter(Boolean);
         
-        if (diff <= 2 || diff >= (24 * 60 - 2)) {
-          tournamentsToSync.push(t);
-          syncReasons.set(t.id, 'daily_sync');
+        for (const singleTime of syncTimes) {
+          const timePart = singleTime.split(/[+-]/)[0];
+          const [syncHourStr, syncMinuteStr] = timePart.split(':');
+          let syncHour = parseInt(syncHourStr) || 0;
+          let syncMinute = parseInt(syncMinuteStr) || 0;
+
+          const offsetMatch = singleTime.match(/([+-])(\d{2}):(\d{2})$/);
+          if (offsetMatch) {
+            const sign = offsetMatch[1] === '+' ? -1 : 1;
+            const offsetHours = parseInt(offsetMatch[2]) || 0;
+            const offsetMinutes = parseInt(offsetMatch[3]) || 0;
+            let totalMinutes = (syncHour * 60 + syncMinute) + sign * (offsetHours * 60 + offsetMinutes);
+            totalMinutes = ((totalMinutes % 1440) + 1440) % 1440;
+            syncHour = Math.floor(totalMinutes / 60);
+            syncMinute = totalMinutes % 60;
+          }
+
+          // Exact minute match only (fires once per scheduled time, no retries)
+          if (currentHour === syncHour && currentMinute === syncMinute) {
+            if (!tournamentsToSync.find(existing => existing.id === t.id)) {
+              tournamentsToSync.push(t);
+              syncReasons.set(t.id, `daily_sync@${timePart}`);
+            }
+            break; // No need to check other times for same tournament
+          }
         }
       }
     }
 
-    // === CHECK 2: On-complete sync ===
-    // Check for recently completed matches, but use a smart cooldown:
-    // - Look for matches completed in last 30 minutes
-    // - But only sync if points table hasn't been updated in last 15 minutes (cooldown)
-    const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000).toISOString();
-    
-    const { data: recentlyCompletedMatches } = await supabase
-      .from('matches')
-      .select('tournament_id')
-      .eq('status', 'completed')
-      .gte('updated_at', thirtyMinutesAgo)
-      .not('tournament_id', 'is', null);
-
-    if (recentlyCompletedMatches && recentlyCompletedMatches.length > 0) {
-      const completedTournamentIds = [...new Set(recentlyCompletedMatches.map(m => m.tournament_id))];
-      
-      const { data: onCompleteTournaments } = await supabase
-        .from('tournaments')
-        .select('id, name, series_id, points_table_sync_time, points_table_daily_sync_enabled, points_table_on_complete_sync_enabled')
-        .in('id', completedTournamentIds)
-        .eq('is_active', true)
-        .eq('is_completed', false)
-        .eq('points_table_on_complete_sync_enabled', true)
-        .not('series_id', 'is', null);
-
-      if (onCompleteTournaments) {
-        for (const t of onCompleteTournaments) {
-          // No cooldown on updated_at - it only updates on SUCCESS
-          // The 5-min interval check below is sufficient to avoid hammering
-
-          // Only try every 10 minutes to avoid rate limits
-          if (currentMinute % 10 !== 0) {
-            console.log(`[auto-sync-points-table] Skipping ${t.name} - waiting for 10-min interval (current: ${currentMinute})`);
-            continue;
-          }
-
-          if (!tournamentsToSync.find(existing => existing.id === t.id)) {
-            tournamentsToSync.push(t);
-            syncReasons.set(t.id, 'on_complete');
-          }
-        }
-      }
-      
-      console.log(`[auto-sync-points-table] Found ${recentlyCompletedMatches.length} recently completed matches in ${completedTournamentIds.length} tournaments`);
-    }
+    // NOTE: on-complete sync is handled by the database trigger (update_points_on_match_complete)
+    // No need to duplicate it here. This function only handles scheduled daily syncs.
 
     if (tournamentsToSync.length === 0) {
       const currentTime = `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`;

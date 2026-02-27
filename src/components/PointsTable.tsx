@@ -72,6 +72,9 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, syncTime, 
     return null;
   }
 
+  // Count unique teams
+  const uniqueTeamCount = new Set(entries.map(e => e.team_id)).size;
+
   // Group entries by group_name
   const groupedEntries: GroupedEntries = entries.reduce((acc, entry) => {
     const groupName = entry.group_name || 'All Teams';
@@ -82,9 +85,13 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, syncTime, 
     return acc;
   }, {} as GroupedEntries);
 
+  // Sort groups: active (lower max played) first, completed (higher max played) last
   const groupNames = Object.keys(groupedEntries).sort((a, b) => {
     if (a === 'All Teams') return -1;
     if (b === 'All Teams') return 1;
+    const maxPlayedA = Math.max(...groupedEntries[a].map(e => e.played || 0));
+    const maxPlayedB = Math.max(...groupedEntries[b].map(e => e.played || 0));
+    if (maxPlayedA !== maxPlayedB) return maxPlayedA - maxPlayedB; // Lower played = active = first
     return a.localeCompare(b);
   });
 
@@ -125,7 +132,7 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, syncTime, 
               </span>
             </CardTitle>
             <Badge variant="outline" className="text-xs">
-              {entries.length} Teams
+              {uniqueTeamCount} Teams
             </Badge>
           </div>
         </CardHeader>
@@ -283,12 +290,13 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, syncTime, 
           })}
           {/* Show sync info based on enabled modes */}
           {(dailySyncEnabled || onCompleteSyncEnabled) && (() => {
-            // If daily sync is enabled and we have a sync time, show the daily time
             if (dailySyncEnabled && syncTime) {
-              const parts = syncTime.match(/^(\d{2}):(\d{2})([+-]\d{2}:\d{2})?$/);
-              let localTimeStr = syncTime.split(/[+-]/)?.[0] || syncTime;
-              
-              if (parts) {
+              // Support multiple comma-separated sync times
+              const syncTimes = syncTime.split(',').map(t => t.trim()).filter(Boolean);
+              const localTimes = syncTimes.map(singleTime => {
+                const parts = singleTime.match(/^(\d{2}):(\d{2})([+-]\d{2}:\d{2})?$/);
+                if (!parts) return singleTime.split(/[+-]/)?.[0] || singleTime;
+                
                 const [, hh, mm, offset] = parts;
                 const today = new Date();
                 const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
@@ -297,28 +305,29 @@ const PointsTable = ({ tournamentId, tournamentName, compact = false, syncTime, 
                   : `${dateStr}T${hh}:${mm}:00Z`;
                 const syncDate = new Date(isoStr);
                 
-                if (!isNaN(syncDate.getTime())) {
-                  const tzAbbr = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop() || '';
-                  localTimeStr = syncDate.toLocaleTimeString('en-US', { 
-                    hour: 'numeric', 
-                    minute: '2-digit', 
-                    hour12: true 
-                  }) + (tzAbbr ? ` (${tzAbbr})` : '');
-                }
-              }
+                if (isNaN(syncDate.getTime())) return singleTime.split(/[+-]/)?.[0] || singleTime;
+                
+                return syncDate.toLocaleTimeString('en-US', { 
+                  hour: 'numeric', 
+                  minute: '2-digit', 
+                  hour12: true 
+                });
+              });
+              
+              const tzAbbr = new Date().toLocaleTimeString('en-US', { timeZoneName: 'short' }).split(' ').pop() || '';
+              const timeDisplay = localTimes.join(', ') + (tzAbbr ? ` (${tzAbbr})` : '');
               
               return (
                 <div className="px-4 py-2 border-t border-border/20 flex items-center justify-center gap-1.5">
                   <Clock className="w-3 h-3 text-muted-foreground/60" />
                   <span className="text-[10px] text-muted-foreground/60">
-                    Auto-syncs daily at {localTimeStr}
+                    Auto-syncs daily at {timeDisplay}
                     {onCompleteSyncEnabled ? ' & on match complete' : ''}
                   </span>
                 </div>
               );
             }
             
-            // If only on-complete sync is enabled
             if (onCompleteSyncEnabled) {
               return (
                 <div className="px-4 py-2 border-t border-border/20 flex items-center justify-center gap-1.5">

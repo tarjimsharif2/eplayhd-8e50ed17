@@ -3769,37 +3769,73 @@ const Admin = () => {
                                 />
                                 <span className="text-xs text-muted-foreground whitespace-nowrap">Daily Sync</span>
                               </div>
-                              {/* Per-tournament sync time */}
+                              {/* Per-tournament sync times (multiple) */}
                               {(tournament as any).points_table_daily_sync_enabled && (
-                                <div className="flex items-center gap-2">
-                                  <Clock className="w-4 h-4 text-muted-foreground" />
-                                  <Input
-                                    type="time"
-                                    className="w-[120px] h-8 text-xs"
-                                    value={(tournament as any).points_table_sync_time?.split(/[+-]/)?.[0] || ''}
-                                    onChange={async (e) => {
-                                      const timeValue = e.target.value;
-                                      const offset = new Date().getTimezoneOffset();
-                                      const absOffset = Math.abs(offset);
-                                      const sign = offset <= 0 ? '+' : '-';
-                                      const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
-                                      const mins = String(absOffset % 60).padStart(2, '0');
-                                      const tzString = `${sign}${hours}:${mins}`;
-                                      const fullTime = timeValue ? `${timeValue}${tzString}` : null;
-                                      
-                                      const { error } = await supabase
-                                        .from('tournaments')
-                                        .update({ points_table_sync_time: fullTime } as any)
-                                        .eq('id', tournament.id);
-                                      
-                                      if (!error) {
-                                        queryClient.invalidateQueries({ queryKey: ['tournaments'] });
-                                        toast({ title: "Sync time updated", description: fullTime ? `Set to ${timeValue} (${Intl.DateTimeFormat().resolvedOptions().timeZone})` : 'Sync time cleared' });
-                                      }
-                                    }}
-                                  />
-                                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                    {Intl.DateTimeFormat().resolvedOptions().timeZone}
+                                <div className="flex flex-col gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    {((tournament as any).points_table_sync_time || '').split(',').filter(Boolean).map((timeEntry: string, idx: number) => {
+                                      const timePart = timeEntry.trim().split(/[+-]/)[0];
+                                      return (
+                                        <div key={idx} className="flex items-center gap-1 bg-muted/50 rounded px-2 py-1">
+                                          <Clock className="w-3 h-3 text-muted-foreground" />
+                                          <span className="text-xs">{timePart}</span>
+                                          <button
+                                            className="text-xs text-destructive hover:text-destructive/80 ml-1"
+                                            onClick={async () => {
+                                              const times = ((tournament as any).points_table_sync_time || '').split(',').filter(Boolean);
+                                              times.splice(idx, 1);
+                                              const newValue = times.join(',') || null;
+                                              const { error } = await supabase
+                                                .from('tournaments')
+                                                .update({ points_table_sync_time: newValue } as any)
+                                                .eq('id', tournament.id);
+                                              if (!error) {
+                                                queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+                                                toast({ title: "Sync time removed" });
+                                              }
+                                            }}
+                                          >×</button>
+                                        </div>
+                                      );
+                                    })}
+                                    <div className="flex items-center gap-1">
+                                      <Input
+                                        type="time"
+                                        className="w-[110px] h-7 text-xs"
+                                        onChange={async (e) => {
+                                          const timeValue = e.target.value;
+                                          if (!timeValue) return;
+                                          const offset = new Date().getTimezoneOffset();
+                                          const absOffset = Math.abs(offset);
+                                          const sign = offset <= 0 ? '+' : '-';
+                                          const hours = String(Math.floor(absOffset / 60)).padStart(2, '0');
+                                          const mins = String(absOffset % 60).padStart(2, '0');
+                                          const tzString = `${sign}${hours}:${mins}`;
+                                          const newTimeEntry = `${timeValue}${tzString}`;
+                                          
+                                          const existing = ((tournament as any).points_table_sync_time || '').split(',').filter(Boolean);
+                                          existing.push(newTimeEntry);
+                                          const fullTime = existing.join(',');
+                                          
+                                          const { error } = await supabase
+                                            .from('tournaments')
+                                            .update({ points_table_sync_time: fullTime } as any)
+                                            .eq('id', tournament.id);
+                                          
+                                          if (!error) {
+                                            queryClient.invalidateQueries({ queryKey: ['tournaments'] });
+                                            toast({ title: "Sync time added", description: `${timeValue} (${Intl.DateTimeFormat().resolvedOptions().timeZone})` });
+                                          }
+                                          e.target.value = '';
+                                        }}
+                                      />
+                                      <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                        Add time
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <span className="text-[10px] text-muted-foreground">
+                                    {Intl.DateTimeFormat().resolvedOptions().timeZone} • Each time syncs once only
                                   </span>
                                 </div>
                               )}
