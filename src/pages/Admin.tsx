@@ -202,6 +202,7 @@ const Admin = () => {
     result_margin: '' as string | null,
     api_score_enabled: false,
     auto_sync_enabled: false,
+    auto_match_result_enabled: true,
     cricbuzz_match_id: '' as string | null,
     cricapi_match_id: '' as string | null,
     manual_status_override: false,
@@ -644,6 +645,7 @@ const Admin = () => {
         result_margin: matchForm.result_margin || null,
         api_score_enabled: matchForm.api_score_enabled,
         auto_sync_enabled: matchForm.auto_sync_enabled,
+        auto_match_result_enabled: matchForm.auto_match_result_enabled,
         cricbuzz_match_id: matchForm.cricbuzz_match_id || null,
         cricapi_match_id: (matchForm as any).cricapi_match_id || null,
         manual_status_override: matchForm.manual_status_override,
@@ -722,6 +724,7 @@ const Admin = () => {
       result_margin: match.result_margin || '',
       api_score_enabled: match.api_score_enabled !== false,
       auto_sync_enabled: (match as any).auto_sync_enabled || false,
+      auto_match_result_enabled: (match as any).auto_match_result_enabled !== false,
       cricbuzz_match_id: match.cricbuzz_match_id || '',
       cricapi_match_id: (match as any).cricapi_match_id || '',
       manual_status_override: (match as any).manual_status_override || false,
@@ -830,6 +833,7 @@ const Admin = () => {
       result_margin: '',
       api_score_enabled: false,
       auto_sync_enabled: false,
+      auto_match_result_enabled: true,
       cricbuzz_match_id: '',
       cricapi_match_id: '',
       manual_status_override: false,
@@ -880,6 +884,7 @@ const Admin = () => {
       result_margin: '',
       api_score_enabled: false,
       auto_sync_enabled: false,
+      auto_match_result_enabled: true,
       cricbuzz_match_id: '',
       cricapi_match_id: '',
       manual_status_override: false,
@@ -2475,6 +2480,21 @@ const Admin = () => {
                         <Switch
                           checked={matchForm.auto_sync_enabled}
                           onCheckedChange={(checked) => setMatchForm({ ...matchForm, auto_sync_enabled: checked })}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <Label className="text-sm font-medium">
+                            Auto Match Result
+                          </Label>
+                          <p className="text-sm text-muted-foreground">
+                            ম্যাচ শেষে API থেকে অটো result সেট করবে
+                          </p>
+                        </div>
+                        <Switch
+                          checked={matchForm.auto_match_result_enabled}
+                          onCheckedChange={(checked) => setMatchForm({ ...matchForm, auto_match_result_enabled: checked })}
                         />
                       </div>
 

@@ -691,6 +691,7 @@ export type Database = {
       matches: {
         Row: {
           api_score_enabled: boolean | null
+          auto_match_result_enabled: boolean | null
           auto_sync_enabled: boolean | null
           created_at: string
           cricapi_match_id: string | null
@@ -741,6 +742,7 @@ export type Database = {
         }
         Insert: {
           api_score_enabled?: boolean | null
+          auto_match_result_enabled?: boolean | null
           auto_sync_enabled?: boolean | null
           created_at?: string
           cricapi_match_id?: string | null
@@ -791,6 +793,7 @@ export type Database = {
         }
         Update: {
           api_score_enabled?: boolean | null
+          auto_match_result_enabled?: boolean | null
           auto_sync_enabled?: boolean | null
           created_at?: string
           cricapi_match_id?: string | null
