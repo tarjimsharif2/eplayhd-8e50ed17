@@ -94,58 +94,129 @@ Deno.serve(async (req) => {
     // Process players in batches to avoid rate limiting
     for (const player of players) {
       try {
+        let imageFound = false;
         const encodedName = encodeURIComponent(player.player_name);
         
-        // Try TheSportsDB first
-        const searchUrl = `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodedName}`;
-        const res = await fetchWithTimeout(searchUrl);
-        
-        if (res.ok) {
-          const data = await res.json();
+        // === Source 1: TheSportsDB ===
+        try {
+          const searchUrl = `https://www.thesportsdb.com/api/v1/json/3/searchplayers.php?p=${encodedName}`;
+          const res = await fetchWithTimeout(searchUrl, 6000);
           
-          if (data.player && data.player.length > 0) {
-            // Find best matching player
-            let bestMatch = null;
-            
-            for (const p of data.player) {
-              if (fuzzyMatch(player.player_name, p.strPlayer)) {
-                // Prefer cutout image, then thumb, then fanart
-                const imageUrl = p.strCutout || p.strThumb || p.strRender || null;
-                if (imageUrl) {
+          if (res.ok) {
+            const data = await res.json();
+            if (data.player && data.player.length > 0) {
+              let bestMatch = null;
+              for (const p of data.player) {
+                if (fuzzyMatch(player.player_name, p.strPlayer)) {
+                  const imageUrl = p.strCutout || p.strThumb || p.strRender || null;
+                  if (imageUrl) { bestMatch = imageUrl; break; }
+                }
+              }
+              if (!bestMatch && data.player[0]) {
+                const first = data.player[0];
+                const imageUrl = first.strCutout || first.strThumb || first.strRender || null;
+                if (imageUrl && normalizeName(first.strPlayer).includes(normalizeName(player.player_name).split(' ').pop()!)) {
                   bestMatch = imageUrl;
-                  break;
+                }
+              }
+              if (bestMatch) {
+                const { error: updateError } = await supabase
+                  .from('match_playing_xi')
+                  .update({ player_image: bestMatch })
+                  .eq('id', player.id);
+                if (!updateError) {
+                  updatedCount++;
+                  imageFound = true;
+                  console.log(`[FetchImages] ✓ SportsDB: ${player.player_name}`);
                 }
               }
             }
+          }
+        } catch (e) {
+          console.warn(`[FetchImages] SportsDB failed for ${player.player_name}:`, e.message);
+        }
+
+        // === Source 2: Wikipedia REST API ===
+        if (!imageFound) {
+          try {
+            // Try with full name first
+            const wikiName = player.player_name.replace(/\s+/g, '_');
+            const wikiUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(wikiName)}`;
+            const wikiRes = await fetchWithTimeout(wikiUrl, 6000);
             
-            // If no fuzzy match, try the first result if name is close enough
-            if (!bestMatch && data.player[0]) {
-              const firstResult = data.player[0];
-              const imageUrl = firstResult.strCutout || firstResult.strThumb || firstResult.strRender || null;
-              if (imageUrl && normalizeName(firstResult.strPlayer).includes(normalizeName(player.player_name).split(' ').pop()!)) {
-                bestMatch = imageUrl;
+            if (wikiRes.ok) {
+              const wikiData = await wikiRes.json();
+              // Check it's about a person (sportsperson) and has thumbnail
+              const thumbnail = wikiData.thumbnail?.source || wikiData.originalimage?.source;
+              if (thumbnail && wikiData.description && 
+                  (wikiData.description.toLowerCase().includes('cricket') || 
+                   wikiData.description.toLowerCase().includes('football') ||
+                   wikiData.description.toLowerCase().includes('soccer') ||
+                   wikiData.description.toLowerCase().includes('cricketer') ||
+                   wikiData.description.toLowerCase().includes('footballer') ||
+                   wikiData.description.toLowerCase().includes('player') ||
+                   wikiData.description.toLowerCase().includes('athlete') ||
+                   wikiData.description.toLowerCase().includes('sport'))) {
+                // Use original image if available for better quality, else thumbnail
+                const finalUrl = wikiData.originalimage?.source || thumbnail;
+                const { error: updateError } = await supabase
+                  .from('match_playing_xi')
+                  .update({ player_image: finalUrl })
+                  .eq('id', player.id);
+                if (!updateError) {
+                  updatedCount++;
+                  imageFound = true;
+                  console.log(`[FetchImages] ✓ Wikipedia: ${player.player_name}`);
+                }
+              } else {
+                console.log(`[FetchImages] ✗ Wikipedia: ${player.player_name} - not a sportsperson or no image (desc: ${wikiData.description || 'none'})`);
+              }
+            } else if (wikiRes.status === 404) {
+              // Try searching Wikipedia as fallback
+              const searchApiUrl = `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodedName}+cricketer+OR+footballer&format=json&srlimit=3`;
+              const searchRes = await fetchWithTimeout(searchApiUrl, 6000);
+              if (searchRes.ok) {
+                const searchData = await searchRes.json();
+                const results = searchData?.query?.search || [];
+                for (const result of results) {
+                  const title = result.title.replace(/\s+/g, '_');
+                  const summaryUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+                  const summaryRes = await fetchWithTimeout(summaryUrl, 5000);
+                  if (summaryRes.ok) {
+                    const summaryData = await summaryRes.json();
+                    const thumb = summaryData.thumbnail?.source || summaryData.originalimage?.source;
+                    if (thumb && summaryData.description &&
+                        (summaryData.description.toLowerCase().includes('cricket') ||
+                         summaryData.description.toLowerCase().includes('football') ||
+                         summaryData.description.toLowerCase().includes('player') ||
+                         summaryData.description.toLowerCase().includes('athlete'))) {
+                      const finalUrl = summaryData.originalimage?.source || thumb;
+                      const { error: updateError } = await supabase
+                        .from('match_playing_xi')
+                        .update({ player_image: finalUrl })
+                        .eq('id', player.id);
+                      if (!updateError) {
+                        updatedCount++;
+                        imageFound = true;
+                        console.log(`[FetchImages] ✓ Wiki Search: ${player.player_name} → ${result.title}`);
+                      }
+                      break;
+                    }
+                  }
+                  await new Promise(r => setTimeout(r, 200));
+                }
               }
             }
-            
-            if (bestMatch) {
-              const { error: updateError } = await supabase
-                .from('match_playing_xi')
-                .update({ player_image: bestMatch })
-                .eq('id', player.id);
-              
-              if (!updateError) {
-                updatedCount++;
-                console.log(`[FetchImages] ✓ ${player.player_name} → ${bestMatch.substring(0, 60)}...`);
-              }
-            } else {
-              console.log(`[FetchImages] ✗ ${player.player_name} - no image in results`);
-            }
-          } else {
-            console.log(`[FetchImages] ✗ ${player.player_name} - no results found`);
+          } catch (e) {
+            console.warn(`[FetchImages] Wikipedia failed for ${player.player_name}:`, e.message);
           }
         }
+
+        if (!imageFound) {
+          console.log(`[FetchImages] ✗ ${player.player_name} - no image from any source`);
+        }
         
-        // Small delay between requests to be respectful
+        // Small delay between players
         await new Promise(r => setTimeout(r, 300));
         
       } catch (err) {
