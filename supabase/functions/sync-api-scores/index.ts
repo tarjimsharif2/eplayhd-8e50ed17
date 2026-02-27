@@ -371,6 +371,7 @@ Deno.serve(async (req) => {
         score_b,
         match_format,
         match_result,
+        auto_match_result_enabled,
         team_a:teams!matches_team_a_id_fkey(name, short_name),
         team_b:teams!matches_team_b_id_fkey(name, short_name),
         tournament:tournaments!matches_tournament_id_fkey(name)
@@ -424,7 +425,8 @@ Deno.serve(async (req) => {
       const isIncomplete = hasIncompleteScores();
       
       // For completed matches with incomplete scores or missing match_result - ALWAYS force sync
-      const needsMatchResult = autoMatchResultEnabled && !(match as any).match_result;
+      const perMatchAutoResult = (match as any).auto_match_result_enabled !== false;
+      const needsMatchResult = autoMatchResultEnabled && perMatchAutoResult && !(match as any).match_result;
       if (match.status === 'completed' && (isIncomplete || needsMatchResult)) {
         console.log(`[sync-api-scores] FORCE SYNCING completed match ${match.id} - incomplete scores or missing match_result (score_a="${match.score_a}", score_b="${match.score_b}", match_result="${(match as any).match_result}")`);
         return true; // Skip ALL other checks
@@ -986,8 +988,10 @@ Deno.serve(async (req) => {
       }
 
       // Auto-detect match_result from API data when match is completed
+      // Check both global setting AND per-match setting
+      const matchAutoResultEnabled = (match as any).auto_match_result_enabled !== false;
       let detectedMatchResult: string | null = null;
-      if (matchStatus === 'completed' && autoMatchResultEnabled) {
+      if (matchStatus === 'completed' && autoMatchResultEnabled && matchAutoResultEnabled) {
         const resultText = (detailedEvent.event_final_result || detailedEvent.event_status_info || '').toLowerCase();
         console.log(`[sync-api-scores] Detecting match_result from: "${resultText}"`);
         
