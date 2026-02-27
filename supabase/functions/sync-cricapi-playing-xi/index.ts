@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { matchId, teamAId, teamBId, teamAName, teamAShortName, teamBName, teamBShortName, cricapiMatchId: providedCricapiId, clientSquadData } = await req.json();
+    const { matchId, teamAId, teamBId, teamAName, teamAShortName, teamBName, teamBShortName, cricapiMatchId: providedCricapiId, clientSquadData, isMatchXI } = await req.json();
 
     if (!matchId) {
       return new Response(JSON.stringify({ success: false, error: 'matchId required' }), {
@@ -182,7 +182,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    console.log(`[CricAPI Squad] Processing squad for match ${matchId}`);
+    console.log(`[CricAPI ${isMatchXI ? 'Match XI' : 'Squad'}] Processing for match ${matchId}`);
 
     // Get the match to find cricapi_match_id
     const { data: match, error: matchError } = await supabase
@@ -241,7 +241,8 @@ Deno.serve(async (req) => {
         });
       }
 
-      const apiUrl = `https://api.cricapi.com/v1/match_squad?apikey=${settings.cricket_api_key}&id=${cricapiMatchId}`;
+      const apiEndpoint = isMatchXI ? 'match_xi' : 'match_squad';
+      const apiUrl = `https://api.cricapi.com/v1/${apiEndpoint}?apikey=${settings.cricket_api_key}&id=${cricapiMatchId}`;
       console.log(`[CricAPI Squad] Fallback: fetching from API`);
 
       const response = await fetchWithRetry(apiUrl);
@@ -326,7 +327,7 @@ Deno.serve(async (req) => {
           is_vice_captain: false,
           is_wicket_keeper: isWicketKeeper(player.role),
           batting_order: i + 1,
-          is_bench: true,
+          is_bench: isMatchXI ? false : true,
           player_image: (player.playerImg && !player.playerImg.includes('icon512.png') && !player.playerImg.includes('/img/icon')) ? player.playerImg : null,
         });
 

@@ -191,7 +191,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
 
   // CricAPI Match Browser state
   const [cricapiBrowserOpen, setCricapiBrowserOpen] = useState(false);
-  const [pendingCricapiSource, setPendingCricapiSource] = useState<{ forceRefresh: boolean } | null>(null);
+  const [pendingCricapiSource, setPendingCricapiSource] = useState<{ forceRefresh: boolean; isMatchXI?: boolean } | null>(null);
   
   // Touch swap state for mobile
   const [selectedForSwap, setSelectedForSwap] = useState<Player | null>(null);
@@ -767,7 +767,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
   };
 
   // Fetch squad from RapidAPI (Cricbuzz)
-  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi' | 'cricapi', forceRefresh = false) => {
+  const handleFetchSquad = async (source: 'cricbuzz' | 'espn' | 'scrape' | 'rapidapi' | 'cricapi' | 'cricapi_xi', forceRefresh = false) => {
     setFetchingSquad(true);
 
     try {
@@ -790,19 +790,19 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         functionName = 'scrape-playing-xi';
       } else if (source === 'rapidapi') {
         functionName = 'sync-rapidapi-playing-xi';
-      } else if (source === 'cricapi') {
+      } else if (source === 'cricapi' || source === 'cricapi_xi') {
         functionName = 'sync-cricapi-playing-xi';
       }
       
       // For CricAPI: auto-detect match ID from browser if not set, and fetch squad data client-side
       let detectedCricapiId: string | undefined;
       let clientSquadData: any = undefined;
-      if (source === 'cricapi') {
+      if (source === 'cricapi' || source === 'cricapi_xi') {
         let effectiveCricapiId = cricapiMatchId;
         
         if (!effectiveCricapiId) {
           // Always open the CricAPI Match Browser for manual selection
-          setPendingCricapiSource({ forceRefresh: players && players.length > 0 ? true : false });
+          setPendingCricapiSource({ forceRefresh: players && players.length > 0 ? true : false, isMatchXI: source === 'cricapi_xi' });
           setCricapiBrowserOpen(true);
           setFetchingSquad(false);
           return; // Exit - will resume after user selects a match
@@ -820,7 +820,8 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
           throw new Error('CricAPI key not configured. Please add your API key in Settings → API Keys → CricAPI.');
         }
 
-        const squadUrl = `https://api.cricapi.com/v1/match_squad?apikey=${settings.cricket_api_key}&id=${effectiveCricapiId}`;
+        const apiEndpoint = source === 'cricapi_xi' ? 'match_xi' : 'match_squad';
+        const squadUrl = `https://api.cricapi.com/v1/${apiEndpoint}?apikey=${settings.cricket_api_key}&id=${effectiveCricapiId}`;
         const squadRes = await fetch(squadUrl);
         if (!squadRes.ok) {
           throw new Error(`CricAPI returned status ${squadRes.status}`);
@@ -837,7 +838,8 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
           matchId,
           cricbuzzMatchId,
           cricapiMatchId: detectedCricapiId || cricapiMatchId,
-          clientSquadData: source === 'cricapi' ? clientSquadData : undefined,
+          clientSquadData: (source === 'cricapi' || source === 'cricapi_xi') ? clientSquadData : undefined,
+          isMatchXI: source === 'cricapi_xi',
           teamAId: teamA.id,
           teamBId: teamB.id,
           teamAName: teamA.name,
@@ -919,6 +921,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
 
     // Now fetch squad with this match ID
     const forceRefresh = pendingCricapiSource?.forceRefresh || false;
+    const isMatchXI = pendingCricapiSource?.isMatchXI || false;
     setPendingCricapiSource(null);
     
     setFetchingSquad(true);
@@ -941,14 +944,15 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
         throw new Error('CricAPI key not configured');
       }
 
-      toast({ title: "Fetching squad...", description: "Loading player data from CricAPI..." });
-      const squadUrl = `https://api.cricapi.com/v1/match_squad?apikey=${settings.cricket_api_key}&id=${selectedMatchId}`;
+      const apiEndpoint = isMatchXI ? 'match_xi' : 'match_squad';
+      toast({ title: isMatchXI ? "Fetching Match XI..." : "Fetching squad...", description: "Loading player data from CricAPI..." });
+      const squadUrl = `https://api.cricapi.com/v1/${apiEndpoint}?apikey=${settings.cricket_api_key}&id=${selectedMatchId}`;
       const squadRes = await fetch(squadUrl);
       if (!squadRes.ok) throw new Error(`CricAPI returned status ${squadRes.status}`);
       
       const clientSquadData = await squadRes.json();
       if (clientSquadData.status !== 'success' || !clientSquadData.data || clientSquadData.data.length < 2) {
-        throw new Error(`Squad data not available yet. Teams found: ${clientSquadData.data?.length || 0}`);
+        throw new Error(`${isMatchXI ? 'Match XI' : 'Squad'} data not available yet. Teams found: ${clientSquadData.data?.length || 0}`);
       }
 
       const response = await supabase.functions.invoke('sync-cricapi-playing-xi', {
@@ -956,6 +960,7 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
           matchId,
           cricapiMatchId: selectedMatchId,
           clientSquadData,
+          isMatchXI,
           teamAId: teamA.id,
           teamBId: teamB.id,
           teamAName: teamA.name,
@@ -1383,7 +1388,15 @@ const PlayingXIManager = ({ matchId, teamA, teamB, cricbuzzMatchId, cricapiMatch
                 disabled={fetchingSquad}
               >
                 <CloudDownload className="w-4 h-4 mr-2" />
-                CricAPI (cricapi.com)
+                CricAPI Squad (cricapi.com)
+                {!cricapiMatchId && <span className="text-xs text-muted-foreground ml-1">- Auto detect</span>}
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => handleFetchSquad('cricapi_xi', players && players.length > 0)}
+                disabled={fetchingSquad}
+              >
+                <CloudDownload className="w-4 h-4 mr-2" />
+                CricAPI Match XI (Playing 11)
                 {!cricapiMatchId && <span className="text-xs text-muted-foreground ml-1">- Auto detect</span>}
               </DropdownMenuItem>
               <DropdownMenuItem 
