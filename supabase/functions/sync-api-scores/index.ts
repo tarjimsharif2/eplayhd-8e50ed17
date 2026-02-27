@@ -369,6 +369,7 @@ Deno.serve(async (req) => {
         score_a,
         score_b,
         match_format,
+        match_result,
         team_a:teams!matches_team_a_id_fkey(name, short_name),
         team_b:teams!matches_team_b_id_fkey(name, short_name),
         tournament:tournaments!matches_tournament_id_fkey(name)
@@ -421,9 +422,9 @@ Deno.serve(async (req) => {
       
       const isIncomplete = hasIncompleteScores();
       
-      // For completed matches with incomplete scores - ALWAYS force sync (ignore all time checks)
-      if (match.status === 'completed' && isIncomplete) {
-        console.log(`[sync-api-scores] FORCE SYNCING completed match ${match.id} - has incomplete scores (score_a="${match.score_a}", score_b="${match.score_b}")`);
+      // For completed matches with incomplete scores or missing match_result - ALWAYS force sync
+      if (match.status === 'completed' && (isIncomplete || !(match as any).match_result)) {
+        console.log(`[sync-api-scores] FORCE SYNCING completed match ${match.id} - incomplete scores or missing match_result (score_a="${match.score_a}", score_b="${match.score_b}", match_result="${(match as any).match_result}")`);
         return true; // Skip ALL other checks
       }
       
