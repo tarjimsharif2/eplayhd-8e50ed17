@@ -9,17 +9,15 @@ function normalizeName(name: string): string {
   return name.toLowerCase().replace(/['']/g, '').replace(/\s+/g, ' ').trim();
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = 8000, headers?: Record<string, string>): Promise<Response> {
+async function fetchWithTimeout(url: string, timeoutMs = 8000): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const res = await fetch(url, { 
       signal: controller.signal,
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'application/json,text/html,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        ...headers,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'application/json,*/*;q=0.8',
       }
     });
     clearTimeout(timeoutId);
@@ -32,88 +30,58 @@ async function fetchWithTimeout(url: string, timeoutMs = 8000, headers?: Record<
 
 function isSportsPerson(desc: string | undefined): boolean {
   if (!desc) return false;
-  return /cricket|football|soccer|cricketer|footballer|player|athlete|sport|batsman|bowler|keeper|allrounder|all-rounder/i.test(desc);
+  return /cricket|football|soccer|cricketer|footballer|player|athlete|sport|batsman|bowler|keeper|allrounder/i.test(desc);
 }
 
-// Source 1: ESPNCricinfo Search API (best for cricket players)
-async function tryESPNCricinfo(playerName: string): Promise<string | null> {
-  try {
-    const searchUrl = `https://hs-consumer-api.espncricinfo.com/v1/search?searchText=${encodeURIComponent(playerName)}&lang=en`;
-    const res = await fetchWithTimeout(searchUrl, 8000);
-    if (!res.ok) {
-      console.log(`[FetchImages] ESPNCricinfo search failed: ${res.status}`);
-      return null;
-    }
-    
-    const data = await res.json();
-    const results = data?.results || [];
-    
-    // Look for player results
-    for (const result of results) {
-      if (result.type === 'player' || result.category === 'player') {
-        const image = result.image || result.imageUrl || result.faceImageUrl;
-        if (image) {
-          // Verify name match
-          const resultName = normalizeName(result.name || result.title || '');
-          const searchName = normalizeName(playerName);
-          const searchParts = searchName.split(' ');
-          const lastName = searchParts[searchParts.length - 1];
-          
-          if (resultName.includes(lastName)) {
-            // Convert to high-res URL if possible
-            const highResUrl = image.replace(/t_h_\d+/, 't_h_300').replace(/t_face_\d+/, 't_h_300');
-            console.log(`[FetchImages] ✓ ESPNCricinfo: ${playerName} → ${result.name || result.title}`);
-            return highResUrl;
-          }
-        }
-      }
-    }
-    
-    // Try alternate search in results array
-    if (Array.isArray(data)) {
-      for (const item of data) {
-        const players = item?.results || item?.players || [];
-        for (const p of (Array.isArray(players) ? players : [])) {
-          const image = p.image || p.imageUrl || p.faceImageUrl;
-          const pName = p.name || p.title || p.longName || '';
-          if (image && normalizeName(pName).includes(normalizeName(playerName).split(' ').pop()!)) {
-            console.log(`[FetchImages] ✓ ESPNCricinfo alt: ${playerName} → ${pName}`);
-            return image.replace(/t_h_\d+/, 't_h_300');
-          }
-        }
-      }
-    }
-    
-    console.log(`[FetchImages] ~ ESPNCricinfo: ${playerName} - no match in ${results.length} results`);
-  } catch (e) {
-    console.log(`[FetchImages] ESPNCricinfo error for ${playerName}: ${e.message}`);
-  }
-  return null;
-}
+const DEFAULT_ESPN_HEADSHOT = 'default-player-logo';
 
-// Source 1b: ESPNCricinfo site search (alternate endpoint)
-async function tryESPNCricinfoSiteSearch(playerName: string): Promise<string | null> {
+// Source 1: ESPN Public Search API (best for cricket - has real headshots)
+async function tryESPN(playerName: string, sportType: string): Promise<string | null> {
   try {
-    const url = `https://search.espncricinfo.com/ci/content/site/search.html?search=${encodeURIComponent(playerName)}&type=player&x-api-key=1&output=json`;
-    const res = await fetchWithTimeout(url, 6000);
+    const sport = sportType === 'football' ? 'soccer' : 'cricket';
+    const url = `https://site.api.espn.com/apis/common/v3/search?query=${encodeURIComponent(playerName)}&type=player&sport=${sport}&limit=5`;
+    const res = await fetchWithTimeout(url, 8000);
     if (!res.ok) return null;
     
     const data = await res.json();
-    const players = data?.searchResults?.playerResults || data?.results || [];
+    const items = data?.items || [];
     
-    for (const p of (Array.isArray(players) ? players : [])) {
-      const faceUrl = p.faceImageUrl || p.imageUrl || p.image;
-      if (faceUrl) {
-        const pName = normalizeName(p.name || p.longName || '');
-        const searchLast = normalizeName(playerName).split(' ').pop()!;
-        if (pName.includes(searchLast)) {
-          console.log(`[FetchImages] ✓ ESPNCricinfo Site: ${playerName}`);
-          return faceUrl;
-        }
+    const searchParts = normalizeName(playerName).split(' ');
+    const lastName = searchParts[searchParts.length - 1];
+    
+    for (const item of items) {
+      const itemName = normalizeName(item.displayName || '');
+      if (!itemName.includes(lastName)) continue;
+      
+      const headshot = item.headshot?.href;
+      if (headshot && !headshot.includes(DEFAULT_ESPN_HEADSHOT)) {
+        console.log(`[FetchImages] ✓ ESPN: ${playerName} → ${item.displayName} (id: ${item.id})`);
+        return headshot;
+      }
+      
+      // Try constructing direct URL with player ID
+      if (item.id) {
+        const directUrl = `https://a.espncdn.com/i/headshots/${sport}/players/full/${item.id}.png`;
+        try {
+          const checkRes = await fetchWithTimeout(directUrl, 4000);
+          if (checkRes.ok) {
+            const contentType = checkRes.headers.get('content-type') || '';
+            // Consume body
+            await checkRes.arrayBuffer();
+            if (contentType.includes('image')) {
+              console.log(`[FetchImages] ✓ ESPN direct: ${playerName} → id ${item.id}`);
+              return directUrl;
+            }
+          } else {
+            await checkRes.text();
+          }
+        } catch {}
       }
     }
+    
+    console.log(`[FetchImages] ~ ESPN: ${playerName} - no headshot in ${items.length} results`);
   } catch (e) {
-    console.log(`[FetchImages] ESPNCricinfo site error: ${e.message}`);
+    console.log(`[FetchImages] ESPN error for ${playerName}: ${e.message}`);
   }
   return null;
 }
@@ -140,8 +108,8 @@ async function tryWikipedia(playerName: string, sport: string): Promise<string |
     if (searchRes.ok) {
       const searchData = await searchRes.json();
       for (const result of (searchData?.query?.search || [])) {
-        const lastName = normalizeName(playerName).split(' ').pop()!;
-        if (!normalizeName(result.title).includes(lastName)) continue;
+        const lastN = normalizeName(playerName).split(' ').pop()!;
+        if (!normalizeName(result.title).includes(lastN)) continue;
         
         const sUrl = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(result.title.replace(/\s+/g, '_'))}`;
         const sRes = await fetchWithTimeout(sUrl, 5000);
@@ -189,9 +157,7 @@ async function tryWikidata(playerName: string, sport: string): Promise<string | 
           const md5 = await crypto.subtle.digest('MD5', new TextEncoder().encode(fileName.replace(/ /g, '_')));
           const hashArray = Array.from(new Uint8Array(md5));
           const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-          const a = hashHex[0];
-          const ab = hashHex.substring(0, 2);
-          const imageUrl = `https://upload.wikimedia.org/wikipedia/commons/thumb/${a}/${ab}/${encodedFile}/400px-${encodedFile}`;
+          const imageUrl = `https://upload.wikimedia.org/wikipedia/commons/thumb/${hashHex[0]}/${hashHex.substring(0, 2)}/${encodedFile}/400px-${encodedFile}`;
           console.log(`[FetchImages] ✓ Wikidata P18: ${playerName} → ${fileName}`);
           return imageUrl;
         }
@@ -260,11 +226,8 @@ Deno.serve(async (req) => {
       try {
         let imageUrl: string | null = null;
 
-        // 1. ESPNCricinfo (best for cricket - has most player headshots)
-        if (sportType === 'cricket') {
-          imageUrl = await tryESPNCricinfo(player.player_name);
-          if (!imageUrl) imageUrl = await tryESPNCricinfoSiteSearch(player.player_name);
-        }
+        // 1. ESPN (public API - has cricket/football headshots)
+        imageUrl = await tryESPN(player.player_name, sportType);
         
         // 2. Wikipedia
         if (!imageUrl) imageUrl = await tryWikipedia(player.player_name, sportType);
