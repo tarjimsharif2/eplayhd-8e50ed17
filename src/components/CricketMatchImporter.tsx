@@ -575,7 +575,7 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
           score_a: match.homeScore || null,
           score_b: match.awayScore || null,
           is_active: true,
-          page_type: 'seo_match_page',
+          page_type: 'page',
           slug,
           seo_title: seoTitle,
           seo_description: seoDescription,
@@ -587,6 +587,10 @@ export default function CricketMatchImporter({ onImportComplete }: CricketMatchI
           match_format: matchFormat,
           match_label: null,
           match_duration_minutes: getMatchDuration(matchFormat),
+          score_source: 'api_cricket',
+          api_score_enabled: true,
+          auto_match_result_enabled: true,
+          show_playing_xi: true,
         };
 
         const { error } = await supabase.from('matches').insert(matchData);
