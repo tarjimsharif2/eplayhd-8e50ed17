@@ -662,13 +662,13 @@ const MatchCard = ({ match, index = 0, effectiveStatus }: MatchCardProps) => {
                 <span className="text-sm font-semibold text-primary">
                   {match.match_result === 'team_a_won' && (
                     <>
-                      {teamA.name} Won
+                      {teamA.name} Won{match.result_margin ? ' by' : ''}
                       {match.result_margin && <span className="text-muted-foreground font-normal"> {match.result_margin}</span>}
                     </>
                   )}
                   {match.match_result === 'team_b_won' && (
                     <>
-                      {teamB.name} Won
+                      {teamB.name} Won{match.result_margin ? ' by' : ''}
                       {match.result_margin && <span className="text-muted-foreground font-normal"> {match.result_margin}</span>}
                     </>
                   )}
