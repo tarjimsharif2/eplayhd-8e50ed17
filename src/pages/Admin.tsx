@@ -2282,11 +2282,12 @@ const Admin = () => {
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Match Format</Label>
-                            <Select value={matchForm.match_format || undefined} onValueChange={(v) => setMatchForm({ ...matchForm, match_format: v || null })}>
+                            <Select value={matchForm.match_format || 'none'} onValueChange={(v) => setMatchForm({ ...matchForm, match_format: v === 'none' ? null : v })}>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select format" />
                               </SelectTrigger>
                               <SelectContent>
+                                <SelectItem value="none">No Format</SelectItem>
                                 <SelectItem value="test">Test</SelectItem>
                                 <SelectItem value="odi">ODI</SelectItem>
                                 <SelectItem value="t20">T20</SelectItem>
