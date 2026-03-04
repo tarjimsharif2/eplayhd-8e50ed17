@@ -364,7 +364,7 @@ const TournamentPage = () => {
             </>
           )}
 
-          {/* View Points Table Button - before matches */}
+          {(tournament as any).show_points_table && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -382,6 +382,7 @@ const TournamentPage = () => {
               <ChevronDown className="w-4 h-4 text-primary group-hover:translate-y-0.5 transition-transform" />
             </button>
           </motion.div>
+          )}
 
           {/* Tournament Ad - Before Matches */}
           {tournamentAdPositions.before_matches && (
