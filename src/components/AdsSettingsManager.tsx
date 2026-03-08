@@ -164,6 +164,12 @@ const AdsSettingsManager = () => {
         in_article_ad_code: settings.in_article_ad_code || '',
         popup_ad_code: settings.popup_ad_code || '',
         ads_txt_content: settings.ads_txt_content || '',
+        ad_click_protection: settings.ad_click_protection || {
+          enabled: false,
+          max_clicks: 10,
+          time_window_days: 1,
+          block_duration_hours: 24,
+        },
         match_page_ad_positions: settings.match_page_ad_positions || {
           before_player: true,
           after_player: true,
