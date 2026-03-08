@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Shield } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -117,6 +118,12 @@ const AdsSettingsManager = () => {
     in_article_ad_code: '',
     popup_ad_code: '',
     ads_txt_content: '',
+    ad_click_protection: {
+      enabled: false,
+      max_clicks: 10,
+      time_window_days: 1,
+      block_duration_hours: 24,
+    },
     match_page_ad_positions: {
       before_player: true,
       after_player: true,
@@ -158,6 +165,12 @@ const AdsSettingsManager = () => {
         in_article_ad_code: settings.in_article_ad_code || '',
         popup_ad_code: settings.popup_ad_code || '',
         ads_txt_content: settings.ads_txt_content || '',
+        ad_click_protection: settings.ad_click_protection || {
+          enabled: false,
+          max_clicks: 10,
+          time_window_days: 1,
+          block_duration_hours: 24,
+        },
         match_page_ad_positions: settings.match_page_ad_positions || {
           before_player: true,
           after_player: true,
@@ -208,6 +221,7 @@ const AdsSettingsManager = () => {
         in_article_ad_code: form.in_article_ad_code || null,
         popup_ad_code: form.popup_ad_code || null,
         ads_txt_content: form.ads_txt_content || null,
+        ad_click_protection: form.ad_click_protection,
         match_page_ad_positions: form.match_page_ad_positions,
         tournament_page_ad_positions: form.tournament_page_ad_positions,
         multiple_ad_codes: form.multiple_ad_codes,
@@ -406,6 +420,85 @@ const AdsSettingsManager = () => {
               placeholder="ca-pub-1234567890"
             />
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Ad Click Protection */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Shield className="w-5 h-5" />
+            Ad Click Protection
+          </CardTitle>
+          <CardDescription>
+            Protect ads from invalid clicks using advanced device fingerprinting. 
+            Works even if visitors use VPN, clear browser data, or switch browsers.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="click_protection_enabled">Enable Click Protection</Label>
+              <p className="text-sm text-muted-foreground">Block ads for devices that exceed click limits</p>
+            </div>
+            <Switch
+              id="click_protection_enabled"
+              checked={form.ad_click_protection.enabled}
+              onCheckedChange={(checked) => setForm({
+                ...form,
+                ad_click_protection: { ...form.ad_click_protection, enabled: checked }
+              })}
+            />
+          </div>
+
+          {form.ad_click_protection.enabled && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-lg bg-muted/50 border">
+              <div className="space-y-2">
+                <Label htmlFor="max_clicks">Max Clicks Allowed</Label>
+                <Input
+                  id="max_clicks"
+                  type="number"
+                  min={1}
+                  value={form.ad_click_protection.max_clicks}
+                  onChange={(e) => setForm({
+                    ...form,
+                    ad_click_protection: { ...form.ad_click_protection, max_clicks: parseInt(e.target.value) || 10 }
+                  })}
+                />
+                <p className="text-xs text-muted-foreground">Maximum ad clicks before blocking</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="time_window_days">Time Window (Days)</Label>
+                <Input
+                  id="time_window_days"
+                  type="number"
+                  min={1}
+                  value={form.ad_click_protection.time_window_days}
+                  onChange={(e) => setForm({
+                    ...form,
+                    ad_click_protection: { ...form.ad_click_protection, time_window_days: parseInt(e.target.value) || 1 }
+                  })}
+                />
+                <p className="text-xs text-muted-foreground">Click counting period in days</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="block_duration_hours">Block Duration (Hours)</Label>
+                <Input
+                  id="block_duration_hours"
+                  type="number"
+                  min={1}
+                  value={form.ad_click_protection.block_duration_hours}
+                  onChange={(e) => setForm({
+                    ...form,
+                    ad_click_protection: { ...form.ad_click_protection, block_duration_hours: parseInt(e.target.value) || 24 }
+                  })}
+                />
+                <p className="text-xs text-muted-foreground">How long to hide ads after exceeding limit</p>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

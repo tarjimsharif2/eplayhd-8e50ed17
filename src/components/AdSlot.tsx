@@ -1,6 +1,7 @@
 import { useEffect, useRef, useMemo, forwardRef, useState } from 'react';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { trackAdImpression } from '@/hooks/useGoogleAnalytics';
+import { useAdClickProtectionContext } from '@/components/AdClickProtectionProvider';
 
 interface AdSlotProps {
   position: 'header' | 'sidebar' | 'footer' | 'in_article' | 'popup';
@@ -13,6 +14,7 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   const hasExecuted = useRef(false);
   const hasTrackedImpression = useRef(false);
   const [hasContent, setHasContent] = useState(false);
+  const { isBlocked, trackAdClick } = useAdClickProtectionContext();
 
   const adCode = useMemo(() => {
     if (!settings?.ads_enabled) return null;
@@ -29,18 +31,14 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
   }, [settings, position]);
 
   useEffect(() => {
-    if (!adCode || !containerRef.current || hasExecuted.current) return;
+    if (!adCode || !containerRef.current || hasExecuted.current || isBlocked) return;
 
     const container = containerRef.current;
-    
-    // Clear existing content
     container.innerHTML = '';
     
-    // Create a temporary container to parse the HTML
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = adCode;
 
-    // Extract scripts and non-script content separately
     const scripts: HTMLScriptElement[] = [];
     const nonScriptNodes: Node[] = [];
 
@@ -52,56 +50,51 @@ const AdSlot = forwardRef<HTMLDivElement, AdSlotProps>(({ position, className = 
       }
     });
 
-    // Add non-script content first
     nonScriptNodes.forEach((node) => {
       container.appendChild(node);
     });
 
-    // Execute scripts properly
     scripts.forEach((oldScript) => {
       const newScript = document.createElement('script');
-      
-      // Copy all attributes
       Array.from(oldScript.attributes).forEach((attr) => {
         newScript.setAttribute(attr.name, attr.value);
       });
-
-      // If it's an external script, just set src
       if (oldScript.src) {
         newScript.src = oldScript.src;
         newScript.async = true;
       } else {
-        // For inline scripts, copy the content
         newScript.textContent = oldScript.textContent;
       }
-
-      // Append to container (this will execute the script)
       container.appendChild(newScript);
     });
 
     hasExecuted.current = true;
 
-    // Track ad impression
+    // Track clicks on the ad container
+    const handleClick = () => {
+      trackAdClick();
+    };
+    container.addEventListener('click', handleClick);
+
     if (!hasTrackedImpression.current) {
       trackAdImpression(position);
       hasTrackedImpression.current = true;
     }
 
-    // Cleanup on unmount
     return () => {
       hasExecuted.current = false;
+      container.removeEventListener('click', handleClick);
     };
-  }, [adCode, position]);
+  }, [adCode, position, isBlocked, trackAdClick]);
 
-  // Reset execution flag when position changes
   useEffect(() => {
     hasExecuted.current = false;
     hasTrackedImpression.current = false;
     setHasContent(false);
   }, [position]);
 
-  // Don't render anything if no ad code
-  if (!adCode) return null;
+  // Don't render if blocked or no ad code
+  if (!adCode || isBlocked) return null;
 
   return (
     <div 

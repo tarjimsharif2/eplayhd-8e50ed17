@@ -24,6 +24,7 @@ import Sitemap from "./pages/Sitemap";
 import NotFound from "./pages/NotFound";
 import MaintenancePage from "./pages/MaintenancePage";
 import ScrollToTop from "./components/ScrollToTop";
+import { AdClickProtectionProvider } from "./components/AdClickProtectionProvider";
 
 // Maintenance mode wrapper - shows maintenance page for non-admin users
 const MaintenanceWrapper = ({ children }: { children: React.ReactNode }) => {
@@ -152,6 +153,7 @@ const App = () => (
     <ThemeProvider>
       <AuthProvider>
         <RealtimeSyncProvider>
+          <AdClickProtectionProvider>
           <TooltipProvider>
             <Toaster />
             <Sonner />
@@ -182,6 +184,7 @@ const App = () => (
               </GoogleAnalyticsProvider>
             </BrowserRouter>
           </TooltipProvider>
+          </AdClickProtectionProvider>
         </RealtimeSyncProvider>
       </AuthProvider>
     </ThemeProvider>

@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_click_logs: {
+        Row: {
+          blocked_until: string | null
+          click_count: number
+          created_at: string
+          device_fingerprint: string
+          first_click_at: string
+          id: string
+          last_click_at: string
+          updated_at: string
+        }
+        Insert: {
+          blocked_until?: string | null
+          click_count?: number
+          created_at?: string
+          device_fingerprint: string
+          first_click_at?: string
+          id?: string
+          last_click_at?: string
+          updated_at?: string
+        }
+        Update: {
+          blocked_until?: string | null
+          click_count?: number
+          created_at?: string
+          device_fingerprint?: string
+          first_click_at?: string
+          id?: string
+          last_click_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       admin_otp_codes: {
         Row: {
           created_at: string
@@ -1030,6 +1063,7 @@ export type Database = {
       site_settings: {
         Row: {
           ad_block_rules: Json | null
+          ad_click_protection: Json | null
           admin_slug: string | null
           ads_enabled: boolean | null
           ads_txt_content: string | null
@@ -1098,6 +1132,7 @@ export type Database = {
         }
         Insert: {
           ad_block_rules?: Json | null
+          ad_click_protection?: Json | null
           admin_slug?: string | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
@@ -1166,6 +1201,7 @@ export type Database = {
         }
         Update: {
           ad_block_rules?: Json | null
+          ad_click_protection?: Json | null
           admin_slug?: string | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
@@ -1237,6 +1273,7 @@ export type Database = {
       site_settings_public: {
         Row: {
           ad_block_rules: Json | null
+          ad_click_protection: Json | null
           admin_slug: string | null
           ads_enabled: boolean | null
           ads_txt_content: string | null
@@ -1295,6 +1332,7 @@ export type Database = {
         }
         Insert: {
           ad_block_rules?: Json | null
+          ad_click_protection?: Json | null
           admin_slug?: string | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
@@ -1353,6 +1391,7 @@ export type Database = {
         }
         Update: {
           ad_block_rules?: Json | null
+          ad_click_protection?: Json | null
           admin_slug?: string | null
           ads_enabled?: boolean | null
           ads_txt_content?: string | null
