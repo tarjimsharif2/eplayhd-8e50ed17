@@ -220,6 +220,7 @@ const AdsSettingsManager = () => {
         in_article_ad_code: form.in_article_ad_code || null,
         popup_ad_code: form.popup_ad_code || null,
         ads_txt_content: form.ads_txt_content || null,
+        ad_click_protection: form.ad_click_protection,
         match_page_ad_positions: form.match_page_ad_positions,
         tournament_page_ad_positions: form.tournament_page_ad_positions,
         multiple_ad_codes: form.multiple_ad_codes,
