@@ -469,7 +469,7 @@ Deno.serve(async (req) => {
           matchDateTime = new Date(`${match.match_date}T${match.match_time}`);
         }
         
-        if (matchDateTime && matchDateTime <= fiveMinutesFromNow) {
+        if (matchDateTime && matchDateTime <= twentyFiveMinutesFromNow) {
           return true;
         }
       }
