@@ -348,7 +348,7 @@ Deno.serve(async (req) => {
 
     // Get matches that need syncing
     const now = new Date();
-    const fiveMinutesFromNow = new Date(now.getTime() + 5 * 60 * 1000);
+    const twentyFiveMinutesFromNow = new Date(now.getTime() + 25 * 60 * 1000);
     
     // Include recently completed matches (within last 30 minutes) to ensure final scores are synced
     // This prevents the issue where second innings data stops syncing when match completes
