@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
+import { useTournamentVenues } from '@/hooks/useTournamentVenues';
 import { Tournament, Match } from '@/hooks/useSportsData';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
