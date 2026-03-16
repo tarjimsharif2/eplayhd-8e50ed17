@@ -62,6 +62,7 @@ import ChannelsManager from "@/components/ChannelsManager";
 import MenuManager from "@/components/MenuManager";
 import TournamentVenueManager from "@/components/TournamentVenueManager";
 import { useTournamentVenues } from "@/hooks/useTournamentVenues";
+import VenueComboInput from "@/components/VenueComboInput";
 
 const Admin = () => {
   const { user, loading, signOut } = useAuth();
