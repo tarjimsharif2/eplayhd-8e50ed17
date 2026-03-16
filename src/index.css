@@ -476,3 +476,11 @@
     animation: coin-shadow 2.5s ease-out infinite;
   }
 }
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}

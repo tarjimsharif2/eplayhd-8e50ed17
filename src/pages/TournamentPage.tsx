@@ -398,31 +398,31 @@ const TournamentPage = () => {
             transition={{ delay: 0.2 }}
           >
             <Tabs defaultValue="all" className="w-full">
-              <TabsList className="w-full justify-start mb-6 bg-muted/50">
-                <TabsTrigger value="all" className="gap-2">
+              <TabsList className="w-full justify-start mb-6 bg-muted/50 overflow-x-auto overflow-y-hidden flex-nowrap no-scrollbar">
+                <TabsTrigger value="all" className="gap-2 flex-shrink-0">
                   All
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{matches.length}</Badge>
                 </TabsTrigger>
-                <TabsTrigger value="live" className="gap-2">
+                <TabsTrigger value="live" className="gap-2 flex-shrink-0">
                   Live
                   {liveMatches.length > 0 && (
                     <Badge variant="live" className="text-[10px] px-1.5 py-0">{liveMatches.length}</Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="upcoming" className="gap-2">
+                <TabsTrigger value="upcoming" className="gap-2 flex-shrink-0">
                   Upcoming
                   {upcomingMatches.length > 0 && (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{upcomingMatches.length}</Badge>
                   )}
                 </TabsTrigger>
-                <TabsTrigger value="completed" className="gap-2">
+                <TabsTrigger value="completed" className="gap-2 flex-shrink-0">
                   Completed
                   {completedMatches.length > 0 && (
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{completedMatches.length}</Badge>
                   )}
                 </TabsTrigger>
                 {tournamentVenues.length > 0 && (
-                  <TabsTrigger value="venues" className="gap-2">
+                  <TabsTrigger value="venues" className="gap-2 flex-shrink-0">
                     <MapPin className="w-3.5 h-3.5" />
                     Venues
                     <Badge variant="secondary" className="text-[10px] px-1.5 py-0">{tournamentVenues.length}</Badge>
