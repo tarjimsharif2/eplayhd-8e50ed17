@@ -2854,9 +2854,10 @@ const Admin = () => {
                       const statusOrder = { live: 0, upcoming: 1, completed: 2 };
                       const statusDiff = statusOrder[a.status] - statusOrder[b.status];
                       if (statusDiff !== 0) return statusDiff;
-                      // Within same status, sort by start time
+                      // Within same status: upcoming = earliest first, completed = latest first
                       const timeA = a.match_start_time ? new Date(a.match_start_time).getTime() : 0;
                       const timeB = b.match_start_time ? new Date(b.match_start_time).getTime() : 0;
+                      if (a.status === 'completed') return timeB - timeA;
                       return timeA - timeB;
                     })
                     .map((match, index) => (
