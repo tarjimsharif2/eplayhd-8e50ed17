@@ -17,7 +17,7 @@ import { Tournament, Match } from '@/hooks/useSportsData';
 import { useSiteSettings } from '@/hooks/useSiteSettings';
 import { usePublicSiteSettings } from '@/hooks/usePublicSiteSettings';
 import { useRealtimeLiveMatches } from '@/hooks/useRealtimeMatch';
-import { Trophy, Calendar, Loader2, Radio, Users, ChevronDown, MapPin } from 'lucide-react';
+import { Trophy, Calendar, Loader2, Radio, Users, ChevronDown, MapPin, Landmark } from 'lucide-react';
 import { motion } from 'framer-motion';
 import DOMPurify from 'dompurify';
 
