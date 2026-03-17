@@ -537,6 +537,7 @@ const TournamentPage = () => {
                 <MultiAdSlot position="tournament_before_teams" className="my-4" />
               )}
               <ParticipatingTeamsSection />
+              <VenuesSection />
               {tournamentAdPositions.after_teams && (
                 <MultiAdSlot position="tournament_after_teams" className="my-4" />
               )}
